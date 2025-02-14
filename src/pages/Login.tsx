@@ -18,8 +18,11 @@ const Login = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-cream">
       <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl text-primary">Velkommen til Dalai</CardTitle>
+        <CardHeader className="text-center space-y-4">
+          <h1 className="text-4xl font-bold text-primary">DALAI</h1>
+          <CardTitle className="text-xl text-primary/80">
+            Logg inn for å se statistikk og samtaler
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -34,6 +37,7 @@ const Login = () => {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 className="w-full"
+                placeholder="Din e-postadresse"
               />
             </div>
             <div className="space-y-2">
@@ -47,6 +51,7 @@ const Login = () => {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 className="w-full"
+                placeholder="Ditt passord"
               />
             </div>
             <Button type="submit" className="w-full bg-secondary hover:bg-secondary/90 text-primary">

@@ -14,6 +14,7 @@ import {
   Database,
   AlertTriangle,
 } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface SidebarProps {
   role: "admin" | "client";
@@ -28,11 +29,7 @@ const Sidebar = ({ role }: SidebarProps) => {
   ];
 
   const clientLinks = [
-    { icon: BarChart3, label: "Statistikk", path: "/client/statistics" },
     { icon: MessageSquare, label: "Samtaler", path: "/client/conversations" },
-    { icon: Bookmark, label: "Bokmerker", path: "/client/bookmarks" },
-    { icon: Database, label: "Kunnskapsbase", path: "/client/knowledge" },
-    { icon: AlertTriangle, label: "Feilmeldinger", path: "/client/errors" },
   ];
 
   const links = role === "admin" ? adminLinks : clientLinks;
@@ -56,27 +53,33 @@ const Sidebar = ({ role }: SidebarProps) => {
         </Button>
       </div>
 
-      <nav className="flex-1 p-4 space-y-2">
-        {links.map((link) => (
-          <a
-            key={link.label}
-            href={link.path}
-            className="sidebar-link text-white hover:bg-white/10"
-          >
-            <link.icon size={20} />
-            {!collapsed && <span>{link.label}</span>}
-          </a>
-        ))}
-      </nav>
+      <div className="flex-1 p-4">
+        <Tabs defaultValue={links[0].path} orientation="vertical" className="w-full">
+          <TabsList className="flex flex-col h-auto bg-transparent space-y-2">
+            {links.map((link) => (
+              <TabsTrigger
+                key={link.path}
+                value={link.path}
+                className="w-full justify-start gap-3 text-white data-[state=active]:bg-secondary data-[state=active]:text-primary"
+              >
+                <link.icon size={20} />
+                {!collapsed && <span>{link.label}</span>}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+      </div>
 
-      <Button
-        variant="ghost"
-        className="m-4 flex items-center gap-2 text-white hover:bg-white/10"
-        onClick={logout}
-      >
-        <LogOut size={20} />
-        {!collapsed && <span>Logg ut</span>}
-      </Button>
+      <div className="p-4 border-t border-white/10">
+        <Button
+          variant="ghost"
+          className="w-full flex items-center gap-2 text-white hover:bg-white/10"
+          onClick={logout}
+        >
+          <LogOut size={20} />
+          {!collapsed && <span>Logg ut</span>}
+        </Button>
+      </div>
     </div>
   );
 };
