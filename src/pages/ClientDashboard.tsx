@@ -41,11 +41,13 @@ const ClientDashboard = () => {
               Samtaler (29)
             </h2>
             <div className="flex gap-2">
-              <Input
-                placeholder="Søk..."
-                className="flex-1"
-                prefix={<Search className="h-4 w-4 text-gray-400" />}
-              />
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Søk..."
+                  className="pl-9"
+                />
+              </div>
               <Button variant="outline" size="icon">
                 <Filter className="h-4 w-4" />
               </Button>
