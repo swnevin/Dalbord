@@ -2,7 +2,7 @@
 import { useState } from "react";
 import Sidebar from "../components/Sidebar";
 import { Button } from "@/components/ui/button";
-import { Plus, Pencil, Trash2, LogIn } from "lucide-react";
+import { Plus, Pencil, Trash2, LogIn, Bot } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -11,6 +11,17 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 
 interface Member {
@@ -23,6 +34,10 @@ interface Organization {
   id: number;
   name: string;
   members: Member[];
+  botConfig?: {
+    apiKey: string;
+    projectId: string;
+  };
 }
 
 const AdminDashboard = () => {
@@ -45,6 +60,8 @@ const AdminDashboard = () => {
   ]);
 
   const [newOrg, setNewOrg] = useState({ name: "" });
+  const [newMember, setNewMember] = useState({ name: "", email: "" });
+  const [botConfig, setBotConfig] = useState({ apiKey: "", projectId: "" });
 
   return (
     <div className="flex h-screen bg-cream">
@@ -104,6 +121,42 @@ const AdminDashboard = () => {
                   <Sheet>
                     <SheetTrigger asChild>
                       <Button variant="outline" size="icon">
+                        <Bot className="h-4 w-4" />
+                      </Button>
+                    </SheetTrigger>
+                    <SheetContent>
+                      <SheetHeader>
+                        <SheetTitle>Konfigurer chatbot</SheetTitle>
+                        <SheetDescription>
+                          Koble en Voiceflow chatbot til {org.name}.
+                        </SheetDescription>
+                      </SheetHeader>
+                      <div className="space-y-4 mt-6">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Voiceflow API Nøkkel</label>
+                          <Input
+                            placeholder="VF.xxxxxx.xxxxx"
+                            value={botConfig.apiKey}
+                            onChange={(e) => setBotConfig({ ...botConfig, apiKey: e.target.value })}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Voiceflow Prosjekt ID</label>
+                          <Input
+                            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                            value={botConfig.projectId}
+                            onChange={(e) => setBotConfig({ ...botConfig, projectId: e.target.value })}
+                          />
+                        </div>
+                        <Button className="w-full bg-secondary text-primary hover:bg-secondary/90">
+                          Lagre
+                        </Button>
+                      </div>
+                    </SheetContent>
+                  </Sheet>
+                  <Sheet>
+                    <SheetTrigger asChild>
+                      <Button variant="outline" size="icon">
                         <Pencil className="h-4 w-4" />
                       </Button>
                     </SheetTrigger>
@@ -128,15 +181,72 @@ const AdminDashboard = () => {
                       </div>
                     </SheetContent>
                   </Sheet>
-                  <Button variant="outline" size="icon" className="text-red-500 hover:text-red-600">
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="outline" size="icon" className="text-red-500 hover:text-red-600">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Er du sikker?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Dette vil slette organisasjonen og all tilhørende data. Denne handlingen kan ikke angres.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Avbryt</AlertDialogCancel>
+                        <AlertDialogAction className="bg-red-500 hover:bg-red-600">
+                          Slett
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               </div>
 
               {/* Members List */}
               <div className="border-t pt-4">
-                <h4 className="text-sm font-medium text-gray-500 mb-3">Medlemmer</h4>
+                <div className="flex justify-between items-center mb-3">
+                  <h4 className="text-sm font-medium text-gray-500">Medlemmer</h4>
+                  <Sheet>
+                    <SheetTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <Plus className="h-4 w-4 mr-2" /> Legg til medlem
+                      </Button>
+                    </SheetTrigger>
+                    <SheetContent>
+                      <SheetHeader>
+                        <SheetTitle>Legg til nytt medlem</SheetTitle>
+                        <SheetDescription>
+                          Fyll ut informasjonen under for å legge til et nytt medlem i {org.name}.
+                        </SheetDescription>
+                      </SheetHeader>
+                      <div className="space-y-4 mt-6">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Navn</label>
+                          <Input
+                            placeholder="Skriv navn..."
+                            value={newMember.name}
+                            onChange={(e) => setNewMember({ ...newMember, name: e.target.value })}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">E-post</label>
+                          <Input
+                            type="email"
+                            placeholder="navn@eksempel.no"
+                            value={newMember.email}
+                            onChange={(e) => setNewMember({ ...newMember, email: e.target.value })}
+                          />
+                        </div>
+                        <Button className="w-full bg-secondary text-primary hover:bg-secondary/90">
+                          Legg til
+                        </Button>
+                      </div>
+                    </SheetContent>
+                  </Sheet>
+                </div>
                 <div className="space-y-2">
                   {org.members.map((member) => (
                     <div key={member.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
@@ -144,13 +254,31 @@ const AdminDashboard = () => {
                         <p className="font-medium text-primary">{member.name}</p>
                         <p className="text-sm text-gray-500">{member.email}</p>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Er du sikker?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Dette vil fjerne {member.name} fra organisasjonen. Denne handlingen kan ikke angres.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Avbryt</AlertDialogCancel>
+                            <AlertDialogAction className="bg-red-500 hover:bg-red-600">
+                              Slett
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
                   ))}
                 </div>
