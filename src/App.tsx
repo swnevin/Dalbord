@@ -8,6 +8,7 @@ import { AuthProvider } from "./contexts/AuthContext";
 import Login from "./pages/Login";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ClientDashboard from "./pages/ClientDashboard";
+import AdminDashboard from "./pages/AdminDashboard";
 
 const queryClient = new QueryClient();
 
@@ -29,7 +30,15 @@ const App = () => {
                   </ProtectedRoute>
                 }
               />
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route
+                path="/admin"
+                element={
+                  <ProtectedRoute>
+                    <AdminDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="/" element={<Navigate to="/login" replace />} />
               <Route path="*" element={<Navigate to="/login" replace />} />
             </Routes>
           </TooltipProvider>
