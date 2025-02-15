@@ -7,7 +7,6 @@ import { toast } from "sonner";
 interface User {
   id: string;
   email: string;
-  role?: string;
   organization_id?: string;
 }
 
@@ -35,22 +34,40 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const fetchUserProfile = async (userId: string) => {
     try {
-      const { data, error } = await supabase
+      const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('role, organization_id')
+        .select('organization_id')
         .eq('id', userId)
         .maybeSingle();
 
-      if (error) {
-        console.error('Error fetching profile:', error);
+      if (profileError) {
+        console.error('Error fetching profile:', profileError);
         throw new Error('Kunne ikke hente brukerprofil');
       }
 
-      if (!data) {
+      if (!profileData) {
         throw new Error('Ingen brukerprofil funnet');
       }
 
-      return data;
+      if (!profileData.organization_id) {
+        throw new Error('Ingen organisasjon tilknyttet');
+      }
+
+      const { data: orgData, error: orgError } = await supabase
+        .from('organizations')
+        .select('type')
+        .eq('id', profileData.organization_id)
+        .single();
+
+      if (orgError) {
+        console.error('Error fetching organization:', orgError);
+        throw new Error('Kunne ikke hente organisasjon');
+      }
+
+      return {
+        organization_id: profileData.organization_id,
+        organization_type: orgData.type
+      };
     } catch (error) {
       console.error('Error in fetchUserProfile:', error);
       throw error;
@@ -69,20 +86,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const userData = {
         id: session.user.id,
         email: session.user.email,
-        role: profile.role,
         organization_id: profile.organization_id
       };
 
       setUser(userData);
 
-      if (profile.role === 'admin' && profile.organization_id === 'f8796b61-37a1-4727-8e4e-e6262a1a8185') {
+      // Redirect based on organization type
+      if (profile.organization_type === 'admin') {
         navigate('/admin');
         return true;
-      } else if (profile.organization_id) {
+      } else {
         navigate('/dashboard');
         return true;
-      } else {
-        throw new Error('Ingen organisasjon tilknyttet');
       }
     } catch (error: any) {
       console.error('Error handling session:', error);
@@ -135,7 +150,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         throw new Error('Ingen bruker returnert etter innlogging');
       }
 
-      // Wait for session handling to complete before showing success message
       await handleSession(data.session);
       toast.success('Innlogget');
     } catch (error: any) {

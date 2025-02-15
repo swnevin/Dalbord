@@ -14,6 +14,7 @@ export type Database = {
           created_at: string | null
           id: string
           name: string
+          type: string
           voiceflow_api_key: string | null
           voiceflow_project_id: string | null
         }
@@ -21,6 +22,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           name: string
+          type?: string
           voiceflow_api_key?: string | null
           voiceflow_project_id?: string | null
         }
@@ -28,6 +30,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           name?: string
+          type?: string
           voiceflow_api_key?: string | null
           voiceflow_project_id?: string | null
         }
@@ -40,7 +43,6 @@ export type Database = {
           id: string
           name: string | null
           organization_id: string | null
-          role: string | null
         }
         Insert: {
           created_at?: string | null
@@ -48,7 +50,6 @@ export type Database = {
           id: string
           name?: string | null
           organization_id?: string | null
-          role?: string | null
         }
         Update: {
           created_at?: string | null
@@ -56,7 +57,6 @@ export type Database = {
           id?: string
           name?: string | null
           organization_id?: string | null
-          role?: string | null
         }
         Relationships: [
           {
