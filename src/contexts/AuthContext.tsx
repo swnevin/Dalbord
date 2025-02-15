@@ -35,81 +35,76 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const fetchUserProfile = async (userId: string) => {
     try {
-      const { data: profile, error } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select('role, organization_id')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (error) {
-        console.error('Error fetching user profile:', error);
-        toast.error('Kunne ikke hente brukerprofil');
+        console.error('Error fetching profile:', error);
         return null;
       }
 
-      return profile;
+      return data;
     } catch (error) {
       console.error('Error in fetchUserProfile:', error);
-      toast.error('En feil oppstod ved henting av brukerprofil');
       return null;
     }
   };
 
-  const handleUserSession = async (userId: string, userEmail: string) => {
+  const handleSession = async (session: any) => {
+    if (!session?.user) {
+      setUser(null);
+      navigate('/login');
+      return;
+    }
+
     try {
-      const profile = await fetchUserProfile(userId);
+      const profile = await fetchUserProfile(session.user.id);
       
       if (!profile) {
-        toast.error('Kunne ikke finne brukerprofil');
-        return null;
+        console.error('No profile found');
+        setUser(null);
+        navigate('/login');
+        return;
       }
 
       const userData = {
-        id: userId,
-        email: userEmail,
+        id: session.user.id,
+        email: session.user.email,
         role: profile.role,
         organization_id: profile.organization_id
       };
 
       setUser(userData);
 
-      // Redirect based on role and organization
       if (profile.role === 'admin' && profile.organization_id === 'f8796b61-37a1-4727-8e4e-e6262a1a8185') {
         navigate('/admin');
       } else if (profile.organization_id) {
         navigate('/dashboard');
       } else {
         toast.error('Ingen organisasjon tilknyttet');
-        return null;
+        setUser(null);
+        navigate('/login');
       }
-
-      return userData;
     } catch (error) {
-      console.error('Error in handleUserSession:', error);
-      toast.error('En feil oppstod ved håndtering av brukerøkt');
-      return null;
+      console.error('Error handling session:', error);
+      setUser(null);
+      navigate('/login');
     }
   };
 
   useEffect(() => {
-    // Check active session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        await handleUserSession(session.user.id, session.user.email!);
-      }
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      handleSession(session);
       setIsLoading(false);
     });
 
-    // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session?.user) {
-        await handleUserSession(session.user.id, session.user.email!);
-      } else {
-        setUser(null);
-        navigate('/login');
-      }
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      handleSession(session);
       setIsLoading(false);
     });
 
@@ -118,19 +113,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const login = async (email: string, password: string) => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (error) throw error;
-
-      if (data.user) {
-        const userData = await handleUserSession(data.user.id, data.user.email!);
-        if (userData) {
-          toast.success('Innlogget');
-        }
+      if (error) {
+        throw error;
       }
+      
+      toast.success('Innlogget');
     } catch (error: any) {
       console.error('Login error:', error);
       toast.error(error.error_description || error.message || 'Kunne ikke logge inn');
