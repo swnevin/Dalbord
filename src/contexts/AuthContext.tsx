@@ -34,38 +34,68 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const navigate = useNavigate();
 
   const fetchUserProfile = async (userId: string) => {
-    const { data: profile, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
+    try {
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
 
-    if (error) {
-      console.error('Error fetching user profile:', error);
+      if (error) {
+        console.error('Error fetching user profile:', error);
+        toast.error('Kunne ikke hente brukerprofil');
+        return null;
+      }
+
+      return profile;
+    } catch (error) {
+      console.error('Error in fetchUserProfile:', error);
+      toast.error('En feil oppstod ved henting av brukerprofil');
       return null;
     }
+  };
 
-    return profile;
+  const handleUserSession = async (userId: string, userEmail: string) => {
+    try {
+      const profile = await fetchUserProfile(userId);
+      
+      if (!profile) {
+        toast.error('Kunne ikke finne brukerprofil');
+        return null;
+      }
+
+      const userData = {
+        id: userId,
+        email: userEmail,
+        role: profile.role,
+        organization_id: profile.organization_id
+      };
+
+      setUser(userData);
+
+      // Redirect based on role and organization
+      if (profile.role === 'admin' && profile.organization_id === 'f8796b61-37a1-4727-8e4e-e6262a1a8185') {
+        navigate('/admin');
+      } else if (profile.organization_id) {
+        navigate('/dashboard');
+      } else {
+        toast.error('Ingen organisasjon tilknyttet');
+        return null;
+      }
+
+      return userData;
+    } catch (error) {
+      console.error('Error in handleUserSession:', error);
+      toast.error('En feil oppstod ved håndtering av brukerøkt');
+      return null;
+    }
   };
 
   useEffect(() => {
     // Check active session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
-        const profile = await fetchUserProfile(session.user.id);
-        setUser({
-          id: session.user.id,
-          email: session.user.email!,
-          role: profile?.role,
-          organization_id: profile?.organization_id
-        });
-
-        // Redirect based on role and organization
-        if (profile?.role === 'admin') {
-          navigate('/admin');
-        } else if (profile?.organization_id) {
-          navigate('/dashboard');
-        }
+        await handleUserSession(session.user.id, session.user.email!);
       }
       setIsLoading(false);
     });
@@ -75,20 +105,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
-        const profile = await fetchUserProfile(session.user.id);
-        setUser({
-          id: session.user.id,
-          email: session.user.email!,
-          role: profile?.role,
-          organization_id: profile?.organization_id
-        });
-
-        // Redirect based on role and organization
-        if (profile?.role === 'admin') {
-          navigate('/admin');
-        } else if (profile?.organization_id) {
-          navigate('/dashboard');
-        }
+        await handleUserSession(session.user.id, session.user.email!);
       } else {
         setUser(null);
         navigate('/login');
@@ -109,29 +126,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (error) throw error;
 
       if (data.user) {
-        const profile = await fetchUserProfile(data.user.id);
-        
-        setUser({
-          id: data.user.id,
-          email: data.user.email!,
-          role: profile?.role,
-          organization_id: profile?.organization_id
-        });
-
-        // Redirect based on role and organization
-        if (profile?.role === 'admin') {
-          navigate('/admin');
-        } else if (profile?.organization_id) {
-          navigate('/dashboard');
-        } else {
-          toast.error("Ingen organisasjon tilknyttet");
+        const userData = await handleUserSession(data.user.id, data.user.email!);
+        if (userData) {
+          toast.success('Innlogget');
         }
-
-        toast.success("Innlogget");
       }
     } catch (error: any) {
-      console.error("Login error:", error);
-      toast.error(error.message || "Kunne ikke logge inn");
+      console.error('Login error:', error);
+      toast.error(error.error_description || error.message || 'Kunne ikke logge inn');
     }
   };
 
@@ -142,10 +144,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       setUser(null);
       navigate('/login');
-      toast.success("Logget ut");
+      toast.success('Logget ut');
     } catch (error: any) {
-      console.error("Logout error:", error);
-      toast.error("Kunne ikke logge ut");
+      console.error('Logout error:', error);
+      toast.error('Kunne ikke logge ut');
     }
   };
 
