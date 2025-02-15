@@ -9,64 +9,26 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      organizations: {
-        Row: {
-          created_at: string | null
-          id: string
-          name: string
-          voiceflow_api_key: string | null
-          voiceflow_project_id: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          name: string
-          voiceflow_api_key?: string | null
-          voiceflow_project_id?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          name?: string
-          voiceflow_api_key?: string | null
-          voiceflow_project_id?: string | null
-        }
-        Relationships: []
-      }
-      profiles: {
+      users: {
         Row: {
           created_at: string | null
           email: string
           id: string
-          name: string
-          organization_id: string | null
-          role: Database["public"]["Enums"]["user_role"]
+          password: string
         }
         Insert: {
           created_at?: string | null
           email: string
-          id: string
-          name: string
-          organization_id?: string | null
-          role: Database["public"]["Enums"]["user_role"]
+          id?: string
+          password: string
         }
         Update: {
           created_at?: string | null
           email?: string
           id?: string
-          name?: string
-          organization_id?: string | null
-          role?: Database["public"]["Enums"]["user_role"]
+          password?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "profiles_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
     }
     Views: {
@@ -76,7 +38,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      user_role: "admin" | "client"
+      [_ in never]: never
     }
     CompositeTypes: {
       [_ in never]: never

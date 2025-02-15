@@ -7,9 +7,6 @@ import { toast } from "sonner";
 interface User {
   id: string;
   email: string;
-  role: "admin" | "client";
-  name: string;
-  organization_id?: string;
 }
 
 interface AuthContextType {
@@ -38,10 +35,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Check active session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        fetchUserProfile(session.user.id);
-      } else {
-        setIsLoading(false);
+        setUser({
+          id: session.user.id,
+          email: session.user.email!,
+        });
       }
+      setIsLoading(false);
     });
 
     // Listen for auth changes
@@ -49,42 +48,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
-        fetchUserProfile(session.user.id);
+        setUser({
+          id: session.user.id,
+          email: session.user.email!,
+        });
       } else {
         setUser(null);
-        setIsLoading(false);
       }
+      setIsLoading(false);
     });
 
     return () => subscription.unsubscribe();
   }, []);
-
-  const fetchUserProfile = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .single();
-
-      if (error) throw error;
-
-      if (data) {
-        setUser({
-          id: data.id,
-          email: data.email,
-          name: data.name,
-          role: data.role,
-          organization_id: data.organization_id,
-        });
-      }
-    } catch (error) {
-      console.error("Error fetching user profile:", error);
-      toast.error("Kunne ikke hente brukerprofil");
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const login = async (email: string, password: string) => {
     try {
@@ -96,27 +71,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (error) throw error;
 
       if (data.user) {
-        const { data: profileData, error: profileError } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", data.user.id)
-          .single();
-
-        if (profileError) throw profileError;
-
-        if (profileData) {
-          setUser({
-            id: profileData.id,
-            email: profileData.email,
-            name: profileData.name,
-            role: profileData.role,
-            organization_id: profileData.organization_id,
-          });
-
-          // Redirect based on role
-          navigate(profileData.role === "admin" ? "/admin" : "/client");
-          toast.success("Innlogget");
-        }
+        setUser({
+          id: data.user.id,
+          email: data.user.email!,
+        });
+        navigate("/");
+        toast.success("Innlogget");
       }
     } catch (error: any) {
       console.error("Login error:", error);
