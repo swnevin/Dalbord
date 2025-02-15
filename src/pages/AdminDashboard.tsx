@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import Sidebar from "../components/Sidebar";
 import { Button } from "@/components/ui/button";
-import { Plus, Pencil, Trash2, LogIn, Bot } from "lucide-react";
+import { Plus, Bot, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Sheet,
@@ -123,7 +123,7 @@ const AdminDashboard = () => {
       if (authError) throw authError;
 
       if (authData.user) {
-        // Update the profile with organization_id
+        // Create profile with organization_id
         const { error: profileError } = await supabase
           .from("profiles")
           .update({ organization_id: orgId })
@@ -147,9 +147,9 @@ const AdminDashboard = () => {
         setNewMember({ name: "", email: "", password: "" });
         toast.success("Medlem lagt til");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error adding member:", error);
-      toast.error("Kunne ikke legge til medlem");
+      toast.error(error.message || "Kunne ikke legge til medlem");
     }
   };
 

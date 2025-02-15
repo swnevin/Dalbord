@@ -9,26 +9,64 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      users: {
+      organizations: {
         Row: {
           created_at: string | null
-          email: string
           id: string
-          password: string
+          name: string
+          voiceflow_api_key: string | null
+          voiceflow_project_id: string | null
         }
         Insert: {
           created_at?: string | null
-          email: string
           id?: string
-          password: string
+          name: string
+          voiceflow_api_key?: string | null
+          voiceflow_project_id?: string | null
         }
         Update: {
           created_at?: string | null
-          email?: string
           id?: string
-          password?: string
+          name?: string
+          voiceflow_api_key?: string | null
+          voiceflow_project_id?: string | null
         }
         Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          id: string
+          name: string | null
+          organization_id: string | null
+          role: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          id: string
+          name?: string | null
+          organization_id?: string | null
+          role?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          name?: string | null
+          organization_id?: string | null
+          role?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
