@@ -43,33 +43,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (error) {
         console.error('Error fetching profile:', error);
-        return null;
+        throw new Error('Kunne ikke hente brukerprofil');
+      }
+
+      if (!data) {
+        throw new Error('Ingen brukerprofil funnet');
       }
 
       return data;
     } catch (error) {
       console.error('Error in fetchUserProfile:', error);
-      return null;
+      throw error;
     }
   };
 
   const handleSession = async (session: any) => {
     if (!session?.user) {
       setUser(null);
-      navigate('/login');
       return;
     }
 
     try {
       const profile = await fetchUserProfile(session.user.id);
       
-      if (!profile) {
-        console.error('No profile found');
-        setUser(null);
-        navigate('/login');
-        return;
-      }
-
       const userData = {
         id: session.user.id,
         email: session.user.email,
@@ -81,30 +77,43 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (profile.role === 'admin' && profile.organization_id === 'f8796b61-37a1-4727-8e4e-e6262a1a8185') {
         navigate('/admin');
+        return true;
       } else if (profile.organization_id) {
         navigate('/dashboard');
+        return true;
       } else {
-        toast.error('Ingen organisasjon tilknyttet');
-        setUser(null);
-        navigate('/login');
+        throw new Error('Ingen organisasjon tilknyttet');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error handling session:', error);
       setUser(null);
-      navigate('/login');
+      throw error;
     }
   };
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      handleSession(session);
+      if (session) {
+        handleSession(session).catch((error) => {
+          console.error('Session handling error:', error);
+          navigate('/login');
+        });
+      }
       setIsLoading(false);
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      handleSession(session);
+      if (session) {
+        handleSession(session).catch((error) => {
+          console.error('Auth state change error:', error);
+          navigate('/login');
+        });
+      } else {
+        setUser(null);
+        navigate('/login');
+      }
       setIsLoading(false);
     });
 
@@ -113,7 +122,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const login = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
@@ -121,11 +130,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (error) {
         throw error;
       }
-      
+
+      if (!data.user) {
+        throw new Error('Ingen bruker returnert etter innlogging');
+      }
+
+      // Wait for session handling to complete before showing success message
+      await handleSession(data.session);
       toast.success('Innlogget');
     } catch (error: any) {
       console.error('Login error:', error);
-      toast.error(error.error_description || error.message || 'Kunne ikke logge inn');
+      toast.error(error.message || 'Kunne ikke logge inn');
+      setUser(null);
     }
   };
 
