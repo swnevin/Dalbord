@@ -1,10 +1,14 @@
 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus, Bot, Trash2 } from "lucide-react";
 import {
   Sheet,
   SheetContent,
   SheetTrigger,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
 } from "@/components/ui/sheet";
 import {
   AlertDialog,
