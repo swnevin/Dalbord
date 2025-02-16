@@ -38,6 +38,7 @@ interface Profile {
   id: string;
   name: string;
   email: string;
+  role: string;
   organization_id: string | null;
 }
 
@@ -108,7 +109,7 @@ const AdminDashboard = () => {
 
   const handleAddMember = async (orgId: string) => {
     try {
-      // Create auth user
+      // Create auth user with role in metadata
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: newMember.email,
         password: newMember.password,
@@ -123,10 +124,13 @@ const AdminDashboard = () => {
       if (authError) throw authError;
 
       if (authData.user) {
-        // Create profile with organization_id
+        // Update the profile with organization_id
         const { error: profileError } = await supabase
           .from("profiles")
-          .update({ organization_id: orgId })
+          .update({ 
+            organization_id: orgId,
+            role: 'client'  // Explicitly set role in profiles table
+          })
           .eq("id", authData.user.id);
 
         if (profileError) throw profileError;
