@@ -112,34 +112,44 @@ const AdminDashboard = () => {
 
   const handleAddMember = async (orgId: string, member: { name: string; email: string; password: string }) => {
     try {
-      const { data, error } = await supabase.auth.signUp({
+      const { data: authData, error: authError } = await supabase.auth.signUp({
         email: member.email,
         password: member.password,
         options: {
           data: {
             name: member.name,
-            organization_id: orgId,
             role: 'client'
           }
         }
       });
 
-      if (error) throw error;
+      if (authError) throw authError;
 
-      // Refresh the profiles for this organization
-      const { data: updatedProfiles, error: fetchError } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("organization_id", orgId);
+      if (authData.user) {
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .update({ 
+            organization_id: orgId,
+            role: 'client'
+          })
+          .eq("id", authData.user.id);
 
-      if (fetchError) throw fetchError;
+        if (profileError) throw profileError;
 
-      setProfiles(prev => ({
-        ...prev,
-        [orgId]: updatedProfiles || []
-      }));
+        const { data: updatedProfiles, error: fetchError } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("organization_id", orgId);
 
-      toast.success("Medlem lagt til");
+        if (fetchError) throw fetchError;
+
+        setProfiles(prev => ({
+          ...prev,
+          [orgId]: updatedProfiles || []
+        }));
+
+        toast.success("Medlem lagt til");
+      }
     } catch (error: any) {
       console.error("Error adding member:", error);
       toast.error(error.message || "Kunne ikke legge til medlem");
