@@ -36,7 +36,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('organization_id')
+        .select(`
+          organization_id,
+          organizations (
+            type
+          )
+        `)
         .eq('id', userId)
         .maybeSingle();
 
@@ -49,24 +54,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         throw new Error('Ingen brukerprofil funnet');
       }
 
-      if (!profileData.organization_id) {
-        throw new Error('Ingen organisasjon tilknyttet');
-      }
-
-      const { data: orgData, error: orgError } = await supabase
-        .from('organizations')
-        .select('type')
-        .eq('id', profileData.organization_id)
-        .single();
-
-      if (orgError) {
-        console.error('Error fetching organization:', orgError);
-        throw new Error('Kunne ikke hente organisasjon');
-      }
-
       return {
         organization_id: profileData.organization_id,
-        organization_type: orgData.type
+        organization_type: profileData.organizations?.type
       };
     } catch (error) {
       console.error('Error in fetchUserProfile:', error);
@@ -94,11 +84,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // Redirect based on organization type
       if (profile.organization_type === 'admin') {
         navigate('/admin');
-        return true;
       } else {
         navigate('/dashboard');
-        return true;
       }
+      return true;
     } catch (error: any) {
       console.error('Error handling session:', error);
       setUser(null);
