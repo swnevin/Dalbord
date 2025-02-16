@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import Sidebar from "../components/Sidebar";
 import { Button } from "@/components/ui/button";
@@ -73,29 +74,39 @@ const ClientDashboard = () => {
           ? turn.payload.payload
           : turn.payload.payload.label || "Valgt alternativ";
         
-        messages.push({
-          isUser: true,
-          message,
-          timestamp: turn.startTime,
-        });
+        if (message && message.trim()) {
+          messages.push({
+            isUser: true,
+            message,
+            timestamp: turn.startTime,
+          });
+        }
       } 
-      else if (turn.type === "text") {
-        // Bot message
-        messages.push({
-          isUser: false,
-          message: turn.payload.message,
-          timestamp: turn.startTime,
-        });
+      else if (turn.type === "text" && turn.payload.message) {
+        // Bot message - only add if there's actual content
+        const message = turn.payload.message.trim();
+        if (message) {
+          messages.push({
+            isUser: false,
+            message,
+            timestamp: turn.startTime,
+          });
+        }
       }
-      else if (turn.type === "choice" && turn.payload.buttons) {
-        // Bot options
-        const options = turn.payload.buttons.map((button: any) => button.name);
-        messages.push({
-          isUser: false,
-          message: "Alternativer: " + options.join(", "),
-          timestamp: turn.startTime,
-          options,
-        });
+      else if (turn.type === "choice" && turn.payload.buttons && turn.payload.buttons.length > 0) {
+        // Bot options - only add if there are actual buttons
+        const options = turn.payload.buttons
+          .map((button: any) => button.name)
+          .filter((name: string) => name && name.trim());
+        
+        if (options.length > 0) {
+          messages.push({
+            isUser: false,
+            message: "Alternativer:",
+            timestamp: turn.startTime,
+            options,
+          });
+        }
       }
     });
 
