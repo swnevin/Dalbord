@@ -173,22 +173,28 @@ const AdminDashboard = () => {
 
   const handleDeleteMember = async (profileId: string) => {
     try {
-      const { error } = await supabase
+      // First, get the member's organization_id before we remove it
+      const { data: profile, error: profileError } = await supabase
         .from("profiles")
-        .update({ organization_id: null })
-        .eq("id", profileId);
+        .select("organization_id")
+        .eq("id", profileId)
+        .single();
 
-      if (error) throw error;
+      if (profileError) throw profileError;
 
-      setProfiles(prev => {
-        const newProfiles = { ...prev };
-        Object.keys(newProfiles).forEach(orgId => {
-          newProfiles[orgId] = newProfiles[orgId].filter(
-            profile => profile.id !== profileId
-          );
-        });
-        return newProfiles;
-      });
+      // Delete the auth user (this will cascade to delete the profile due to FK constraints)
+      const { error: deleteError } = await supabase.auth.admin.deleteUser(profileId);
+      if (deleteError) throw deleteError;
+
+      // Update the local state to reflect the deletion
+      if (profile.organization_id) {
+        setProfiles(prev => ({
+          ...prev,
+          [profile.organization_id]: (prev[profile.organization_id] || []).filter(
+            p => p.id !== profileId
+          )
+        }));
+      }
       
       toast.success("Medlem fjernet");
     } catch (error) {
