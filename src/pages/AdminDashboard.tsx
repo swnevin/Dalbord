@@ -34,10 +34,31 @@ const AdminDashboard = () => {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile[]>>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     fetchOrganizations();
+    checkAdminStatus();
   }, []);
+
+  const checkAdminStatus = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+        
+      if (error) throw error;
+      
+      setIsAdmin(data.role === 'admin');
+    } catch (error) {
+      console.error('Error checking admin status:', error);
+      toast.error('Kunne ikke verifisere administratortilgang');
+    }
+  };
 
   const fetchOrganizations = async () => {
     try {
@@ -173,6 +194,11 @@ const AdminDashboard = () => {
 
   const handleDeleteMember = async (profileId: string) => {
     try {
+      if (!isAdmin) {
+        toast.error('Kun administratorer kan slette brukere');
+        return;
+      }
+
       // First, get the member's organization_id before we delete them
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
@@ -200,9 +226,13 @@ const AdminDashboard = () => {
       }
       
       toast.success("Medlem fjernet");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error removing member:", error);
-      toast.error("Kunne ikke fjerne medlem");
+      if (error.message === "Only administrators can delete users") {
+        toast.error("Kun administratorer kan slette brukere");
+      } else {
+        toast.error("Kunne ikke fjerne medlem");
+      }
     }
   };
 
