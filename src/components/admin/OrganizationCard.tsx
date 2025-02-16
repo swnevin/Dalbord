@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus, Bot, Trash2 } from "lucide-react";
 import {
@@ -57,7 +57,18 @@ export const OrganizationCard = ({
   onAddMember,
   onDeleteMember,
 }: OrganizationCardProps) => {
-  const [botConfig, setBotConfig] = useState({ apiKey: "", projectId: "" });
+  const [botConfig, setBotConfig] = useState({
+    apiKey: organization.voiceflow_api_key || "",
+    projectId: organization.voiceflow_project_id || ""
+  });
+
+  // Update botConfig when organization changes
+  useEffect(() => {
+    setBotConfig({
+      apiKey: organization.voiceflow_api_key || "",
+      projectId: organization.voiceflow_project_id || ""
+    });
+  }, [organization]);
 
   return (
     <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
