@@ -76,6 +76,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_organization_member: {
+        Args: {
+          user_email: string
+          user_password: string
+          user_name: string
+          organization_id: string
+        }
+        Returns: string
+      }
       delete_user: {
         Args: {
           user_id: string
