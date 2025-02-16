@@ -112,13 +112,17 @@ const AdminDashboard = () => {
 
   const handleAddMember = async (orgId: string, member: { name: string; email: string; password: string }) => {
     try {
-      const { data: newUserId, error } = await supabase
-        .rpc('create_organization_member', {
-          user_email: member.email,
-          user_password: member.password,
-          user_name: member.name,
-          organization_id: orgId
-        });
+      const { data, error } = await supabase.auth.signUp({
+        email: member.email,
+        password: member.password,
+        options: {
+          data: {
+            name: member.name,
+            organization_id: orgId,
+            role: 'client'
+          }
+        }
+      });
 
       if (error) throw error;
 
