@@ -112,7 +112,7 @@ const AdminDashboard = () => {
 
   const handleAddMember = async (orgId: string, member: { name: string; email: string; password: string }) => {
     try {
-      const { data, error } = await supabase
+      const { data: newUserId, error } = await supabase
         .rpc('create_organization_member', {
           user_email: member.email,
           user_password: member.password,
