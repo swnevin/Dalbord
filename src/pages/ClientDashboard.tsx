@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import Sidebar from "../components/Sidebar";
 import { Button } from "@/components/ui/button";
@@ -277,7 +276,7 @@ const ClientDashboard = () => {
                   <ChatMessage
                     isUser={message.isUser}
                     message={message.message}
-                    timestamp={message.startTime}
+                    timestamp={message.timestamp}
                   />
                   {message.options && (
                     <div className="ml-4 mb-4 flex flex-wrap gap-2">
