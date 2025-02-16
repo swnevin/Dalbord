@@ -1,12 +1,11 @@
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import Sidebar from "../components/Sidebar";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import ChatMessage from "@/components/ChatMessage";
 
 interface VoiceflowTranscript {
   _id: string;
@@ -24,13 +23,6 @@ interface DialogTurn {
   startTime: string;
 }
 
-interface ProcessedMessage {
-  isUser: boolean;
-  message: string;
-  timestamp: string;
-  options?: string[];
-}
-
 const ClientDashboard = () => {
   const { user } = useAuth();
   const [conversations, setConversations] = useState<VoiceflowTranscript[]>([]);
@@ -39,15 +31,6 @@ const ClientDashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [dialog, setDialog] = useState<DialogTurn[]>([]);
   const [isLoadingDialog, setIsLoadingDialog] = useState(false);
-  const chatEndRef = useRef<HTMLDivElement>(null);
-
-  const scrollToBottom = () => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [dialog]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -62,55 +45,6 @@ const ClientDashboard = () => {
         minute: "2-digit",
       }),
     };
-  };
-
-  const processDialog = (dialog: DialogTurn[]): ProcessedMessage[] => {
-    const messages: ProcessedMessage[] = [];
-
-    dialog.forEach((turn) => {
-      if (turn.type === "request") {
-        // User message
-        const message = turn.payload.type === "text" 
-          ? turn.payload.payload
-          : turn.payload.payload.label || "Valgt alternativ";
-        
-        if (message && message.trim()) {
-          messages.push({
-            isUser: true,
-            message,
-            timestamp: turn.startTime,
-          });
-        }
-      } 
-      else if (turn.type === "text" && turn.payload.message) {
-        // Bot message - only add if there's actual content
-        const message = turn.payload.message.trim();
-        if (message) {
-          messages.push({
-            isUser: false,
-            message,
-            timestamp: turn.startTime,
-          });
-        }
-      }
-      else if (turn.type === "choice" && turn.payload.buttons && turn.payload.buttons.length > 0) {
-        // Bot options - only add if there are actual buttons
-        const options = turn.payload.buttons
-          .map((button: any) => button.name)
-          .filter((name: string) => name && name.trim());
-        
-        if (options.length > 0) {
-          messages.push({
-            isUser: false,
-            message: "Alternativer:",
-            timestamp: turn.startTime,
-            options,
-          });
-        }
-      }
-    });
-
-    return messages;
   };
 
   useEffect(() => {
@@ -281,32 +215,9 @@ const ClientDashboard = () => {
               Velg en samtale for å se meldinger
             </div>
           ) : (
-            <div className="max-w-3xl mx-auto">
-              {processDialog(dialog).map((message, index) => (
-                <div key={index}>
-                  <ChatMessage
-                    isUser={message.isUser}
-                    message={message.message}
-                    timestamp={message.timestamp}
-                  />
-                  {message.options && (
-                    <div className="ml-4 mb-4 flex flex-wrap gap-2">
-                      {message.options.map((option, optionIndex) => (
-                        <Button
-                          key={optionIndex}
-                          variant="secondary"
-                          size="sm"
-                          className="opacity-50"
-                        >
-                          {option}
-                        </Button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-              <div ref={chatEndRef} />
-            </div>
+            <pre className="whitespace-pre-wrap text-sm">
+              {JSON.stringify(dialog, null, 2)}
+            </pre>
           )}
         </div>
       </div>
