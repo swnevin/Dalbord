@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import Sidebar from "../components/Sidebar";
 import { Button } from "@/components/ui/button";
@@ -21,6 +20,21 @@ const ClientDashboard = () => {
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [conversationsCollapsed, setConversationsCollapsed] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return {
+      date: date.toLocaleDateString("no", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      }),
+      time: date.toLocaleTimeString("no", {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    };
+  };
 
   useEffect(() => {
     const fetchConversations = async () => {
@@ -106,22 +120,33 @@ const ClientDashboard = () => {
                   )}
                   onClick={() => setSelectedConversation(conv._id)}
                 >
-                  <div className="flex justify-between items-start mb-1">
-                    <h3 className={cn(
-                      "font-medium",
-                      selectedConversation === conv._id ? "text-primary" : "text-gray-700"
-                    )}>
-                      {conversationsCollapsed ? conv.name.charAt(0) : conv.name}
-                    </h3>
-                    {!conversationsCollapsed && (
-                      <span className="text-sm text-gray-500">
-                        {new Date(conv.updatedAt).toLocaleTimeString("no", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
-                    )}
-                  </div>
+                  {conversationsCollapsed ? (
+                    <div className="text-center">
+                      <span className="font-medium">{conv.name.charAt(0)}</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex justify-between items-start">
+                        <h3 className={cn(
+                          "font-medium",
+                          selectedConversation === conv._id ? "text-primary" : "text-gray-700"
+                        )}>
+                          {conv.name}
+                        </h3>
+                        <span className="text-xs text-gray-500 whitespace-nowrap">
+                          {formatDate(conv.updatedAt).time}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex justify-between items-center">
+                        <span className="text-xs text-gray-500 capitalize">
+                          {conv.device}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {formatDate(conv.updatedAt).date}
+                        </span>
+                      </div>
+                    </>
+                  )}
                 </div>
               ))
             )}
