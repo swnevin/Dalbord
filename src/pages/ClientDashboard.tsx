@@ -1,11 +1,12 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Sidebar from "../components/Sidebar";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import ChatMessage from "@/components/ChatMessage";
 
 interface VoiceflowTranscript {
   _id: string;
@@ -23,6 +24,13 @@ interface DialogTurn {
   startTime: string;
 }
 
+interface ProcessedMessage {
+  isUser: boolean;
+  message: string;
+  timestamp: string;
+  options?: string[];
+}
+
 const ClientDashboard = () => {
   const { user } = useAuth();
   const [conversations, setConversations] = useState<VoiceflowTranscript[]>([]);
@@ -31,6 +39,15 @@ const ClientDashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [dialog, setDialog] = useState<DialogTurn[]>([]);
   const [isLoadingDialog, setIsLoadingDialog] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [dialog]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -45,6 +62,45 @@ const ClientDashboard = () => {
         minute: "2-digit",
       }),
     };
+  };
+
+  const processDialog = (dialog: DialogTurn[]): ProcessedMessage[] => {
+    const messages: ProcessedMessage[] = [];
+
+    dialog.forEach((turn) => {
+      if (turn.type === "request") {
+        // User message
+        const message = turn.payload.type === "text" 
+          ? turn.payload.payload
+          : turn.payload.payload.label || "Valgt alternativ";
+        
+        messages.push({
+          isUser: true,
+          message,
+          timestamp: turn.startTime,
+        });
+      } 
+      else if (turn.type === "text") {
+        // Bot message
+        messages.push({
+          isUser: false,
+          message: turn.payload.message,
+          timestamp: turn.startTime,
+        });
+      }
+      else if (turn.type === "choice" && turn.payload.buttons) {
+        // Bot options
+        const options = turn.payload.buttons.map((button: any) => button.name);
+        messages.push({
+          isUser: false,
+          message: "Alternativer: " + options.join(", "),
+          timestamp: turn.startTime,
+          options,
+        });
+      }
+    });
+
+    return messages;
   };
 
   useEffect(() => {
@@ -215,9 +271,32 @@ const ClientDashboard = () => {
               Velg en samtale for å se meldinger
             </div>
           ) : (
-            <pre className="whitespace-pre-wrap text-sm">
-              {JSON.stringify(dialog, null, 2)}
-            </pre>
+            <div className="max-w-3xl mx-auto">
+              {processDialog(dialog).map((message, index) => (
+                <div key={index}>
+                  <ChatMessage
+                    isUser={message.isUser}
+                    message={message.message}
+                    timestamp={message.startTime}
+                  />
+                  {message.options && (
+                    <div className="ml-4 mb-4 flex flex-wrap gap-2">
+                      {message.options.map((option, optionIndex) => (
+                        <Button
+                          key={optionIndex}
+                          variant="secondary"
+                          size="sm"
+                          className="opacity-50"
+                        >
+                          {option}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+              <div ref={chatEndRef} />
+            </div>
           )}
         </div>
       </div>
