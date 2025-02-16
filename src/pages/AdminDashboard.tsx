@@ -19,6 +19,7 @@ interface Organization {
   name: string;
   voiceflow_api_key?: string;
   voiceflow_project_id?: string;
+  type?: string;
 }
 
 interface Profile {
@@ -64,7 +65,7 @@ const AdminDashboard = () => {
     try {
       const { data: orgs, error } = await supabase
         .from("organizations")
-        .select("*");
+        .select("*, type");  // Make sure we select the type field
 
       if (error) throw error;
 
@@ -112,14 +113,26 @@ const AdminDashboard = () => {
 
   const handleAddMember = async (orgId: string, member: { name: string; email: string; password: string }) => {
     try {
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      // First, get the organization type to determine the role
+      const { data: org, error: orgError } = await supabase
+        .from("organizations")
+        .select("type")
+        .eq("id", orgId)
+        .single();
+
+      if (orgError) throw orgError;
+
+      // Set the appropriate role based on organization type
+      const role = org.type === 'admin' ? 'admin' : 'client';
+
+      // Create the user in auth.users without signing in
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
         email: member.email,
         password: member.password,
-        options: {
-          data: {
-            name: member.name,
-            role: 'client'
-          }
+        email_confirm: true,
+        user_metadata: {
+          name: member.name,
+          role: role
         }
       });
 
@@ -130,7 +143,7 @@ const AdminDashboard = () => {
           .from("profiles")
           .update({ 
             organization_id: orgId,
-            role: 'client'
+            role: role
           })
           .eq("id", authData.user.id);
 
