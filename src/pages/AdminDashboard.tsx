@@ -201,12 +201,19 @@ const AdminDashboard = () => {
     return <div>Laster...</div>;
   }
 
+  // Sort organizations to put Dalai first
+  const sortedOrganizations = [...organizations].sort((a, b) => {
+    if (a.name === "Dalai") return -1;
+    if (b.name === "Dalai") return 1;
+    return 0;
+  });
+
   return (
     <div className="flex h-screen bg-cream">
       <Sidebar role="admin" />
       <div className="flex-1 p-8 overflow-auto">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-primary">Klientorganisasjoner</h1>
+          <h1 className="text-3xl font-bold text-primary">Organisasjoner</h1>
           <Sheet>
             <SheetTrigger asChild>
               <Button className="bg-secondary text-primary hover:bg-secondary/90">
@@ -220,17 +227,34 @@ const AdminDashboard = () => {
         </div>
 
         <div className="space-y-4">
-          {organizations.map((org) => (
-            <OrganizationCard
-              key={org.id}
-              organization={org}
-              members={profiles[org.id] || []}
-              onUpdateBot={handleUpdateBot}
-              onDeleteOrg={handleDeleteOrg}
-              onAddMember={handleAddMember}
-              onDeleteMember={handleDeleteMember}
-            />
-          ))}
+          {sortedOrganizations.map((org) => {
+            const isAdminOrg = org.name === "Dalai";
+            
+            return isAdminOrg ? (
+              <div key={org.id} className="border-2 border-primary/20 rounded-lg p-2">
+                <OrganizationCard
+                  organization={org}
+                  members={profiles[org.id] || []}
+                  onUpdateBot={handleUpdateBot}
+                  onDeleteOrg={handleDeleteOrg}
+                  onAddMember={handleAddMember}
+                  onDeleteMember={handleDeleteMember}
+                  hideControls={true}
+                />
+              </div>
+            ) : (
+              <OrganizationCard
+                key={org.id}
+                organization={org}
+                members={profiles[org.id] || []}
+                onUpdateBot={handleUpdateBot}
+                onDeleteOrg={handleDeleteOrg}
+                onAddMember={handleAddMember}
+                onDeleteMember={handleDeleteMember}
+                hideControls={false}
+              />
+            );
+          })}
         </div>
       </div>
     </div>

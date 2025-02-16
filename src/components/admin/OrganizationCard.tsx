@@ -47,6 +47,7 @@ interface OrganizationCardProps {
   onDeleteOrg: (orgId: string) => Promise<void>;
   onAddMember: (orgId: string, member: { name: string; email: string; password: string }) => Promise<void>;
   onDeleteMember: (profileId: string) => Promise<void>;
+  hideControls?: boolean;
 }
 
 export const OrganizationCard = ({
@@ -56,13 +57,13 @@ export const OrganizationCard = ({
   onDeleteOrg,
   onAddMember,
   onDeleteMember,
+  hideControls = false,
 }: OrganizationCardProps) => {
   const [botConfig, setBotConfig] = useState({
     apiKey: organization.voiceflow_api_key || "",
     projectId: organization.voiceflow_project_id || ""
   });
 
-  // Update botConfig when organization changes
   useEffect(() => {
     setBotConfig({
       apiKey: organization.voiceflow_api_key || "",
@@ -81,71 +82,73 @@ export const OrganizationCard = ({
             {members.length} {members.length === 1 ? "medlem" : "medlemmer"}
           </p>
         </div>
-        <div className="flex gap-2">
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="outline" size="icon">
-                <Bot className="h-4 w-4" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent>
-              <SheetHeader>
-                <SheetTitle>Konfigurer chatbot</SheetTitle>
-                <SheetDescription>
-                  Koble en Voiceflow chatbot til {organization.name}.
-                </SheetDescription>
-              </SheetHeader>
-              <div className="space-y-4 mt-6">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Voiceflow API Nøkkel</label>
-                  <Input
-                    placeholder="VF.xxxxxx.xxxxx"
-                    value={botConfig.apiKey}
-                    onChange={(e) => setBotConfig({ ...botConfig, apiKey: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Voiceflow Prosjekt ID</label>
-                  <Input
-                    placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-                    value={botConfig.projectId}
-                    onChange={(e) => setBotConfig({ ...botConfig, projectId: e.target.value })}
-                  />
-                </div>
-                <Button 
-                  className="w-full bg-secondary text-primary hover:bg-secondary/90"
-                  onClick={() => onUpdateBot(organization.id, botConfig)}
-                >
-                  Lagre
+        {!hideControls && (
+          <div className="flex gap-2">
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="icon">
+                  <Bot className="h-4 w-4" />
                 </Button>
-              </div>
-            </SheetContent>
-          </Sheet>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="outline" size="icon" className="text-red-500 hover:text-red-600">
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Er du sikker?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Dette vil slette organisasjonen og all tilhørende data. Denne handlingen kan ikke angres.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Avbryt</AlertDialogCancel>
-                <AlertDialogAction 
-                  className="bg-red-500 hover:bg-red-600"
-                  onClick={() => onDeleteOrg(organization.id)}
-                >
-                  Slett
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
+              </SheetTrigger>
+              <SheetContent>
+                <SheetHeader>
+                  <SheetTitle>Konfigurer chatbot</SheetTitle>
+                  <SheetDescription>
+                    Koble en Voiceflow chatbot til {organization.name}.
+                  </SheetDescription>
+                </SheetHeader>
+                <div className="space-y-4 mt-6">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Voiceflow API Nøkkel</label>
+                    <Input
+                      placeholder="VF.xxxxxx.xxxxx"
+                      value={botConfig.apiKey}
+                      onChange={(e) => setBotConfig({ ...botConfig, apiKey: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Voiceflow Prosjekt ID</label>
+                    <Input
+                      placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                      value={botConfig.projectId}
+                      onChange={(e) => setBotConfig({ ...botConfig, projectId: e.target.value })}
+                    />
+                  </div>
+                  <Button 
+                    className="w-full bg-secondary text-primary hover:bg-secondary/90"
+                    onClick={() => onUpdateBot(organization.id, botConfig)}
+                  >
+                    Lagre
+                  </Button>
+                </div>
+              </SheetContent>
+            </Sheet>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="icon" className="text-red-500 hover:text-red-600">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Er du sikker?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Dette vil slette organisasjonen og all tilhørende data. Denne handlingen kan ikke angres.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Avbryt</AlertDialogCancel>
+                  <AlertDialogAction 
+                    className="bg-red-500 hover:bg-red-600"
+                    onClick={() => onDeleteOrg(organization.id)}
+                  >
+                    Slett
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        )}
       </div>
 
       <div className="border-t pt-4">

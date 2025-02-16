@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -9,10 +8,6 @@ import {
   ChevronRight,
   ChevronLeft,
   MessageSquare,
-  BarChart3,
-  Bookmark,
-  Database,
-  AlertTriangle,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -25,7 +20,7 @@ const Sidebar = ({ role }: SidebarProps) => {
   const { logout } = useAuth();
 
   const adminLinks = [
-    { icon: Users, label: "Klienter", path: "/admin" },
+    { icon: Users, label: "Organisasjoner", path: "/admin" },
   ];
 
   const clientLinks = [
