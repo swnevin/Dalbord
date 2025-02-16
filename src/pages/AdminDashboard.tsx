@@ -173,7 +173,7 @@ const AdminDashboard = () => {
 
   const handleDeleteMember = async (profileId: string) => {
     try {
-      // First, get the member's organization_id before we remove it
+      // First, get the member's organization_id before we delete them
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("organization_id")
@@ -182,8 +182,11 @@ const AdminDashboard = () => {
 
       if (profileError) throw profileError;
 
-      // Delete the auth user (this will cascade to delete the profile due to FK constraints)
-      const { error: deleteError } = await supabase.auth.admin.deleteUser(profileId);
+      // Call the delete_user function we created
+      const { error: deleteError } = await supabase.rpc('delete_user', {
+        user_id: profileId
+      });
+
       if (deleteError) throw deleteError;
 
       // Update the local state to reflect the deletion
