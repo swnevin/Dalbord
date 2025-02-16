@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import Sidebar from "../components/Sidebar";
 import { Button } from "@/components/ui/button";
@@ -14,12 +15,22 @@ interface VoiceflowTranscript {
   sessionID: string;
 }
 
+interface DialogTurn {
+  turnID: string;
+  format: string;
+  type: string;
+  payload: any;
+  startTime: string;
+}
+
 const ClientDashboard = () => {
   const { user } = useAuth();
   const [conversations, setConversations] = useState<VoiceflowTranscript[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [conversationsCollapsed, setConversationsCollapsed] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [dialog, setDialog] = useState<DialogTurn[]>([]);
+  const [isLoadingDialog, setIsLoadingDialog] = useState(false);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -41,7 +52,6 @@ const ClientDashboard = () => {
       if (!user?.organization_id) return;
 
       try {
-        // Get organization's Voiceflow credentials
         const { data: org, error: orgError } = await supabase
           .from('organizations')
           .select('voiceflow_api_key, voiceflow_project_id')
@@ -54,7 +64,6 @@ const ClientDashboard = () => {
           return;
         }
 
-        // Fetch transcripts from Voiceflow
         const response = await fetch(
           `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}`,
           {
@@ -78,6 +87,48 @@ const ClientDashboard = () => {
 
     fetchConversations();
   }, [user?.organization_id]);
+
+  useEffect(() => {
+    const fetchDialog = async () => {
+      if (!selectedConversation || !user?.organization_id) return;
+
+      setIsLoadingDialog(true);
+      try {
+        const { data: org, error: orgError } = await supabase
+          .from('organizations')
+          .select('voiceflow_api_key, voiceflow_project_id')
+          .eq('id', user.organization_id)
+          .single();
+
+        if (orgError) throw orgError;
+        if (!org.voiceflow_api_key || !org.voiceflow_project_id) {
+          console.error('Missing Voiceflow credentials');
+          return;
+        }
+
+        const response = await fetch(
+          `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}/${selectedConversation}`,
+          {
+            headers: {
+              accept: 'application/json',
+              Authorization: org.voiceflow_api_key,
+            },
+          }
+        );
+
+        if (!response.ok) throw new Error('Failed to fetch dialog');
+
+        const data = await response.json();
+        setDialog(data);
+      } catch (error) {
+        console.error('Error fetching dialog:', error);
+      } finally {
+        setIsLoadingDialog(false);
+      }
+    };
+
+    fetchDialog();
+  }, [selectedConversation, user?.organization_id]);
 
   return (
     <div className="flex h-screen bg-cream">
@@ -153,11 +204,21 @@ const ClientDashboard = () => {
           </div>
         </div>
 
-        {/* Chat Display */}
-        <div className="flex-1 bg-white p-4">
-          <div className="h-full flex items-center justify-center text-gray-500">
-            {isLoading ? "Laster..." : "Velg en samtale for å se meldinger"}
-          </div>
+        {/* Dialog Display */}
+        <div className="flex-1 bg-white p-4 overflow-auto">
+          {isLoadingDialog ? (
+            <div className="h-full flex items-center justify-center text-gray-500">
+              Laster dialog...
+            </div>
+          ) : !selectedConversation ? (
+            <div className="h-full flex items-center justify-center text-gray-500">
+              Velg en samtale for å se meldinger
+            </div>
+          ) : (
+            <pre className="whitespace-pre-wrap text-sm">
+              {JSON.stringify(dialog, null, 2)}
+            </pre>
+          )}
         </div>
       </div>
     </div>
