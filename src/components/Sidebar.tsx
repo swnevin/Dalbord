@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -8,23 +9,27 @@ import {
   ChevronRight,
   ChevronLeft,
   MessageSquare,
+  BookOpen,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface SidebarProps {
   role: "admin" | "client";
+  onTabChange: (tab: string) => void;
+  activeTab: string;
 }
 
-const Sidebar = ({ role }: SidebarProps) => {
+const Sidebar = ({ role, onTabChange, activeTab }: SidebarProps) => {
   const [collapsed, setCollapsed] = useState(false);
   const { logout } = useAuth();
 
   const adminLinks = [
-    { icon: Users, label: "Organisasjoner", path: "/admin" },
+    { icon: Users, label: "Organisasjoner", value: "organizations" },
   ];
 
   const clientLinks = [
-    { icon: MessageSquare, label: "Samtaler", path: "/client/conversations" },
+    { icon: MessageSquare, label: "Samtaler", value: "conversations" },
+    { icon: BookOpen, label: "Kunnskapsbase", value: "knowledge" },
   ];
 
   const links = role === "admin" ? adminLinks : clientLinks;
@@ -49,12 +54,18 @@ const Sidebar = ({ role }: SidebarProps) => {
       </div>
 
       <div className="flex-1 p-4">
-        <Tabs defaultValue={links[0].path} orientation="vertical" className="w-full">
+        <Tabs 
+          defaultValue={links[0].value} 
+          value={activeTab}
+          onValueChange={onTabChange} 
+          orientation="vertical" 
+          className="w-full"
+        >
           <TabsList className="flex flex-col h-auto bg-transparent space-y-2">
             {links.map((link) => (
               <TabsTrigger
-                key={link.path}
-                value={link.path}
+                key={link.value}
+                value={link.value}
                 className="w-full justify-start gap-3 text-white data-[state=active]:bg-secondary data-[state=active]:text-primary"
               >
                 <link.icon size={20} />

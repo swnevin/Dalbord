@@ -1,6 +1,6 @@
-
 import { useState, useEffect, useRef } from "react";
 import Sidebar from "../components/Sidebar";
+import { KnowledgeBase } from "@/components/KnowledgeBase";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -32,6 +32,7 @@ interface ProcessedMessage {
 }
 
 const ClientDashboard = () => {
+  const [activeTab, setActiveTab] = useState("conversations");
   const { user } = useAuth();
   const [conversations, setConversations] = useState<VoiceflowTranscript[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
@@ -198,8 +199,14 @@ const ClientDashboard = () => {
 
   return (
     <div className="flex h-screen bg-cream">
-      <Sidebar role="client" />
-      <div className="flex flex-1">
+      <Sidebar 
+        role="client" 
+        activeTab={activeTab} 
+        onTabChange={setActiveTab} 
+      />
+      <div className="flex-1 overflow-auto">
+        {activeTab === "conversations" && (
+          <div className="flex flex-1">
         {/* Conversations List */}
         <div 
           className={cn(
@@ -309,6 +316,9 @@ const ClientDashboard = () => {
             </div>
           )}
         </div>
+      </div>
+        )}
+        {activeTab === "knowledge" && <KnowledgeBase />}
       </div>
     </div>
   );
