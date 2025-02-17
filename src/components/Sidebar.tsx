@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useLocation, Link } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   Users,
   LogOut,
@@ -21,6 +21,7 @@ const Sidebar = ({ role }: SidebarProps) => {
   const [collapsed, setCollapsed] = useState(false);
   const { logout } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const adminLinks = [
     { icon: Users, label: "Organisasjoner", path: "/admin" },
@@ -32,6 +33,10 @@ const Sidebar = ({ role }: SidebarProps) => {
   ];
 
   const links = role === "admin" ? adminLinks : clientLinks;
+
+  const handleNavigation = (path: string) => {
+    navigate(path);
+  };
 
   return (
     <div
@@ -59,17 +64,18 @@ const Sidebar = ({ role }: SidebarProps) => {
             const isActive = location.pathname === link.path;
             
             return (
-              <Link
+              <Button
                 key={link.path}
-                to={link.path}
+                variant="ghost"
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2 rounded-md transition-colors",
+                  "w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors justify-start",
                   isActive ? "bg-secondary text-primary" : "text-white hover:bg-white/10"
                 )}
+                onClick={() => handleNavigation(link.path)}
               >
                 <Icon size={20} />
                 {!collapsed && <span>{link.label}</span>}
-              </Link>
+              </Button>
             );
           })}
         </nav>
