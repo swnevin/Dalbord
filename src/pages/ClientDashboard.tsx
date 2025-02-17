@@ -6,6 +6,8 @@ import { ChevronLeft, ChevronRight, Bookmark, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { Loader } from "@/components/ui/loader";
+import { useMinimumLoading } from "@/hooks/use-minimum-loading";
 
 interface VoiceflowTranscript {
   _id: string;
@@ -222,6 +224,9 @@ const ClientDashboard = () => {
     return messages.filter(message => !excludedTypes.includes(message.type));
   };
 
+  const showLoader = useMinimumLoading(isLoading);
+  const showDialogLoader = useMinimumLoading(isLoadingDialog);
+
   useEffect(() => {
     const fetchConversations = async () => {
       if (!user?.organization_id) return;
@@ -387,8 +392,10 @@ const ClientDashboard = () => {
               </div>
 
               <div className="overflow-auto h-[calc(100vh-144px)]">
-                {isLoading ? (
-                  <div className="p-4 text-center text-gray-500">Laster samtaler...</div>
+                {showLoader ? (
+                  <div className="h-full flex items-center justify-center">
+                    <Loader size="lg" />
+                  </div>
                 ) : (
                   filteredConversations.map((conv) => (
                     <div
@@ -472,9 +479,9 @@ const ClientDashboard = () => {
             {/* Dialog Display */}
             <div className="flex-1 bg-white flex flex-col h-screen">
               <div className="flex-1 overflow-y-auto p-4">
-                {isLoadingDialog ? (
-                  <div className="h-full flex items-center justify-center text-gray-500">
-                    Laster dialog...
+                {showDialogLoader ? (
+                  <div className="h-full flex items-center justify-center">
+                    <Loader size="lg" />
                   </div>
                 ) : !selectedConversation ? (
                   <div className="h-full flex items-center justify-center text-gray-500">

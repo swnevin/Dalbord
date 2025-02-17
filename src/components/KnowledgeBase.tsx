@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Loader } from "@/components/ui/loader";
+import { useMinimumLoading } from "@/hooks/use-minimum-loading";
 
 interface VoiceflowDocument {
   data: {
@@ -73,6 +74,9 @@ export const KnowledgeBase = () => {
   const [expandedSourceId, setExpandedSourceId] = useState<string | null>(null);
   const [chunks, setChunks] = useState<Chunk[]>([]);
   const [isLoadingChunks, setIsLoadingChunks] = useState(false);
+
+  const showLoader = useMinimumLoading(isLoading);
+  const showChunksLoader = useMinimumLoading(isLoadingChunks);
 
   const fetchSources = async () => {
     if (!user?.organization_id) return;
@@ -344,7 +348,7 @@ export const KnowledgeBase = () => {
     source.data.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  if (isLoading) {
+  if (showLoader) {
     return (
       <div className="h-[calc(100vh-200px)] flex items-center justify-center">
         <Loader size="lg" />
@@ -505,8 +509,10 @@ export const KnowledgeBase = () => {
 
             {expandedSourceId === source.documentID && (
               <div className="border-t px-4 py-3">
-                {isLoadingChunks ? (
-                  <p className="text-center text-gray-500 py-2">Laster chunks...</p>
+                {showChunksLoader ? (
+                  <div className="flex justify-center py-4">
+                    <Loader size="md" />
+                  </div>
                 ) : chunks.length > 0 ? (
                   <div className="space-y-4">
                     {chunks.map((chunk) => (
