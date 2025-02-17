@@ -25,7 +25,9 @@ interface DialogMessage {
     message?: string;
     text?: string;
     query?: string;
+    time?: number;
   };
+  startTime?: string;
 }
 
 type FilterType = "all" | "approved" | "saved";
@@ -54,6 +56,37 @@ const ClientDashboard = () => {
         minute: "2-digit",
       }),
     };
+  };
+
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString("no", {
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+  };
+
+  const renderMessage = (message: DialogMessage) => {
+    switch (message.type) {
+      case 'launch':
+        return (
+          <div className="text-gray-500 text-sm">
+            Samtale startet - {message.startTime && formatTime(message.startTime)}
+          </div>
+        );
+      case 'end':
+        return (
+          <div className="text-gray-500 text-sm">
+            Samtale avsluttet - {message.startTime && formatTime(message.startTime)}
+          </div>
+        );
+      default:
+        return (
+          <pre className="whitespace-pre-wrap font-mono text-sm">
+            {JSON.stringify(message, null, 2)}
+          </pre>
+        );
+    }
   };
 
   const toggleTag = async (conversationId: string, tag: "system.saved" | "system.reviewed") => {
@@ -371,9 +404,9 @@ const ClientDashboard = () => {
               ) : (
                 <div className="space-y-4">
                   {filterDialog(dialog).map((message, index) => (
-                    <pre key={index} className="whitespace-pre-wrap font-mono text-sm">
-                      {JSON.stringify(message, null, 2)}
-                    </pre>
+                    <div key={index}>
+                      {renderMessage(message)}
+                    </div>
                   ))}
                 </div>
               )}
