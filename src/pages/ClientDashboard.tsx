@@ -468,24 +468,26 @@ const ClientDashboard = () => {
             </div>
 
             {/* Dialog Display */}
-            <div className="flex-1 bg-white p-4 overflow-auto">
-              {isLoadingDialog ? (
-                <div className="h-full flex items-center justify-center text-gray-500">
-                  Laster dialog...
-                </div>
-              ) : !selectedConversation ? (
-                <div className="h-full flex items-center justify-center text-gray-500">
-                  Velg en samtale for å se meldinger
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {filterDialog(dialog).map((message, index) => (
-                    <div key={index}>
-                      {renderMessage(message)}
-                    </div>
-                  ))}
-                </div>
-              )}
+            <div className="flex-1 bg-white flex flex-col h-screen">
+              <div className="flex-1 overflow-y-auto p-4">
+                {isLoadingDialog ? (
+                  <div className="h-full flex items-center justify-center text-gray-500">
+                    Laster dialog...
+                  </div>
+                ) : !selectedConversation ? (
+                  <div className="h-full flex items-center justify-center text-gray-500">
+                    Velg en samtale for å se meldinger
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {filterDialog(dialog).map((message, index) => (
+                      <div key={index}>
+                        {renderMessage(message)}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
