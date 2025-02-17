@@ -47,6 +47,58 @@ const ClientDashboard = () => {
     };
   };
 
+  const toggleTag = async (conversationId: string, tag: "system.saved" | "system.reviewed") => {
+    if (!user?.organization_id) return;
+
+    try {
+      const { data: org, error: orgError } = await supabase
+        .from('organizations')
+        .select('voiceflow_api_key, voiceflow_project_id')
+        .eq('id', user.organization_id)
+        .single();
+
+      if (orgError) throw orgError;
+      if (!org.voiceflow_api_key || !org.voiceflow_project_id) {
+        console.error('Missing Voiceflow credentials');
+        return;
+      }
+
+      const conversation = conversations.find(c => c._id === conversationId);
+      const hasTag = conversation?.reportTags?.includes(tag) ?? false;
+
+      const method = "PUT";
+      
+      const response = await fetch(
+        `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}/${conversationId}/report_tag/${tag}`,
+        {
+          method,
+          headers: {
+            Authorization: org.voiceflow_api_key,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to update conversation tag');
+      }
+
+      setConversations(prevConversations => 
+        prevConversations.map(conv => {
+          if (conv._id === conversationId) {
+            const newTags = hasTag 
+              ? conv.reportTags.filter(t => t !== tag)
+              : [...(conv.reportTags || []), tag];
+            return { ...conv, reportTags: newTags };
+          }
+          return conv;
+        })
+      );
+
+    } catch (error) {
+      console.error('Error updating conversation tag:', error);
+    }
+  };
+
   useEffect(() => {
     const fetchConversations = async () => {
       if (!user?.organization_id) return;
@@ -258,7 +310,10 @@ const ClientDashboard = () => {
                             <Button
                               variant="ghost"
                               size="icon"
-                              disabled
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleTag(conv._id, "system.saved");
+                              }}
                               className={cn(
                                 "hover:bg-secondary/10",
                                 isConversationSaved(conv) && "text-secondary"
@@ -269,7 +324,10 @@ const ClientDashboard = () => {
                             <Button
                               variant="ghost"
                               size="icon"
-                              disabled
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleTag(conv._id, "system.reviewed");
+                              }}
                               className={cn(
                                 "hover:bg-secondary/10",
                                 isConversationReviewed(conv) && "text-green-500"
