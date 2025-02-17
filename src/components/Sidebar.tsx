@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,7 @@ import {
   ChevronRight,
   ChevronLeft,
   MessageSquare,
+  BookOpen,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -25,6 +27,7 @@ const Sidebar = ({ role }: SidebarProps) => {
 
   const clientLinks = [
     { icon: MessageSquare, label: "Samtaler", path: "/client/conversations" },
+    { icon: BookOpen, label: "Kunnskapsbase", path: "/client/knowledge" },
   ];
 
   const links = role === "admin" ? adminLinks : clientLinks;
