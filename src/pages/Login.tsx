@@ -18,11 +18,11 @@ const Login = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-cream">
       <Card className="w-full max-w-md">
-        <CardHeader className="text-center space-y-4">
+        <CardHeader className="text-center space-y-2">
           <img 
             src="/lovable-uploads/83daf21e-b819-4f65-9aed-581fdf00778c.png" 
             alt="DALAI Logo" 
-            className="h-72 mx-auto"
+            className="h-56 mx-auto"
           />
           <CardTitle className="text-xl text-primary/80">
             Logg inn for å se statistikk og samtaler
