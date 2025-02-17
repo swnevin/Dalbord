@@ -49,6 +49,17 @@ interface VoiceflowResponse {
   data: VoiceflowDocument[];
 }
 
+interface Chunk {
+  chunkID: string;
+  content: string;
+  metadata: Record<string, any>;
+}
+
+interface VoiceflowChunksResponse {
+  data: VoiceflowDocument;
+  chunks: Chunk[];
+}
+
 export const KnowledgeBase = () => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -58,6 +69,9 @@ export const KnowledgeBase = () => {
   const [url, setUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [expandedSourceId, setExpandedSourceId] = useState<string | null>(null);
+  const [chunks, setChunks] = useState<Chunk[]>([]);
+  const [isLoadingChunks, setIsLoadingChunks] = useState(false);
 
   const fetchSources = async () => {
     if (!user?.organization_id) return;
@@ -274,6 +288,57 @@ export const KnowledgeBase = () => {
     }
   };
 
+  const handleExpandSource = async (documentId: string) => {
+    if (expandedSourceId === documentId) {
+      setExpandedSourceId(null);
+      setChunks([]);
+      return;
+    }
+
+    setIsLoadingChunks(true);
+    setExpandedSourceId(documentId);
+
+    try {
+      const { data: org, error: orgError } = await supabase
+        .from('organizations')
+        .select('voiceflow_api_key')
+        .eq('id', user?.organization_id)
+        .single();
+
+      if (orgError || !org.voiceflow_api_key) {
+        throw new Error('Kunne ikke hente Voiceflow API nøkkel');
+      }
+
+      const response = await fetch(
+        `https://api.voiceflow.com/v1/knowledge-base/docs/${documentId}`,
+        {
+          method: 'GET',
+          headers: {
+            'accept': 'application/json',
+            'Authorization': org.voiceflow_api_key
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Kunne ikke hente chunks');
+      }
+
+      const result: VoiceflowChunksResponse = await response.json();
+      setChunks(result.chunks);
+    } catch (error) {
+      console.error('Error fetching chunks:', error);
+      toast({
+        title: "Feil",
+        description: error instanceof Error ? error.message : "Kunne ikke hente chunks",
+        variant: "destructive",
+      });
+      setExpandedSourceId(null);
+    } finally {
+      setIsLoadingChunks(false);
+    }
+  };
+
   const filteredSources = sources.filter(source => 
     source.data.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -368,54 +433,87 @@ export const KnowledgeBase = () => {
         {filteredSources.map((source) => (
           <div 
             key={source.documentID}
-            className="flex items-center justify-between p-4 bg-white rounded-lg border hover:border-primary/20 transition-colors"
+            className="bg-white rounded-lg border hover:border-primary/20 transition-colors"
           >
-            <div className="flex items-center gap-3">
-              <LinkIcon className="text-primary h-5 w-5" />
-              <div>
-                <h3 className="font-medium text-gray-900">{source.data.name}</h3>
-                <p className="text-sm text-gray-500">
-                  Oppdatert: {new Date(source.updatedAt).toLocaleDateString('no')}
-                </p>
+            <div className="flex items-center justify-between p-4">
+              <div className="flex items-center gap-3">
+                <LinkIcon className="text-primary h-5 w-5" />
+                <div>
+                  <h3 className="font-medium text-gray-900">{source.data.name}</h3>
+                  <p className="text-sm text-gray-500">
+                    Oppdatert: {new Date(source.updatedAt).toLocaleDateString('no')}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleExpandSource(source.documentID)}
+                  className={cn(
+                    "transition-transform",
+                    expandedSourceId === source.documentID && "rotate-180"
+                  )}
+                >
+                  <ChevronDown className="h-5 w-5 text-gray-400" />
+                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Er du sikker?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Dette vil permanent slette kilden fra kunnskapsbasen. Denne handlingen kan ikke angres.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Avbryt</AlertDialogCancel>
+                      <AlertDialogAction 
+                        onClick={async () => {
+                          try {
+                            await handleDelete(source.documentID);
+                          } catch (error) {
+                            console.error('Error in delete action:', error);
+                          }
+                        }}
+                        className="bg-red-500 hover:bg-red-600"
+                      >
+                        Slett
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <ChevronDown className="h-5 w-5 text-gray-400" />
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Er du sikker?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Dette vil permanent slette kilden fra kunnskapsbasen. Denne handlingen kan ikke angres.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Avbryt</AlertDialogCancel>
-                    <AlertDialogAction 
-                      onClick={async () => {
-                        try {
-                          await handleDelete(source.documentID);
-                        } catch (error) {
-                          console.error('Error in delete action:', error);
-                        }
-                      }}
-                      className="bg-red-500 hover:bg-red-600"
-                    >
-                      Slett
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
+
+            {expandedSourceId === source.documentID && (
+              <div className="border-t px-4 py-3">
+                {isLoadingChunks ? (
+                  <p className="text-center text-gray-500 py-2">Laster chunks...</p>
+                ) : chunks.length > 0 ? (
+                  <div className="space-y-4">
+                    {chunks.map((chunk) => (
+                      <div 
+                        key={chunk.chunkID}
+                        className="p-3 bg-gray-50 rounded-md"
+                      >
+                        <p className="text-sm text-gray-700 whitespace-pre-wrap">{chunk.content}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-center text-gray-500 py-2">Ingen chunks funnet</p>
+                )}
+              </div>
+            )}
           </div>
         ))}
       </div>
