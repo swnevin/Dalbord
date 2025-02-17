@@ -22,7 +22,7 @@ const Login = () => {
           <img 
             src="/lovable-uploads/83daf21e-b819-4f65-9aed-581fdf00778c.png" 
             alt="DALAI Logo" 
-            className="h-12 mx-auto"
+            className="h-24 mx-auto"
           />
           <CardTitle className="text-xl text-primary/80">
             Logg inn for å se statistikk og samtaler
