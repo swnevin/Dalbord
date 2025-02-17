@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,7 +63,6 @@ export const KnowledgeBase = () => {
     if (!user?.organization_id) return;
 
     try {
-      // Get Voiceflow API key from organization
       const { data: org, error: orgError } = await supabase
         .from('organizations')
         .select('voiceflow_api_key')
@@ -75,7 +73,6 @@ export const KnowledgeBase = () => {
         throw new Error('Kunne ikke hente Voiceflow API nøkkel');
       }
 
-      // Set a high limit to get all documents in one request if possible
       const limit = 100;
       let page = 1;
       let allSources: VoiceflowDocument[] = [];
@@ -100,7 +97,6 @@ export const KnowledgeBase = () => {
         const result: VoiceflowResponse = await response.json();
         allSources = [...allSources, ...result.data];
 
-        // Check if we need to fetch more pages
         hasMore = result.data.length === limit && result.total > allSources.length;
         page++;
       }
@@ -120,8 +116,55 @@ export const KnowledgeBase = () => {
     fetchSources();
   }, [user?.organization_id]);
 
-  const handleDelete = (id: string) => {
-    setSources(sources.filter(source => source.documentID !== id));
+  const handleDelete = async (documentId: string) => {
+    if (!user?.organization_id) {
+      toast({
+        title: "Feil",
+        description: "Ingen organisasjon funnet.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { data: org, error: orgError } = await supabase
+        .from('organizations')
+        .select('voiceflow_api_key')
+        .eq('id', user.organization_id)
+        .single();
+
+      if (orgError || !org.voiceflow_api_key) {
+        throw new Error('Kunne ikke hente Voiceflow API nøkkel');
+      }
+
+      const response = await fetch(
+        `https://api.voiceflow.com/v1/knowledge-base/docs/${documentId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': org.voiceflow_api_key
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Kunne ikke slette kilden');
+      }
+
+      setSources(sources.filter(source => source.documentID !== documentId));
+
+      toast({
+        title: "Suksess",
+        description: "Kilden ble slettet",
+      });
+    } catch (error) {
+      console.error('Error deleting source:', error);
+      toast({
+        title: "Feil",
+        description: error instanceof Error ? error.message : "Kunne ikke slette kilden",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -210,7 +253,6 @@ export const KnowledgeBase = () => {
       const result = await response.json();
       console.log('Voiceflow response:', result);
 
-      // Refresh the sources list
       await fetchSources();
 
       toast({
@@ -218,7 +260,6 @@ export const KnowledgeBase = () => {
         description: "Kilde lagt til i kunnskapsbasen",
       });
 
-      // Reset form
       setUrl("");
       setFile(null);
     } catch (error) {
@@ -360,7 +401,13 @@ export const KnowledgeBase = () => {
                   <AlertDialogFooter>
                     <AlertDialogCancel>Avbryt</AlertDialogCancel>
                     <AlertDialogAction 
-                      onClick={() => handleDelete(source.documentID)}
+                      onClick={async () => {
+                        try {
+                          await handleDelete(source.documentID);
+                        } catch (error) {
+                          console.error('Error in delete action:', error);
+                        }
+                      }}
                       className="bg-red-500 hover:bg-red-600"
                     >
                       Slett
