@@ -28,6 +28,14 @@ interface DialogMessage {
     time?: number;
     payload?: {
       message?: string;
+      buttons?: Array<{
+        name: string;
+        request: {
+          payload: {
+            label: string;
+          };
+        };
+      }>;
     };
   };
   startTime?: string;
@@ -89,6 +97,19 @@ const ClientDashboard = () => {
         return (
           <div className="text-gray-700 text-sm">
             Bot: {messageText} - {message.startTime && formatTime(message.startTime)}
+          </div>
+        );
+      case 'choice':
+        const buttons = message.payload?.payload?.buttons;
+        if (!buttons?.length) return null;
+        return (
+          <div className="text-gray-700 text-sm">
+            <div>Bot offered: - {message.startTime && formatTime(message.startTime)}</div>
+            <ul className="list-disc pl-6 mt-1">
+              {buttons.map((button, index) => (
+                <li key={index}>{button.name}</li>
+              ))}
+            </ul>
           </div>
         );
       default:
