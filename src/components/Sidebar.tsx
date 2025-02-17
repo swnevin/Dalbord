@@ -41,12 +41,12 @@ const Sidebar = ({ role, onTabChange, activeTab }: SidebarProps) => {
         collapsed ? "w-20" : "w-64"
       )}
     >
-      <div className="p-4 flex items-center justify-between border-b border-white/10">
-        <div className={cn("flex items-center gap-2", collapsed && "hidden")}>
+      <div className="p-6 flex items-center justify-between border-b border-white/10">
+        <div className={cn("flex-1 flex justify-center", collapsed && "hidden")}>
           <img 
             src="/lovable-uploads/aa3840d0-81a7-407e-95be-f1f48868b7c6.png" 
             alt="DALAI Logo" 
-            className="h-8"
+            className="h-40"
           />
         </div>
         <Button
