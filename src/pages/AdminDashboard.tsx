@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import Sidebar from "../components/Sidebar";
@@ -35,6 +34,7 @@ const AdminDashboard = () => {
   const [profiles, setProfiles] = useState<Record<string, Profile[]>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [activeTab, setActiveTab] = useState("organizations");
 
   useEffect(() => {
     fetchOrganizations();
@@ -249,8 +249,12 @@ const AdminDashboard = () => {
 
   return (
     <div className="flex h-screen bg-cream">
-      <Sidebar role="admin" />
-      <div className="flex-1 p-8 overflow-auto">
+      <Sidebar 
+        role="admin" 
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+      />
+      <main className="flex-1 overflow-auto p-8">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-primary">Organisasjoner</h1>
           <Sheet>
@@ -295,7 +299,7 @@ const AdminDashboard = () => {
             );
           })}
         </div>
-      </div>
+      </main>
     </div>
   );
 };

@@ -5,6 +5,25 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChevronDown, Link as LinkIcon, Search, Trash2, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface Source {
   id: string;
@@ -31,7 +50,6 @@ export const KnowledgeBase = () => {
     }
   ]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [showAddModal, setShowAddModal] = useState(false);
   const [selectedSourceType, setSelectedSourceType] = useState<"url" | "file">("url");
   const [url, setUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -49,7 +67,6 @@ export const KnowledgeBase = () => {
   const handleSourceAdd = () => {
     // TODO: Implement source addition logic
     // This will be connected to Voiceflow API later
-    setShowAddModal(false);
   };
 
   const filteredSources = sources.filter(source => 
@@ -60,9 +77,75 @@ export const KnowledgeBase = () => {
     <div className="p-6 max-w-4xl mx-auto">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-semibold text-primary">Kunnskapsbase</h1>
-        <Button className="bg-primary text-white" onClick={() => setShowAddModal(true)}>
-          + Legg til kilde
-        </Button>
+        <Sheet>
+          <SheetTrigger asChild>
+            <Button className="bg-primary text-white">
+              + Legg til kilde
+            </Button>
+          </SheetTrigger>
+          <SheetContent>
+            <SheetHeader>
+              <SheetTitle>Legg til ny kilde</SheetTitle>
+              <SheetDescription>
+                Last opp en fil eller legg til en URL til kunnskapsbasen.
+              </SheetDescription>
+            </SheetHeader>
+            
+            <div className="mt-6">
+              <Tabs value={selectedSourceType} onValueChange={(v) => setSelectedSourceType(v as "url" | "file")}>
+                <TabsList className="w-full mb-4">
+                  <TabsTrigger value="url" className="flex-1">URL</TabsTrigger>
+                  <TabsTrigger value="file" className="flex-1">Filopplasting</TabsTrigger>
+                </TabsList>
+              </Tabs>
+              
+              {selectedSourceType === "url" ? (
+                <div className="space-y-4">
+                  <Input
+                    placeholder="Lim inn URL"
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                  />
+                  <Button 
+                    className="w-full" 
+                    disabled={!url}
+                    onClick={handleSourceAdd}
+                  >
+                    Last opp URL
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div 
+                    className={cn(
+                      "border-2 border-dashed rounded-lg p-6 text-center transition-colors",
+                      "hover:border-primary/50 hover:bg-primary/5 cursor-pointer"
+                    )}
+                    onClick={() => document.getElementById("file-upload")?.click()}
+                  >
+                    <Upload className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+                    <p className="text-sm text-gray-500">
+                      {file ? file.name : "Dra og slipp fil her eller klikk for å velge"}
+                    </p>
+                    <input
+                      id="file-upload"
+                      type="file"
+                      className="hidden"
+                      onChange={handleFileChange}
+                    />
+                  </div>
+                  <Button 
+                    className="w-full" 
+                    disabled={!file}
+                    onClick={handleSourceAdd}
+                  >
+                    Last opp fil
+                  </Button>
+                </div>
+              )}
+            </div>
+          </SheetContent>
+        </Sheet>
       </div>
 
       <div className="relative mb-6">
@@ -90,84 +173,38 @@ export const KnowledgeBase = () => {
             </div>
             <div className="flex items-center gap-2">
               <ChevronDown className="h-5 w-5 text-gray-400" />
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => handleDelete(source.id)}
-                className="text-red-500 hover:text-red-600 hover:bg-red-50"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Er du sikker?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Dette vil permanent slette kilden fra kunnskapsbasen. Denne handlingen kan ikke angres.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Avbryt</AlertDialogCancel>
+                    <AlertDialogAction 
+                      onClick={() => handleDelete(source.id)}
+                      className="bg-red-500 hover:bg-red-600"
+                    >
+                      Slett
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </div>
         ))}
       </div>
-
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-semibold mb-4">Legg til ny kilde</h2>
-            
-            <Tabs value={selectedSourceType} onValueChange={(v) => setSelectedSourceType(v as "url" | "file")}>
-              <TabsList className="w-full mb-4">
-                <TabsTrigger value="url" className="flex-1">URL</TabsTrigger>
-                <TabsTrigger value="file" className="flex-1">Filopplasting</TabsTrigger>
-              </TabsList>
-            </Tabs>
-            
-            {selectedSourceType === "url" ? (
-              <div className="space-y-4">
-                <Input
-                  placeholder="Lim inn URL"
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                />
-                <Button 
-                  className="w-full" 
-                  disabled={!url}
-                  onClick={handleSourceAdd}
-                >
-                  Last opp URL
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div 
-                  className={cn(
-                    "border-2 border-dashed rounded-lg p-6 text-center transition-colors",
-                    "hover:border-primary/50 hover:bg-primary/5 cursor-pointer"
-                  )}
-                  onClick={() => document.getElementById("file-upload")?.click()}
-                >
-                  <Upload className="mx-auto h-8 w-8 text-gray-400 mb-2" />
-                  <p className="text-sm text-gray-500">
-                    {file ? file.name : "Dra og slipp fil her eller klikk for å velge"}
-                  </p>
-                  <input
-                    id="file-upload"
-                    type="file"
-                    className="hidden"
-                    onChange={handleFileChange}
-                  />
-                </div>
-                <Button 
-                  className="w-full" 
-                  disabled={!file}
-                  onClick={handleSourceAdd}
-                >
-                  Last opp fil
-                </Button>
-              </div>
-            )}
-
-            <div className="mt-4 flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setShowAddModal(false)}>
-                Avbryt
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
