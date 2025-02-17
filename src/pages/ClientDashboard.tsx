@@ -88,7 +88,7 @@ const ClientDashboard = () => {
         if (!messageText) return null;
         return (
           <div className="text-gray-700 text-sm">
-            {messageText} - {message.startTime && formatTime(message.startTime)}
+            Bot: {messageText} - {message.startTime && formatTime(message.startTime)}
           </div>
         );
       default:
@@ -280,7 +280,7 @@ const ClientDashboard = () => {
                 <div className="flex items-center justify-between mb-4">
                   <h2 className={cn(
                     "text-xl font-semibold text-primary",
-                    conversationsCollapsed && "hidden"
+                    conversationsCollapsed ? "hidden" : "text-primary"
                   )}>
                     Samtaler ({filteredConversations.length})
                   </h2>
