@@ -66,7 +66,7 @@ const ClientDashboard = () => {
       const conversation = conversations.find(c => c._id === conversationId);
       const hasTag = conversation?.reportTags?.includes(tag) ?? false;
 
-      const method = "PUT";
+      const method = hasTag ? "DELETE" : "PUT";
       
       const response = await fetch(
         `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}/${conversationId}/report_tag/${tag}`,
