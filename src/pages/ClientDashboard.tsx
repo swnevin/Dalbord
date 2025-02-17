@@ -117,11 +117,8 @@ const ClientDashboard = () => {
         const buttons = message.payload?.payload?.buttons;
         if (!buttons?.length) return null;
         return (
-          <div className="flex flex-col gap-2 my-4 max-w-[80%]">
-            <div className="bg-primary text-primary-foreground p-3 rounded-2xl rounded-bl-none self-start">
-              Bot offered:
-            </div>
-            <div className="flex flex-col gap-2 ml-8">
+          <div className="flex flex-col gap-2 my-2 max-w-[80%]">
+            <div className="flex flex-col gap-2">
               {buttons.map((button, index) => (
                 <Button
                   key={index}
