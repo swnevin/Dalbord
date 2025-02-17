@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import Sidebar from "../components/Sidebar";
 import { KnowledgeBase } from "@/components/KnowledgeBase";
@@ -14,6 +13,10 @@ interface VoiceflowTranscript {
   updatedAt: string;
   device: string;
   sessionID: string;
+  reportTags: string[];
+  user?: {
+    name: string;
+  };
 }
 
 type FilterType = "all" | "approved" | "saved";
@@ -28,8 +31,6 @@ const ClientDashboard = () => {
   const [dialog, setDialog] = useState<any[]>([]);
   const [isLoadingDialog, setIsLoadingDialog] = useState(false);
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
-  const [savedConversations, setSavedConversations] = useState<Set<string>>(new Set());
-  const [approvedConversations, setApprovedConversations] = useState<Set<string>>(new Set());
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -129,36 +130,20 @@ const ClientDashboard = () => {
     fetchDialog();
   }, [selectedConversation, user?.organization_id]);
 
-  const toggleSaved = (conversationId: string) => {
-    setSavedConversations(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(conversationId)) {
-        newSet.delete(conversationId);
-      } else {
-        newSet.add(conversationId);
-      }
-      return newSet;
-    });
+  const isConversationReviewed = (conv: VoiceflowTranscript) => {
+    return conv.reportTags?.includes("system.reviewed") ?? false;
   };
 
-  const toggleApproved = (conversationId: string) => {
-    setApprovedConversations(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(conversationId)) {
-        newSet.delete(conversationId);
-      } else {
-        newSet.add(conversationId);
-      }
-      return newSet;
-    });
+  const isConversationSaved = (conv: VoiceflowTranscript) => {
+    return conv.reportTags?.includes("system.saved") ?? false;
   };
 
   const filteredConversations = conversations.filter(conv => {
     switch (activeFilter) {
       case "saved":
-        return savedConversations.has(conv._id);
+        return isConversationSaved(conv);
       case "approved":
-        return approvedConversations.has(conv._id);
+        return isConversationReviewed(conv);
       default:
         return true;
     }
@@ -273,13 +258,10 @@ const ClientDashboard = () => {
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleSaved(conv._id);
-                              }}
+                              disabled
                               className={cn(
                                 "hover:bg-secondary/10",
-                                savedConversations.has(conv._id) && "text-secondary"
+                                isConversationSaved(conv) && "text-secondary"
                               )}
                             >
                               <Bookmark className="h-4 w-4" />
@@ -287,13 +269,10 @@ const ClientDashboard = () => {
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleApproved(conv._id);
-                              }}
+                              disabled
                               className={cn(
                                 "hover:bg-secondary/10",
-                                approvedConversations.has(conv._id) && "text-green-500"
+                                isConversationReviewed(conv) && "text-green-500"
                               )}
                             >
                               <CheckCircle className="h-4 w-4" />
