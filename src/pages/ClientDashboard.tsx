@@ -19,6 +19,15 @@ interface VoiceflowTranscript {
   };
 }
 
+interface DialogMessage {
+  type: string;
+  payload?: {
+    message?: string;
+    text?: string;
+    query?: string;
+  };
+}
+
 type FilterType = "all" | "approved" | "saved";
 
 const ClientDashboard = () => {
@@ -97,6 +106,11 @@ const ClientDashboard = () => {
     } catch (error) {
       console.error('Error updating conversation tag:', error);
     }
+  };
+
+  const filterDialog = (messages: DialogMessage[]) => {
+    const excludedTypes = ['block', 'debug', 'flow'];
+    return messages.filter(message => !excludedTypes.includes(message.type));
   };
 
   useEffect(() => {
@@ -355,9 +369,13 @@ const ClientDashboard = () => {
                   Velg en samtale for å se meldinger
                 </div>
               ) : (
-                <pre className="whitespace-pre-wrap font-mono text-sm">
-                  {JSON.stringify(dialog, null, 2)}
-                </pre>
+                <div className="space-y-4">
+                  {filterDialog(dialog).map((message, index) => (
+                    <pre key={index} className="whitespace-pre-wrap font-mono text-sm">
+                      {JSON.stringify(message, null, 2)}
+                    </pre>
+                  ))}
+                </div>
               )}
             </div>
           </div>
