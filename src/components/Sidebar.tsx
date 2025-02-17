@@ -42,7 +42,13 @@ const Sidebar = ({ role, onTabChange, activeTab }: SidebarProps) => {
       )}
     >
       <div className="p-4 flex items-center justify-between border-b border-white/10">
-        <h1 className={cn("font-bold text-xl", collapsed && "hidden")}>DALAI</h1>
+        <div className={cn("flex items-center gap-2", collapsed && "hidden")}>
+          <img 
+            src="/lovable-uploads/aa3840d0-81a7-407e-95be-f1f48868b7c6.png" 
+            alt="DALAI Logo" 
+            className="h-8"
+          />
+        </div>
         <Button
           variant="ghost"
           size="icon"
