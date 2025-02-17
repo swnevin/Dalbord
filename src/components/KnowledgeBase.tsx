@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -25,28 +25,85 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 
-interface Source {
-  id: string;
-  title: string;
-  type: "file" | "url";
-  url?: string;
+interface VoiceflowDocument {
+  data: {
+    type: "url" | "docx" | "text" | "pdf";
+    name: string;
+    url?: string;
+    refreshRate?: string;
+    canEdit?: boolean;
+  };
+  tags: string[];
+  documentID: string;
   updatedAt: string;
+  status: {
+    type: "SUCCESS" | "PENDING" | "FAILED";
+    data?: any;
+  };
+}
+
+interface VoiceflowResponse {
+  total: number;
+  data: VoiceflowDocument[];
 }
 
 export const KnowledgeBase = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [sources, setSources] = useState<Source[]>([]);
+  const [sources, setSources] = useState<VoiceflowDocument[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSourceType, setSelectedSourceType] = useState<"url" | "file">("url");
   const [url, setUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  const fetchSources = async () => {
+    if (!user?.organization_id) return;
+
+    try {
+      // Get Voiceflow API key from organization
+      const { data: org, error: orgError } = await supabase
+        .from('organizations')
+        .select('voiceflow_api_key')
+        .eq('id', user.organization_id)
+        .single();
+
+      if (orgError || !org.voiceflow_api_key) {
+        throw new Error('Kunne ikke hente Voiceflow API nøkkel');
+      }
+
+      const response = await fetch('https://api.voiceflow.com/v1/knowledge-base/docs', {
+        method: 'GET',
+        headers: {
+          'accept': 'application/json',
+          'Authorization': org.voiceflow_api_key
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Kunne ikke hente kilder');
+      }
+
+      const result: VoiceflowResponse = await response.json();
+      setSources(result.data);
+    } catch (error) {
+      console.error('Error fetching sources:', error);
+      toast({
+        title: "Feil",
+        description: error instanceof Error ? error.message : "Kunne ikke hente kilder",
+        variant: "destructive",
+      });
+    }
+  };
+
+  useEffect(() => {
+    fetchSources();
+  }, [user?.organization_id]);
+
   const handleDelete = (id: string) => {
-    setSources(sources.filter(source => source.id !== id));
+    setSources(sources.filter(source => source.documentID !== id));
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -80,7 +137,6 @@ export const KnowledgeBase = () => {
     setIsLoading(true);
 
     try {
-      // Get Voiceflow API key from organization
       const { data: org, error: orgError } = await supabase
         .from('organizations')
         .select('voiceflow_api_key')
@@ -136,14 +192,8 @@ export const KnowledgeBase = () => {
       const result = await response.json();
       console.log('Voiceflow response:', result);
 
-      // Add to local state
-      setSources(prev => [...prev, {
-        id: result.documentId || String(Date.now()),
-        title: selectedSourceType === "url" ? url : file?.name || "Ukjent fil",
-        type: selectedSourceType,
-        url: selectedSourceType === "url" ? url : undefined,
-        updatedAt: new Date().toLocaleDateString('no')
-      }]);
+      // Refresh the sources list
+      await fetchSources();
 
       toast({
         title: "Suksess",
@@ -166,7 +216,7 @@ export const KnowledgeBase = () => {
   };
 
   const filteredSources = sources.filter(source => 
-    source.title.toLowerCase().includes(searchTerm.toLowerCase())
+    source.data.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -258,14 +308,16 @@ export const KnowledgeBase = () => {
       <div className="space-y-3">
         {filteredSources.map((source) => (
           <div 
-            key={source.id}
+            key={source.documentID}
             className="flex items-center justify-between p-4 bg-white rounded-lg border hover:border-primary/20 transition-colors"
           >
             <div className="flex items-center gap-3">
               <LinkIcon className="text-primary h-5 w-5" />
               <div>
-                <h3 className="font-medium text-gray-900">{source.title}</h3>
-                <p className="text-sm text-gray-500">Oppdatert: {source.updatedAt}</p>
+                <h3 className="font-medium text-gray-900">{source.data.name}</h3>
+                <p className="text-sm text-gray-500">
+                  Oppdatert: {new Date(source.updatedAt).toLocaleDateString('no')}
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -290,7 +342,7 @@ export const KnowledgeBase = () => {
                   <AlertDialogFooter>
                     <AlertDialogCancel>Avbryt</AlertDialogCancel>
                     <AlertDialogAction 
-                      onClick={() => handleDelete(source.id)}
+                      onClick={() => handleDelete(source.documentID)}
                       className="bg-red-500 hover:bg-red-600"
                     >
                       Slett
