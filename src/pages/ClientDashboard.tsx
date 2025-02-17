@@ -70,10 +70,18 @@ const ClientDashboard = () => {
 
     dialog.forEach((turn) => {
       if (turn.type === "request") {
-        // User message
-        const message = turn.payload.type === "text" 
-          ? turn.payload.payload
-          : turn.payload.payload.label || "Valgt alternativ";
+        // User message - safely handle different payload types
+        let message = "";
+        
+        if (turn.payload.type === "text") {
+          message = turn.payload.payload;
+        } else if (turn.payload.payload?.label) {
+          message = turn.payload.payload.label;
+        } else if (typeof turn.payload.payload === 'string') {
+          message = turn.payload.payload;
+        } else {
+          message = "Valgt alternativ";
+        }
         
         if (message && message.trim()) {
           messages.push({
@@ -83,7 +91,7 @@ const ClientDashboard = () => {
           });
         }
       } 
-      else if (turn.type === "text" && turn.payload.message) {
+      else if (turn.type === "text" && turn.payload?.message) {
         // Bot message - only add if there's actual content
         const message = turn.payload.message.trim();
         if (message) {
@@ -94,7 +102,7 @@ const ClientDashboard = () => {
           });
         }
       }
-      else if (turn.type === "choice" && turn.payload.buttons && turn.payload.buttons.length > 0) {
+      else if (turn.type === "choice" && Array.isArray(turn.payload?.buttons) && turn.payload.buttons.length > 0) {
         // Bot options - only add if there are actual buttons
         const options = turn.payload.buttons
           .map((button: any) => button.name)
