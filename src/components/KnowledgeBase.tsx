@@ -26,6 +26,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { Loader } from "@/components/ui/loader";
 
 interface VoiceflowDocument {
   data: {
@@ -342,6 +343,14 @@ export const KnowledgeBase = () => {
   const filteredSources = sources.filter(source => 
     source.data.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  if (isLoading) {
+    return (
+      <div className="h-[calc(100vh-200px)] flex items-center justify-center">
+        <Loader size="lg" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
