@@ -406,7 +406,9 @@ const ClientDashboard = () => {
                         >
                           {conversationsCollapsed ? (
                             <div className="text-center">
-                              <span className="font-medium">{conv.name.charAt(0)}</span>
+                              <span className="font-medium">
+                                {conv.name ? conv.name.charAt(0) : "U"}
+                              </span>
                             </div>
                           ) : (
                             <>
@@ -414,7 +416,7 @@ const ClientDashboard = () => {
                                 "font-medium",
                                 selectedConversation === conv._id ? "text-primary" : "text-gray-700"
                               )}>
-                                {conv.name}
+                                {conv.name || "Ukjent bruker"}
                               </h3>
                               <div className="mt-1 flex justify-between items-center">
                                 <span className="text-xs text-gray-500 capitalize">
