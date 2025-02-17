@@ -109,7 +109,7 @@ const ClientDashboard = () => {
   };
 
   const filterDialog = (messages: DialogMessage[]) => {
-    const excludedTypes = ['block', 'debug', 'flow'];
+    const excludedTypes = ['block', 'debug', 'flow', 'path', 'knowledgeBase', 'no-reply'];
     return messages.filter(message => !excludedTypes.includes(message.type));
   };
 
