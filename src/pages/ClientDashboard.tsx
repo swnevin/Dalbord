@@ -26,6 +26,9 @@ interface DialogMessage {
     text?: string;
     query?: string;
     time?: number;
+    payload?: {
+      message?: string;
+    };
   };
   startTime?: string;
 }
@@ -78,6 +81,14 @@ const ClientDashboard = () => {
         return (
           <div className="text-gray-500 text-sm">
             Samtale avsluttet - {message.startTime && formatTime(message.startTime)}
+          </div>
+        );
+      case 'text':
+        const messageText = message.payload?.payload?.message;
+        if (!messageText) return null;
+        return (
+          <div className="text-gray-700 text-sm">
+            {messageText} - {message.startTime && formatTime(message.startTime)}
           </div>
         );
       default:
