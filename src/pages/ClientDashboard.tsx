@@ -26,6 +26,7 @@ interface DialogMessage {
     text?: string;
     query?: string;
     time?: number;
+    type?: string;
     payload?: {
       message?: string;
       buttons?: Array<{
@@ -36,6 +37,8 @@ interface DialogMessage {
           };
         };
       }>;
+      query?: string;
+      label?: string;
     };
   };
   startTime?: string;
@@ -110,6 +113,16 @@ const ClientDashboard = () => {
                 <li key={index}>{button.name}</li>
               ))}
             </ul>
+          </div>
+        );
+      case 'request':
+        const query = message.payload?.payload?.query;
+        const label = message.payload?.payload?.label;
+        const userText = query || label;
+        if (!userText) return null;
+        return (
+          <div className="text-gray-700 text-sm">
+            User: {userText} - {message.startTime && formatTime(message.startTime)}
           </div>
         );
       default:
