@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -81,6 +82,7 @@ export const KnowledgeBase = () => {
   const fetchSources = async () => {
     if (!user?.organization_id) return;
 
+    setIsLoading(true);
     try {
       const { data: org, error: orgError } = await supabase
         .from('organizations')
@@ -128,6 +130,8 @@ export const KnowledgeBase = () => {
         description: error instanceof Error ? error.message : "Kunne ikke hente kilder",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
