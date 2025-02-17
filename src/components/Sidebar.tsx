@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useLocation, Link } from "react-router-dom";
 import {
   Users,
   LogOut,
@@ -11,7 +12,6 @@ import {
   MessageSquare,
   BookOpen,
 } from "lucide-react";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface SidebarProps {
   role: "admin" | "client";
@@ -20,6 +20,7 @@ interface SidebarProps {
 const Sidebar = ({ role }: SidebarProps) => {
   const [collapsed, setCollapsed] = useState(false);
   const { logout } = useAuth();
+  const location = useLocation();
 
   const adminLinks = [
     { icon: Users, label: "Organisasjoner", path: "/admin" },
@@ -52,20 +53,26 @@ const Sidebar = ({ role }: SidebarProps) => {
       </div>
 
       <div className="flex-1 p-4">
-        <Tabs defaultValue={links[0].path} orientation="vertical" className="w-full">
-          <TabsList className="flex flex-col h-auto bg-transparent space-y-2">
-            {links.map((link) => (
-              <TabsTrigger
+        <nav className="space-y-2">
+          {links.map((link) => {
+            const Icon = link.icon;
+            const isActive = location.pathname === link.path;
+            
+            return (
+              <Link
                 key={link.path}
-                value={link.path}
-                className="w-full justify-start gap-3 text-white data-[state=active]:bg-secondary data-[state=active]:text-primary"
+                to={link.path}
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2 rounded-md transition-colors",
+                  isActive ? "bg-secondary text-primary" : "text-white hover:bg-white/10"
+                )}
               >
-                <link.icon size={20} />
+                <Icon size={20} />
                 {!collapsed && <span>{link.label}</span>}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
+              </Link>
+            );
+          })}
+        </nav>
       </div>
 
       <div className="p-4 border-t border-white/10">
