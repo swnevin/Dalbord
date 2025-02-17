@@ -84,35 +84,57 @@ const ClientDashboard = () => {
     switch (message.type) {
       case 'launch':
         return (
-          <div className="text-gray-500 text-sm">
-            Samtale startet - {message.startTime && formatTime(message.startTime)}
+          <div className="flex justify-center my-4">
+            <div className="bg-gray-100 rounded-full px-4 py-1 text-xs text-gray-500">
+              Samtale startet - {message.startTime && formatTime(message.startTime)}
+            </div>
           </div>
         );
       case 'end':
         return (
-          <div className="text-gray-500 text-sm">
-            Samtale avsluttet - {message.startTime && formatTime(message.startTime)}
+          <div className="flex justify-center my-4">
+            <div className="bg-gray-100 rounded-full px-4 py-1 text-xs text-gray-500">
+              Samtale avsluttet - {message.startTime && formatTime(message.startTime)}
+            </div>
           </div>
         );
       case 'text':
         const messageText = message.payload?.payload?.message;
         if (!messageText) return null;
         return (
-          <div className="text-gray-700 text-sm">
-            Bot: {messageText} - {message.startTime && formatTime(message.startTime)}
+          <div className="flex flex-col gap-1 my-2">
+            <div className="flex items-end gap-2 max-w-[80%]">
+              <div className="bg-primary text-primary-foreground p-3 rounded-2xl rounded-bl-none">
+                {messageText}
+              </div>
+            </div>
+            <span className="text-xs text-gray-500 ml-2">
+              {message.startTime && formatTime(message.startTime)}
+            </span>
           </div>
         );
       case 'choice':
         const buttons = message.payload?.payload?.buttons;
         if (!buttons?.length) return null;
         return (
-          <div className="text-gray-700 text-sm">
-            <div>Bot offered: - {message.startTime && formatTime(message.startTime)}</div>
-            <ul className="list-disc pl-6 mt-1">
+          <div className="flex flex-col gap-2 my-4 max-w-[80%]">
+            <div className="bg-primary text-primary-foreground p-3 rounded-2xl rounded-bl-none self-start">
+              Bot offered:
+            </div>
+            <div className="flex flex-col gap-2 ml-8">
               {buttons.map((button, index) => (
-                <li key={index}>{button.name}</li>
+                <Button
+                  key={index}
+                  variant="outline"
+                  className="justify-start text-left"
+                >
+                  {button.name}
+                </Button>
               ))}
-            </ul>
+            </div>
+            <span className="text-xs text-gray-500 ml-2">
+              {message.startTime && formatTime(message.startTime)}
+            </span>
           </div>
         );
       case 'request':
@@ -121,15 +143,27 @@ const ClientDashboard = () => {
         const userText = query || label;
         if (!userText) return null;
         return (
-          <div className="text-gray-700 text-sm">
-            User: {userText} - {message.startTime && formatTime(message.startTime)}
+          <div className="flex flex-col items-end gap-1 my-2">
+            <div className="flex items-end gap-2 max-w-[80%]">
+              <div className="bg-secondary text-secondary-foreground p-3 rounded-2xl rounded-br-none">
+                {userText}
+              </div>
+            </div>
+            <span className="text-xs text-gray-500 mr-2">
+              {message.startTime && formatTime(message.startTime)}
+            </span>
           </div>
         );
       default:
         return (
-          <pre className="whitespace-pre-wrap font-mono text-sm">
-            {JSON.stringify(message, null, 2)}
-          </pre>
+          <div className="my-2 p-4 bg-gray-50 rounded-lg border border-gray-200 text-sm font-mono overflow-auto">
+            <div className="text-xs text-gray-500 mb-2">
+              Unknown message type: {message.type} - {message.startTime && formatTime(message.startTime)}
+            </div>
+            <pre className="whitespace-pre-wrap">
+              {JSON.stringify(message, null, 2)}
+            </pre>
+          </div>
         );
     }
   };
