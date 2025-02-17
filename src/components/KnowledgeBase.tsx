@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -74,20 +75,37 @@ export const KnowledgeBase = () => {
         throw new Error('Kunne ikke hente Voiceflow API nøkkel');
       }
 
-      const response = await fetch('https://api.voiceflow.com/v1/knowledge-base/docs', {
-        method: 'GET',
-        headers: {
-          'accept': 'application/json',
-          'Authorization': org.voiceflow_api_key
-        }
-      });
+      // Set a high limit to get all documents in one request if possible
+      const limit = 100;
+      let page = 1;
+      let allSources: VoiceflowDocument[] = [];
+      let hasMore = true;
 
-      if (!response.ok) {
-        throw new Error('Kunne ikke hente kilder');
+      while (hasMore) {
+        const response = await fetch(
+          `https://api.voiceflow.com/v1/knowledge-base/docs?limit=${limit}&page=${page}`,
+          {
+            method: 'GET',
+            headers: {
+              'accept': 'application/json',
+              'Authorization': org.voiceflow_api_key
+            }
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error('Kunne ikke hente kilder');
+        }
+
+        const result: VoiceflowResponse = await response.json();
+        allSources = [...allSources, ...result.data];
+
+        // Check if we need to fetch more pages
+        hasMore = result.data.length === limit && result.total > allSources.length;
+        page++;
       }
 
-      const result: VoiceflowResponse = await response.json();
-      setSources(result.data);
+      setSources(allSources);
     } catch (error) {
       console.error('Error fetching sources:', error);
       toast({
