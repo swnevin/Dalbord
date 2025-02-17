@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import Sidebar from "../components/Sidebar";
 import { Button } from "@/components/ui/button";
@@ -6,6 +5,8 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { KnowledgeBase } from "@/components/KnowledgeBase";
 
 interface VoiceflowTranscript {
   _id: string;
@@ -133,93 +134,110 @@ const ClientDashboard = () => {
   return (
     <div className="flex h-screen bg-cream">
       <Sidebar role="client" />
-      <div className="flex flex-1">
-        {/* Conversations List */}
-        <div 
-          className={cn(
-            "border-r border-gray-200 bg-white transition-all duration-300",
-            conversationsCollapsed ? "w-20" : "w-96"
-          )}
-        >
-          <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-            <h2 className={cn(
-              "text-xl font-semibold text-primary",
-              conversationsCollapsed && "hidden"
-            )}>
-              Samtaler ({conversations.length})
-            </h2>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setConversationsCollapsed(!conversationsCollapsed)}
-              className="hover:bg-secondary/10"
-            >
-              {conversationsCollapsed ? <ChevronRight /> : <ChevronLeft />}
-            </Button>
+      <div className="flex-1">
+        <Tabs defaultValue="conversations" className="h-full">
+          <div className="border-b">
+            <div className="px-4">
+              <TabsList>
+                <TabsTrigger value="conversations">Samtaler</TabsTrigger>
+                <TabsTrigger value="knowledge">Kunnskapsbase</TabsTrigger>
+              </TabsList>
+            </div>
           </div>
-          <div className="overflow-auto h-[calc(100vh-144px)]">
-            {isLoading ? (
-              <div className="p-4 text-center text-gray-500">Laster samtaler...</div>
-            ) : (
-              conversations.map((conv) => (
-                <div
-                  key={conv._id}
-                  className={cn(
-                    "p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors",
-                    selectedConversation === conv._id && "bg-secondary text-primary",
-                    conversationsCollapsed && "px-2"
-                  )}
-                  onClick={() => setSelectedConversation(conv._id)}
-                >
-                  {conversationsCollapsed ? (
-                    <div className="text-center">
-                      <span className="font-medium">{conv.name.charAt(0)}</span>
-                    </div>
+
+          <TabsContent value="conversations" className="h-[calc(100%-48px)]">
+            <div className="flex h-full">
+              <div 
+                className={cn(
+                  "border-r border-gray-200 bg-white transition-all duration-300",
+                  conversationsCollapsed ? "w-20" : "w-96"
+                )}
+              >
+                <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+                  <h2 className={cn(
+                    "text-xl font-semibold text-primary",
+                    conversationsCollapsed && "hidden"
+                  )}>
+                    Samtaler ({conversations.length})
+                  </h2>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setConversationsCollapsed(!conversationsCollapsed)}
+                    className="hover:bg-secondary/10"
+                  >
+                    {conversationsCollapsed ? <ChevronRight /> : <ChevronLeft />}
+                  </Button>
+                </div>
+                <div className="overflow-auto h-[calc(100vh-144px)]">
+                  {isLoading ? (
+                    <div className="p-4 text-center text-gray-500">Laster samtaler...</div>
                   ) : (
-                    <>
-                      <div className="flex justify-between items-start">
-                        <h3 className={cn(
-                          "font-medium",
-                          selectedConversation === conv._id ? "text-primary" : "text-gray-700"
-                        )}>
-                          {conv.name}
-                        </h3>
-                        <span className="text-xs text-gray-500 whitespace-nowrap">
-                          {formatDate(conv.updatedAt).time}
-                        </span>
+                    conversations.map((conv) => (
+                      <div
+                        key={conv._id}
+                        className={cn(
+                          "p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors",
+                          selectedConversation === conv._id && "bg-secondary text-primary",
+                          conversationsCollapsed && "px-2"
+                        )}
+                        onClick={() => setSelectedConversation(conv._id)}
+                      >
+                        {conversationsCollapsed ? (
+                          <div className="text-center">
+                            <span className="font-medium">{conv.name.charAt(0)}</span>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="flex justify-between items-start">
+                              <h3 className={cn(
+                                "font-medium",
+                                selectedConversation === conv._id ? "text-primary" : "text-gray-700"
+                              )}>
+                                {conv.name}
+                              </h3>
+                              <span className="text-xs text-gray-500 whitespace-nowrap">
+                                {formatDate(conv.updatedAt).time}
+                              </span>
+                            </div>
+                            <div className="mt-1 flex justify-between items-center">
+                              <span className="text-xs text-gray-500 capitalize">
+                                {conv.device}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                {formatDate(conv.updatedAt).date}
+                              </span>
+                            </div>
+                          </>
+                        )}
                       </div>
-                      <div className="mt-1 flex justify-between items-center">
-                        <span className="text-xs text-gray-500 capitalize">
-                          {conv.device}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {formatDate(conv.updatedAt).date}
-                        </span>
-                      </div>
-                    </>
+                    ))
                   )}
                 </div>
-              ))
-            )}
-          </div>
-        </div>
+              </div>
 
-        {/* Dialog Display */}
-        <div className="flex-1 bg-white p-4 overflow-auto">
-          {isLoadingDialog ? (
-            <div className="h-full flex items-center justify-center text-gray-500">
-              Laster dialog...
+              <div className="flex-1 bg-white p-4 overflow-auto">
+                {isLoadingDialog ? (
+                  <div className="h-full flex items-center justify-center text-gray-500">
+                    Laster dialog...
+                  </div>
+                ) : !selectedConversation ? (
+                  <div className="h-full flex items-center justify-center text-gray-500">
+                    Velg en samtale for å se meldinger
+                  </div>
+                ) : (
+                  <pre className="whitespace-pre-wrap text-sm">
+                    {JSON.stringify(dialog, null, 2)}
+                  </pre>
+                )}
+              </div>
             </div>
-          ) : !selectedConversation ? (
-            <div className="h-full flex items-center justify-center text-gray-500">
-              Velg en samtale for å se meldinger
-            </div>
-          ) : (
-            <pre className="whitespace-pre-wrap text-sm">
-              {JSON.stringify(dialog, null, 2)}
-            </pre>
-          )}
-        </div>
+          </TabsContent>
+
+          <TabsContent value="knowledge" className="h-[calc(100%-48px)]">
+            <KnowledgeBase />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
