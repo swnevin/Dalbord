@@ -1,10 +1,11 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChevronDown, Link as LinkIcon, Search, Trash2, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Sheet,
   SheetContent,
@@ -24,6 +25,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { useToast } from "@/components/ui/use-toast";
 
 interface Source {
   id: string;
@@ -34,25 +36,14 @@ interface Source {
 }
 
 export const KnowledgeBase = () => {
-  const [sources, setSources] = useState<Source[]>([
-    {
-      id: "1",
-      title: "FAQs",
-      type: "file",
-      updatedAt: "23.1.2025"
-    },
-    {
-      id: "2",
-      title: "surfmobil.no/",
-      type: "url",
-      url: "https://surfmobil.no",
-      updatedAt: "27.1.2025"
-    }
-  ]);
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [sources, setSources] = useState<Source[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSourceType, setSelectedSourceType] = useState<"url" | "file">("url");
   const [url, setUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleDelete = (id: string) => {
     setSources(sources.filter(source => source.id !== id));
@@ -60,13 +51,118 @@ export const KnowledgeBase = () => {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
+      const selectedFile = e.target.files[0];
+      const allowedTypes = ['application/pdf', 'text/plain', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+      
+      if (!allowedTypes.includes(selectedFile.type)) {
+        toast({
+          title: "Ugyldig filtype",
+          description: "Kun PDF, tekst eller DOCX filer er tillatt.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      setFile(selectedFile);
     }
   };
 
-  const handleSourceAdd = () => {
-    // TODO: Implement source addition logic
-    // This will be connected to Voiceflow API later
+  const handleSourceAdd = async () => {
+    if (!user?.organization_id) {
+      toast({
+        title: "Feil",
+        description: "Ingen organisasjon funnet.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      // Get Voiceflow API key from organization
+      const { data: org, error: orgError } = await supabase
+        .from('organizations')
+        .select('voiceflow_api_key')
+        .eq('id', user.organization_id)
+        .single();
+
+      if (orgError || !org.voiceflow_api_key) {
+        throw new Error('Kunne ikke hente Voiceflow API nøkkel');
+      }
+
+      let response;
+
+      if (selectedSourceType === "url" && url) {
+        const options = {
+          method: 'POST',
+          headers: {
+            accept: 'application/json',
+            'content-type': 'application/json; charset=utf-8',
+            Authorization: org.voiceflow_api_key
+          },
+          body: JSON.stringify({
+            data: {
+              type: "url",
+              name: url,
+              url: url
+            }
+          })
+        };
+
+        response = await fetch('https://api.voiceflow.com/v1/knowledge-base/docs/upload?maxChunkSize=1000', options);
+      } else if (selectedSourceType === "file" && file) {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const options = {
+          method: 'POST',
+          headers: {
+            accept: 'application/json',
+            Authorization: org.voiceflow_api_key
+          },
+          body: formData
+        };
+
+        response = await fetch('https://api.voiceflow.com/v1/knowledge-base/docs/upload?maxChunkSize=1000', options);
+      } else {
+        throw new Error('Ingen gyldig kilde valgt');
+      }
+
+      if (!response.ok) {
+        throw new Error('Feil ved opplasting til Voiceflow');
+      }
+
+      const result = await response.json();
+      console.log('Voiceflow response:', result);
+
+      // Add to local state
+      setSources(prev => [...prev, {
+        id: result.documentId || String(Date.now()),
+        title: selectedSourceType === "url" ? url : file?.name || "Ukjent fil",
+        type: selectedSourceType,
+        url: selectedSourceType === "url" ? url : undefined,
+        updatedAt: new Date().toLocaleDateString('no')
+      }]);
+
+      toast({
+        title: "Suksess",
+        description: "Kilde lagt til i kunnskapsbasen",
+      });
+
+      // Reset form
+      setUrl("");
+      setFile(null);
+    } catch (error) {
+      console.error('Error adding source:', error);
+      toast({
+        title: "Feil",
+        description: error instanceof Error ? error.message : "Kunne ikke legge til kilde",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const filteredSources = sources.filter(source => 
@@ -108,10 +204,10 @@ export const KnowledgeBase = () => {
                   />
                   <Button 
                     className="w-full" 
-                    disabled={!url}
+                    disabled={!url || isLoading}
                     onClick={handleSourceAdd}
                   >
-                    Last opp URL
+                    {isLoading ? "Laster opp..." : "Last opp URL"}
                   </Button>
                 </div>
               ) : (
@@ -130,16 +226,17 @@ export const KnowledgeBase = () => {
                     <input
                       id="file-upload"
                       type="file"
+                      accept=".pdf,.txt,.docx"
                       className="hidden"
                       onChange={handleFileChange}
                     />
                   </div>
                   <Button 
                     className="w-full" 
-                    disabled={!file}
+                    disabled={!file || isLoading}
                     onClick={handleSourceAdd}
                   >
-                    Last opp fil
+                    {isLoading ? "Laster opp..." : "Last opp fil"}
                   </Button>
                 </div>
               )}
