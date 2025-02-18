@@ -479,7 +479,6 @@ const ClientDashboard = () => {
     const messages = filterDialog(dialog);
     let lastLaunchIndex = -1;
     
-    // Find the index of the last 'launch' type message
     messages.forEach((message, index) => {
       if (message.type === 'launch') {
         lastLaunchIndex = index;
@@ -487,7 +486,6 @@ const ClientDashboard = () => {
     });
 
     if (lastLaunchIndex !== -1) {
-      // Use a small timeout to ensure content is rendered
       setTimeout(() => {
         const children = Array.from(dialogContainerRef.current!.children);
         const targetElement = children[lastLaunchIndex];
@@ -498,7 +496,6 @@ const ClientDashboard = () => {
     }
   };
 
-  // Add effect to trigger scroll when dialog changes
   useEffect(() => {
     if (dialog.length > 0 && !isLoadingDialog) {
       scrollToLatestLaunch();
@@ -529,6 +526,19 @@ const ClientDashboard = () => {
 
     setSessions(newSessions);
   };
+
+  const scrollToBottom = () => {
+    if (dialogContainerRef.current) {
+      const container = dialogContainerRef.current;
+      container.scrollTop = container.scrollHeight;
+    }
+  };
+
+  useEffect(() => {
+    if (dialog.length > 0 && !isLoadingDialog) {
+      setTimeout(scrollToBottom, 100);
+    }
+  }, [dialog, isLoadingDialog]);
 
   return (
     <div className="flex h-screen bg-cream">
