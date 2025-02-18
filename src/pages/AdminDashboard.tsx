@@ -127,6 +127,7 @@ const AdminDashboard = () => {
     tabs: TabName[];
   }) => {
     try {
+      // First, sign up the user
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: member.email,
         password: member.password,
@@ -138,52 +139,76 @@ const AdminDashboard = () => {
         }
       });
 
-      if (authError) throw authError;
-
-      if (authData.user) {
-        // Update profile
-        const { error: profileError } = await supabase
-          .from("profiles")
-          .update({ 
-            organization_id: orgId,
-            role: 'client'
-          })
-          .eq("id", authData.user.id);
-
-        if (profileError) throw profileError;
-
-        // Add tab permissions
-        const tabPermissions = member.tabs.map(tab_name => ({
-          user_id: authData.user!.id,
-          tab_name: tab_name
-        }));
-
-        const { error: tabError } = await supabase
-          .from("user_tab_permissions")
-          .insert(tabPermissions);
-
-        if (tabError) throw tabError;
-
-        // Fetch updated profiles to refresh the UI
-        const { data: updatedProfiles, error: fetchError } = await supabase
-          .from("profiles")
-          .select(`
-            *,
-            tabs:user_tab_permissions(tab_name)
-          `)
-          .eq("organization_id", orgId);
-
-        if (fetchError) throw fetchError;
-
-        console.log('Updated profiles after adding member:', updatedProfiles);
-
-        setProfiles(prev => ({
-          ...prev,
-          [orgId]: updatedProfiles || []
-        }));
-
-        toast.success("Medlem lagt til");
+      if (authError) {
+        console.error('Auth error:', authError);
+        throw authError;
       }
+
+      if (!authData.user) {
+        throw new Error('No user data returned after signup');
+      }
+
+      console.log('User created:', authData.user.id);
+
+      // Update profile with organization
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({ 
+          organization_id: orgId,
+          role: 'client',
+          name: member.name,
+          email: member.email
+        })
+        .eq("id", authData.user.id);
+
+      if (profileError) {
+        console.error('Profile update error:', profileError);
+        throw profileError;
+      }
+
+      console.log('Profile updated for user:', authData.user.id);
+
+      // Add tab permissions
+      const tabPermissions = member.tabs.map(tab_name => ({
+        user_id: authData.user.id,
+        tab_name
+      }));
+
+      console.log('Inserting tab permissions:', tabPermissions);
+
+      const { error: tabError } = await supabase
+        .from("user_tab_permissions")
+        .insert(tabPermissions);
+
+      if (tabError) {
+        console.error('Tab permissions error:', tabError);
+        throw tabError;
+      }
+
+      console.log('Tab permissions created for user:', authData.user.id);
+
+      // Fetch updated profiles to refresh the UI
+      const { data: updatedProfiles, error: fetchError } = await supabase
+        .from("profiles")
+        .select(`
+          *,
+          tabs:user_tab_permissions(tab_name)
+        `)
+        .eq("organization_id", orgId);
+
+      if (fetchError) {
+        console.error('Error fetching updated profiles:', fetchError);
+        throw fetchError;
+      }
+
+      console.log('Updated profiles after adding member:', updatedProfiles);
+
+      setProfiles(prev => ({
+        ...prev,
+        [orgId]: updatedProfiles || []
+      }));
+
+      toast.success("Medlem lagt til");
     } catch (error: any) {
       console.error("Error adding member:", error);
       toast.error(error.message || "Kunne ikke legge til medlem");
