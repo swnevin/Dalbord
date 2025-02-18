@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import Sidebar from "../components/Sidebar";
@@ -74,6 +75,7 @@ const AdminDashboard = () => {
 
       setOrganizations(orgs || []);
 
+      // Fetch profiles for each organization with their tab permissions
       for (const org of orgs || []) {
         const { data: orgProfiles, error: profilesError } = await supabase
           .from("profiles")
@@ -125,60 +127,63 @@ const AdminDashboard = () => {
     tabs: TabName[];
   }) => {
     try {
-      const { data: userId, error: createError } = await supabase.rpc(
-        'create_organization_member',
-        {
-          user_email: member.email,
-          user_password: member.password,
-          user_name: member.name,
-          organization_id: orgId
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: member.email,
+        password: member.password,
+        options: {
+          data: {
+            name: member.name,
+            role: 'client'
+          }
         }
-      );
+      });
 
-      if (createError) {
-        console.error('Error creating member:', createError);
-        throw createError;
+      if (authError) throw authError;
+
+      if (authData.user) {
+        // Update profile
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .update({ 
+            organization_id: orgId,
+            role: 'client'
+          })
+          .eq("id", authData.user.id);
+
+        if (profileError) throw profileError;
+
+        // Add tab permissions
+        const tabPermissions = member.tabs.map(tab_name => ({
+          user_id: authData.user!.id,
+          tab_name: tab_name
+        }));
+
+        const { error: tabError } = await supabase
+          .from("user_tab_permissions")
+          .insert(tabPermissions);
+
+        if (tabError) throw tabError;
+
+        // Fetch updated profiles to refresh the UI
+        const { data: updatedProfiles, error: fetchError } = await supabase
+          .from("profiles")
+          .select(`
+            *,
+            tabs:user_tab_permissions(tab_name)
+          `)
+          .eq("organization_id", orgId);
+
+        if (fetchError) throw fetchError;
+
+        console.log('Updated profiles after adding member:', updatedProfiles);
+
+        setProfiles(prev => ({
+          ...prev,
+          [orgId]: updatedProfiles || []
+        }));
+
+        toast.success("Medlem lagt til");
       }
-
-      console.log('User created with ID:', userId);
-
-      const tabPermissions = member.tabs.map(tab_name => ({
-        user_id: userId,
-        tab_name
-      }));
-
-      console.log('Inserting tab permissions:', tabPermissions);
-
-      const { error: tabError } = await supabase
-        .from("user_tab_permissions")
-        .insert(tabPermissions);
-
-      if (tabError) {
-        console.error('Tab permissions error:', tabError);
-        throw tabError;
-      }
-
-      console.log('Tab permissions created for user:', userId);
-
-      const { data: updatedProfiles, error: fetchError } = await supabase
-        .from("profiles")
-        .select(`
-          *,
-          tabs:user_tab_permissions(tab_name)
-        `)
-        .eq("organization_id", orgId);
-
-      if (fetchError) {
-        console.error('Error fetching updated profiles:', fetchError);
-        throw fetchError;
-      }
-
-      setProfiles(prev => ({
-        ...prev,
-        [orgId]: updatedProfiles || []
-      }));
-
-      toast.success("Medlem lagt til");
     } catch (error: any) {
       console.error("Error adding member:", error);
       toast.error(error.message || "Kunne ikke legge til medlem");
@@ -228,6 +233,7 @@ const AdminDashboard = () => {
         return;
       }
 
+      // First, get the member's organization_id before we delete them
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("organization_id")
@@ -236,12 +242,14 @@ const AdminDashboard = () => {
 
       if (profileError) throw profileError;
 
+      // Call the delete_user function we created
       const { error: deleteError } = await supabase.rpc('delete_user', {
         user_id: profileId
       });
 
       if (deleteError) throw deleteError;
 
+      // Update the local state to reflect the deletion
       if (profile.organization_id) {
         setProfiles(prev => ({
           ...prev,
@@ -266,6 +274,7 @@ const AdminDashboard = () => {
     return <div>Laster...</div>;
   }
 
+  // Sort organizations to put Dalai first
   const sortedOrganizations = [...organizations].sort((a, b) => {
     if (a.name === "Dalai") return -1;
     if (b.name === "Dalai") return 1;
