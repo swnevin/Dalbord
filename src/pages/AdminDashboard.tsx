@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import Sidebar from "../components/Sidebar";
@@ -75,7 +74,6 @@ const AdminDashboard = () => {
 
       setOrganizations(orgs || []);
 
-      // Fetch profiles for each organization with their tab permissions
       for (const org of orgs || []) {
         const { data: orgProfiles, error: profilesError } = await supabase
           .from("profiles")
@@ -141,7 +139,6 @@ const AdminDashboard = () => {
       if (authError) throw authError;
 
       if (authData.user) {
-        // Update profile
         const { error: profileError } = await supabase
           .from("profiles")
           .update({ 
@@ -152,19 +149,22 @@ const AdminDashboard = () => {
 
         if (profileError) throw profileError;
 
-        // Add tab permissions
-        const tabPermissions = member.tabs.map(tab_name => ({
-          user_id: authData.user!.id,
-          tab_name: tab_name
-        }));
+        if (member.tabs.length > 0) {
+          const tabPermissions = member.tabs.map(tab_name => ({
+            user_id: authData.user!.id,
+            tab_name: tab_name
+          }));
 
-        const { error: tabError } = await supabase
-          .from("user_tab_permissions")
-          .insert(tabPermissions);
+          const { error: tabError } = await supabase
+            .from("user_tab_permissions")
+            .insert(tabPermissions);
 
-        if (tabError) throw tabError;
+          if (tabError) {
+            console.error('Error adding tab permissions:', tabError);
+            throw new Error('Kunne ikke legge til tilganger');
+          }
+        }
 
-        // Fetch updated profiles to refresh the UI
         const { data: updatedProfiles, error: fetchError } = await supabase
           .from("profiles")
           .select(`
@@ -174,8 +174,6 @@ const AdminDashboard = () => {
           .eq("organization_id", orgId);
 
         if (fetchError) throw fetchError;
-
-        console.log('Updated profiles after adding member:', updatedProfiles);
 
         setProfiles(prev => ({
           ...prev,
@@ -187,6 +185,7 @@ const AdminDashboard = () => {
     } catch (error: any) {
       console.error("Error adding member:", error);
       toast.error(error.message || "Kunne ikke legge til medlem");
+      throw error;
     }
   };
 
@@ -233,7 +232,6 @@ const AdminDashboard = () => {
         return;
       }
 
-      // First, get the member's organization_id before we delete them
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("organization_id")
@@ -242,14 +240,12 @@ const AdminDashboard = () => {
 
       if (profileError) throw profileError;
 
-      // Call the delete_user function we created
       const { error: deleteError } = await supabase.rpc('delete_user', {
         user_id: profileId
       });
 
       if (deleteError) throw deleteError;
 
-      // Update the local state to reflect the deletion
       if (profile.organization_id) {
         setProfiles(prev => ({
           ...prev,
@@ -274,7 +270,6 @@ const AdminDashboard = () => {
     return <div>Laster...</div>;
   }
 
-  // Sort organizations to put Dalai first
   const sortedOrganizations = [...organizations].sort((a, b) => {
     if (a.name === "Dalai") return -1;
     if (b.name === "Dalai") return 1;

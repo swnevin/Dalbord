@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { supabase } from "@/integrations/supabase/client";
 
 type TabName = "organizations" | "conversations" | "knowledge";
 
@@ -40,6 +41,7 @@ export const AddMemberForm = ({
     tabs: []
   });
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleTabChange = (tabName: TabName, checked: boolean) => {
     setMember(prev => ({
@@ -56,9 +58,19 @@ export const AddMemberForm = ({
       setError("Velg minst én fane");
       return;
     }
-    await onSubmit(member);
-    setMember({ name: "", email: "", password: "", tabs: [] });
-    setError("");
+
+    try {
+      setIsSubmitting(true);
+      await onSubmit(member);
+      // Reset form after successful submission
+      setMember({ name: "", email: "", password: "", tabs: [] });
+      setError("");
+    } catch (error) {
+      console.error("Error adding member:", error);
+      setError("Kunne ikke legge til medlem");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -140,8 +152,9 @@ export const AddMemberForm = ({
         <Button 
           className="w-full bg-secondary text-primary hover:bg-secondary/90"
           onClick={handleSubmit}
+          disabled={isSubmitting}
         >
-          Legg til
+          {isSubmitting ? 'Legger til...' : 'Legg til'}
         </Button>
       </div>
     </>
