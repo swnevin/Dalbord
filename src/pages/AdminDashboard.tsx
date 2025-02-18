@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import Sidebar from "../components/Sidebar";
@@ -75,7 +74,6 @@ const AdminDashboard = () => {
 
       setOrganizations(orgs || []);
 
-      // Fetch profiles for each organization with their tab permissions
       for (const org of orgs || []) {
         const { data: orgProfiles, error: profilesError } = await supabase
           .from("profiles")
@@ -127,50 +125,25 @@ const AdminDashboard = () => {
     tabs: TabName[];
   }) => {
     try {
-      // First, sign up the user
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: member.email,
-        password: member.password,
-        options: {
-          data: {
-            name: member.name,
-            role: 'client'
-          }
+      const { data: userId, error: createError } = await supabase.rpc(
+        'create_organization_member',
+        {
+          user_email: member.email,
+          user_password: member.password,
+          user_name: member.name,
+          organization_id: orgId
         }
-      });
+      );
 
-      if (authError) {
-        console.error('Auth error:', authError);
-        throw authError;
+      if (createError) {
+        console.error('Error creating member:', createError);
+        throw createError;
       }
 
-      if (!authData.user) {
-        throw new Error('No user data returned after signup');
-      }
+      console.log('User created with ID:', userId);
 
-      console.log('User created:', authData.user.id);
-
-      // Update profile with organization
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .update({ 
-          organization_id: orgId,
-          role: 'client',
-          name: member.name,
-          email: member.email
-        })
-        .eq("id", authData.user.id);
-
-      if (profileError) {
-        console.error('Profile update error:', profileError);
-        throw profileError;
-      }
-
-      console.log('Profile updated for user:', authData.user.id);
-
-      // Add tab permissions
       const tabPermissions = member.tabs.map(tab_name => ({
-        user_id: authData.user.id,
+        user_id: userId,
         tab_name
       }));
 
@@ -185,9 +158,8 @@ const AdminDashboard = () => {
         throw tabError;
       }
 
-      console.log('Tab permissions created for user:', authData.user.id);
+      console.log('Tab permissions created for user:', userId);
 
-      // Fetch updated profiles to refresh the UI
       const { data: updatedProfiles, error: fetchError } = await supabase
         .from("profiles")
         .select(`
@@ -200,8 +172,6 @@ const AdminDashboard = () => {
         console.error('Error fetching updated profiles:', fetchError);
         throw fetchError;
       }
-
-      console.log('Updated profiles after adding member:', updatedProfiles);
 
       setProfiles(prev => ({
         ...prev,
@@ -258,7 +228,6 @@ const AdminDashboard = () => {
         return;
       }
 
-      // First, get the member's organization_id before we delete them
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("organization_id")
@@ -267,14 +236,12 @@ const AdminDashboard = () => {
 
       if (profileError) throw profileError;
 
-      // Call the delete_user function we created
       const { error: deleteError } = await supabase.rpc('delete_user', {
         user_id: profileId
       });
 
       if (deleteError) throw deleteError;
 
-      // Update the local state to reflect the deletion
       if (profile.organization_id) {
         setProfiles(prev => ({
           ...prev,
@@ -299,7 +266,6 @@ const AdminDashboard = () => {
     return <div>Laster...</div>;
   }
 
-  // Sort organizations to put Dalai first
   const sortedOrganizations = [...organizations].sort((a, b) => {
     if (a.name === "Dalai") return -1;
     if (b.name === "Dalai") return 1;
