@@ -21,6 +21,7 @@ interface Organization {
   name: string;
   voiceflow_api_key?: string;
   voiceflow_project_id?: string;
+  type?: "admin" | "client";
 }
 
 interface Profile {
@@ -85,8 +86,6 @@ const AdminDashboard = () => {
 
         if (profilesError) throw profilesError;
 
-        console.log('Fetched profiles with tabs:', orgProfiles);
-
         setProfiles(prev => ({
           ...prev,
           [org.id]: orgProfiles || []
@@ -97,6 +96,84 @@ const AdminDashboard = () => {
       toast.error("Kunne ikke hente organisasjoner");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleAddMember = async (orgId: string, member: { 
+    name: string; 
+    email: string; 
+    password: string;
+    tabs: TabName[];
+  }) => {
+    try {
+      if (!isAdmin) {
+        toast.error('Kun administratorer kan legge til medlemmer');
+        return;
+      }
+
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: member.email,
+        password: member.password,
+        options: {
+          data: {
+            name: member.name,
+            role: 'client'
+          }
+        }
+      });
+
+      if (authError) throw authError;
+
+      if (!authData.user) {
+        throw new Error('Kunne ikke opprette bruker');
+      }
+
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({ 
+          organization_id: orgId,
+          role: 'client'
+        })
+        .eq("id", authData.user.id);
+
+      if (profileError) throw profileError;
+
+      if (member.tabs.length > 0) {
+        const { error: tabError } = await supabase
+          .from("user_tab_permissions")
+          .insert(
+            member.tabs.map(tab_name => ({
+              user_id: authData.user!.id,
+              tab_name
+            }))
+          );
+
+        if (tabError) {
+          console.error('Error adding tab permissions:', tabError);
+          throw new Error('Kunne ikke legge til tilganger');
+        }
+      }
+
+      const { data: updatedProfiles, error: fetchError } = await supabase
+        .from("profiles")
+        .select(`
+          *,
+          tabs:user_tab_permissions(tab_name)
+        `)
+        .eq("organization_id", orgId);
+
+      if (fetchError) throw fetchError;
+
+      setProfiles(prev => ({
+        ...prev,
+        [orgId]: updatedProfiles || []
+      }));
+
+      toast.success("Medlem lagt til");
+    } catch (error: any) {
+      console.error("Error adding member:", error);
+      toast.error(error.message || "Kunne ikke legge til medlem");
+      throw error;
     }
   };
 
@@ -115,77 +192,6 @@ const AdminDashboard = () => {
     } catch (error) {
       console.error("Error creating organization:", error);
       toast.error("Kunne ikke opprette organisasjon");
-    }
-  };
-
-  const handleAddMember = async (orgId: string, member: { 
-    name: string; 
-    email: string; 
-    password: string; 
-    tabs: TabName[];
-  }) => {
-    try {
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: member.email,
-        password: member.password,
-        options: {
-          data: {
-            name: member.name,
-            role: 'client'
-          }
-        }
-      });
-
-      if (authError) throw authError;
-
-      if (authData.user) {
-        const { error: profileError } = await supabase
-          .from("profiles")
-          .update({ 
-            organization_id: orgId,
-            role: 'client'
-          })
-          .eq("id", authData.user.id);
-
-        if (profileError) throw profileError;
-
-        if (member.tabs.length > 0) {
-          const tabPermissions = member.tabs.map(tab_name => ({
-            user_id: authData.user!.id,
-            tab_name: tab_name
-          }));
-
-          const { error: tabError } = await supabase
-            .from("user_tab_permissions")
-            .insert(tabPermissions);
-
-          if (tabError) {
-            console.error('Error adding tab permissions:', tabError);
-            throw new Error('Kunne ikke legge til tilganger');
-          }
-        }
-
-        const { data: updatedProfiles, error: fetchError } = await supabase
-          .from("profiles")
-          .select(`
-            *,
-            tabs:user_tab_permissions(tab_name)
-          `)
-          .eq("organization_id", orgId);
-
-        if (fetchError) throw fetchError;
-
-        setProfiles(prev => ({
-          ...prev,
-          [orgId]: updatedProfiles || []
-        }));
-
-        toast.success("Medlem lagt til");
-      }
-    } catch (error: any) {
-      console.error("Error adding member:", error);
-      toast.error(error.message || "Kunne ikke legge til medlem");
-      throw error;
     }
   };
 
