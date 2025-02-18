@@ -21,7 +21,6 @@ import {
   SheetDescription,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
@@ -53,14 +52,12 @@ const tabLabels: Record<TabName, string> = {
 export const MemberList = ({ members, onDeleteMember, organizationType }: MemberListProps) => {
   const [editingMember, setEditingMember] = useState<{
     id: string;
-    name: string;
     tabs: TabName[];
   } | null>(null);
 
   const handleEditClick = (profile: Profile) => {
     setEditingMember({
       id: profile.id,
-      name: profile.name || "",
       tabs: profile.tabs?.map(t => t.tab_name) || []
     });
   };
@@ -69,14 +66,6 @@ export const MemberList = ({ members, onDeleteMember, organizationType }: Member
     if (!editingMember) return;
 
     try {
-      // Update profile name
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ name: editingMember.name })
-        .eq('id', editingMember.id);
-
-      if (profileError) throw profileError;
-
       // Delete existing permissions
       const { error: deleteError } = await supabase
         .from('user_tab_permissions')
@@ -85,22 +74,28 @@ export const MemberList = ({ members, onDeleteMember, organizationType }: Member
 
       if (deleteError) throw deleteError;
 
-      // Insert new permissions with correct typing
-      const { error: insertError } = await supabase
-        .from('user_tab_permissions')
-        .insert(
-          editingMember.tabs.map(tab_name => ({
-            user_id: editingMember.id,
-            tab_name: tab_name
-          }))
-        );
+      // Insert new permissions
+      if (editingMember.tabs.length > 0) {
+        const { error: insertError } = await supabase
+          .from('user_tab_permissions')
+          .insert(
+            editingMember.tabs.map(tab_name => ({
+              user_id: editingMember.id,
+              tab_name: tab_name
+            }))
+          );
 
-      if (insertError) throw insertError;
+        if (insertError) throw insertError;
+      }
+
+      // Update the member in the local state without a page reload
+      const updatedProfile = members.find(m => m.id === editingMember.id);
+      if (updatedProfile) {
+        updatedProfile.tabs = editingMember.tabs.map(tab_name => ({ tab_name }));
+      }
 
       toast.success('Medlem oppdatert');
-      
-      // Refresh the page to show updated data
-      window.location.reload();
+      setEditingMember(null); // Close the edit sheet
     } catch (error) {
       console.error('Error updating member:', error);
       toast.error('Kunne ikke oppdatere medlem');
@@ -143,23 +138,13 @@ export const MemberList = ({ members, onDeleteMember, organizationType }: Member
               </SheetTrigger>
               <SheetContent>
                 <SheetHeader>
-                  <SheetTitle>Rediger medlem</SheetTitle>
+                  <SheetTitle>Rediger tilganger</SheetTitle>
                   <SheetDescription>
-                    Oppdater informasjonen for {profile.name}
+                    Oppdater tilgangene for {profile.name}
                   </SheetDescription>
                 </SheetHeader>
                 {editingMember && (
                   <div className="space-y-4 mt-6">
-                    <div className="space-y-2">
-                      <Label>Navn</Label>
-                      <Input
-                        value={editingMember.name}
-                        onChange={(e) => setEditingMember({
-                          ...editingMember,
-                          name: e.target.value
-                        })}
-                      />
-                    </div>
                     <div className="space-y-2">
                       <Label>Tilgang til faner</Label>
                       <div className="space-y-3 p-4 rounded-md border bg-gray-50">
