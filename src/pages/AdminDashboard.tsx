@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import Sidebar from "../components/Sidebar";
@@ -12,6 +13,9 @@ import {
 import { toast } from "sonner";
 import { AddOrganizationForm } from "@/components/admin/AddOrganizationForm";
 import { OrganizationCard } from "@/components/admin/OrganizationCard";
+import { Database } from "@/integrations/supabase/types";
+
+type TabName = Database["public"]["Enums"]["tab_type"];
 
 interface Organization {
   id: string;
@@ -26,10 +30,7 @@ interface Profile {
   email: string;
   role: string;
   organization_id: string | null;
-}
-
-interface TabName {
-  tab_name: string;
+  tabs?: { tab_name: TabName }[];
 }
 
 const AdminDashboard = () => {
@@ -86,7 +87,7 @@ const AdminDashboard = () => {
 
         if (profilesError) throw profilesError;
 
-        console.log('Fetched profiles with tabs:', orgProfiles); // Debug log
+        console.log('Fetched profiles with tabs:', orgProfiles);
 
         setProfiles(prev => ({
           ...prev,
@@ -152,13 +153,16 @@ const AdminDashboard = () => {
         if (profileError) throw profileError;
 
         // Add tab permissions
-        const tabPromises = member.tabs.map(tab_name =>
-          supabase
-            .from("user_tab_permissions")
-            .insert({ user_id: authData.user!.id, tab_name })
-        );
+        const tabPermissions = member.tabs.map(tab_name => ({
+          user_id: authData.user!.id,
+          tab_name: tab_name
+        }));
 
-        await Promise.all(tabPromises);
+        const { error: tabError } = await supabase
+          .from("user_tab_permissions")
+          .insert(tabPermissions);
+
+        if (tabError) throw tabError;
 
         // Fetch updated profiles to refresh the UI
         const { data: updatedProfiles, error: fetchError } = await supabase
@@ -171,7 +175,7 @@ const AdminDashboard = () => {
 
         if (fetchError) throw fetchError;
 
-        console.log('Updated profiles after adding member:', updatedProfiles); // Debug log
+        console.log('Updated profiles after adding member:', updatedProfiles);
 
         setProfiles(prev => ({
           ...prev,
