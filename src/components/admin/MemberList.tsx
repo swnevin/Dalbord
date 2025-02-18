@@ -19,6 +19,7 @@ interface Profile {
   email: string;
   role: string;
   organization_id: string | null;
+  tabs?: { tab_name: string }[];
 }
 
 interface MemberListProps {
@@ -26,14 +27,30 @@ interface MemberListProps {
   onDeleteMember: (profileId: string) => Promise<void>;
 }
 
+const tabLabels: Record<string, string> = {
+  organizations: "Organisasjoner",
+  conversations: "Samtaler",
+  knowledge: "Kunnskapsbase"
+};
+
 export const MemberList = ({ members, onDeleteMember }: MemberListProps) => {
   return (
     <div className="space-y-2">
       {members.map((profile) => (
-        <div key={profile.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-          <div>
+        <div key={profile.id} className="flex items-center justify-between p-4 bg-gray-50 rounded">
+          <div className="space-y-1">
             <p className="font-medium text-primary">{profile.name}</p>
             <p className="text-sm text-gray-500">{profile.email}</p>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {profile.tabs?.map((tab) => (
+                <span 
+                  key={tab.tab_name}
+                  className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary"
+                >
+                  {tabLabels[tab.tab_name]}
+                </span>
+              ))}
+            </div>
           </div>
           <AlertDialog>
             <AlertDialogTrigger asChild>

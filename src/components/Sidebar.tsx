@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -12,6 +12,7 @@ import {
   BookOpen,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { supabase } from "@/integrations/supabase/client";
 
 interface SidebarProps {
   role: "admin" | "client";
@@ -21,7 +22,8 @@ interface SidebarProps {
 
 const Sidebar = ({ role, onTabChange, activeTab }: SidebarProps) => {
   const [collapsed, setCollapsed] = useState(false);
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
+  const [permittedTabs, setPermittedTabs] = useState<string[]>([]);
 
   const adminLinks = [
     { icon: Users, label: "Organisasjoner", value: "organizations" },
@@ -32,7 +34,36 @@ const Sidebar = ({ role, onTabChange, activeTab }: SidebarProps) => {
     { icon: BookOpen, label: "Kunnskapsbase", value: "knowledge" },
   ];
 
-  const links = role === "admin" ? adminLinks : clientLinks;
+  const allLinks = role === "admin" ? adminLinks : clientLinks;
+
+  useEffect(() => {
+    const fetchPermittedTabs = async () => {
+      if (!user) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('user_tab_permissions')
+          .select('tab_name')
+          .eq('user_id', user.id);
+
+        if (error) throw error;
+
+        const tabs = data.map(item => item.tab_name);
+        setPermittedTabs(tabs);
+
+        // If current active tab is not permitted, switch to first permitted tab
+        if (tabs.length > 0 && !tabs.includes(activeTab)) {
+          onTabChange(tabs[0]);
+        }
+      } catch (error) {
+        console.error('Error fetching tab permissions:', error);
+      }
+    };
+
+    fetchPermittedTabs();
+  }, [user, activeTab, onTabChange]);
+
+  const links = allLinks.filter(link => permittedTabs.includes(link.value));
 
   return (
     <div
@@ -61,7 +92,7 @@ const Sidebar = ({ role, onTabChange, activeTab }: SidebarProps) => {
 
       <div className="flex-1 p-4">
         <Tabs 
-          defaultValue={links[0].value} 
+          defaultValue={links[0]?.value} 
           value={activeTab}
           onValueChange={onTabChange} 
           orientation="vertical" 

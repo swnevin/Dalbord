@@ -71,6 +71,35 @@ export type Database = {
           },
         ]
       }
+      user_tab_permissions: {
+        Row: {
+          created_at: string | null
+          id: string
+          tab_name: Database["public"]["Enums"]["tab_type"]
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          tab_name: Database["public"]["Enums"]["tab_type"]
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          tab_name?: Database["public"]["Enums"]["tab_type"]
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_tab_permissions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -93,7 +122,7 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      tab_type: "organizations" | "conversations" | "knowledge"
     }
     CompositeTypes: {
       [_ in never]: never

@@ -7,18 +7,52 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface AddMemberFormProps {
   organizationName: string;
-  onSubmit: (member: { name: string; email: string; password: string }) => Promise<void>;
+  organizationType: "admin" | "client";
+  onSubmit: (member: { 
+    name: string; 
+    email: string; 
+    password: string;
+    tabs: string[];
+  }) => Promise<void>;
 }
 
-export const AddMemberForm = ({ organizationName, onSubmit }: AddMemberFormProps) => {
-  const [member, setMember] = useState({ name: "", email: "", password: "" });
+export const AddMemberForm = ({ 
+  organizationName, 
+  organizationType,
+  onSubmit 
+}: AddMemberFormProps) => {
+  const [member, setMember] = useState({ 
+    name: "", 
+    email: "", 
+    password: "",
+    tabs: [] as string[]
+  });
+  const [error, setError] = useState("");
+
+  const handleTabChange = (tabName: string, checked: boolean) => {
+    setMember(prev => ({
+      ...prev,
+      tabs: checked 
+        ? [...prev.tabs, tabName]
+        : prev.tabs.filter(t => t !== tabName)
+    }));
+    setError("");
+  };
 
   const handleSubmit = async () => {
+    if (member.tabs.length === 0) {
+      setError("Velg minst én fane");
+      return;
+    }
     await onSubmit(member);
-    setMember({ name: "", email: "", password: "" });
+    setMember({ name: "", email: "", password: "", tabs: [] });
+    setError("");
   };
 
   return (
@@ -55,6 +89,47 @@ export const AddMemberForm = ({ organizationName, onSubmit }: AddMemberFormProps
             value={member.password}
             onChange={(e) => setMember({ ...member, password: e.target.value })}
           />
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Tilgang til faner</label>
+          <div className="space-y-3 mt-2">
+            {organizationType === "admin" ? (
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="organizations"
+                  checked={member.tabs.includes("organizations")}
+                  onCheckedChange={(checked) => 
+                    handleTabChange("organizations", checked as boolean)
+                  }
+                />
+                <Label htmlFor="organizations">Organisasjoner</Label>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="conversations"
+                    checked={member.tabs.includes("conversations")}
+                    onCheckedChange={(checked) => 
+                      handleTabChange("conversations", checked as boolean)
+                    }
+                  />
+                  <Label htmlFor="conversations">Samtaler</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="knowledge"
+                    checked={member.tabs.includes("knowledge")}
+                    onCheckedChange={(checked) => 
+                      handleTabChange("knowledge", checked as boolean)
+                    }
+                  />
+                  <Label htmlFor="knowledge">Kunnskapsbase</Label>
+                </div>
+              </>
+            )}
+          </div>
+          {error && <p className="text-sm text-red-500 mt-1">{error}</p>}
         </div>
         <Button 
           className="w-full bg-secondary text-primary hover:bg-secondary/90"
