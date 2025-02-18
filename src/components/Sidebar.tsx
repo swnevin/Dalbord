@@ -20,18 +20,20 @@ interface SidebarProps {
   activeTab: string;
 }
 
+type TabName = "organizations" | "conversations" | "knowledge";
+
 const Sidebar = ({ role, onTabChange, activeTab }: SidebarProps) => {
   const [collapsed, setCollapsed] = useState(false);
   const { logout, user } = useAuth();
-  const [permittedTabs, setPermittedTabs] = useState<string[]>([]);
+  const [permittedTabs, setPermittedTabs] = useState<TabName[]>([]);
 
   const adminLinks = [
-    { icon: Users, label: "Organisasjoner", value: "organizations" },
+    { icon: Users, label: "Organisasjoner", value: "organizations" as TabName },
   ];
 
   const clientLinks = [
-    { icon: MessageSquare, label: "Samtaler", value: "conversations" },
-    { icon: BookOpen, label: "Kunnskapsbase", value: "knowledge" },
+    { icon: MessageSquare, label: "Samtaler", value: "conversations" as TabName },
+    { icon: BookOpen, label: "Kunnskapsbase", value: "knowledge" as TabName },
   ];
 
   const allLinks = role === "admin" ? adminLinks : clientLinks;
@@ -48,11 +50,11 @@ const Sidebar = ({ role, onTabChange, activeTab }: SidebarProps) => {
 
         if (error) throw error;
 
-        const tabs = data.map(item => item.tab_name);
+        const tabs = data.map(item => item.tab_name as TabName);
         setPermittedTabs(tabs);
 
         // If current active tab is not permitted, switch to first permitted tab
-        if (tabs.length > 0 && !tabs.includes(activeTab)) {
+        if (tabs.length > 0 && !tabs.includes(activeTab as TabName)) {
           onTabChange(tabs[0]);
         }
       } catch (error) {

@@ -30,6 +30,7 @@ interface Organization {
   name: string;
   voiceflow_api_key?: string;
   voiceflow_project_id?: string;
+  type?: "admin" | "client";
 }
 
 interface Profile {
@@ -38,6 +39,7 @@ interface Profile {
   email: string;
   role: string;
   organization_id: string | null;
+  tabs?: { tab_name: string }[];
 }
 
 interface OrganizationCardProps {
@@ -45,7 +47,12 @@ interface OrganizationCardProps {
   members: Profile[];
   onUpdateBot: (orgId: string, config: { apiKey: string; projectId: string }) => Promise<void>;
   onDeleteOrg: (orgId: string) => Promise<void>;
-  onAddMember: (orgId: string, member: { name: string; email: string; password: string }) => Promise<void>;
+  onAddMember: (orgId: string, member: { 
+    name: string; 
+    email: string; 
+    password: string;
+    tabs: string[];
+  }) => Promise<void>;
   onDeleteMember: (profileId: string) => Promise<void>;
   hideControls?: boolean;
 }
@@ -163,6 +170,7 @@ export const OrganizationCard = ({
             <SheetContent>
               <AddMemberForm 
                 organizationName={organization.name}
+                organizationType={organization.type || "client"}
                 onSubmit={(member) => onAddMember(organization.id, member)}
               />
             </SheetContent>
