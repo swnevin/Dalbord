@@ -178,7 +178,8 @@ export const OrganizationCard = ({
         </div>
         <MemberList 
           members={members}
-          onDeleteMember={(profileId) => onDeleteMember(profileId)}
+          onDeleteMember={onDeleteMember}
+          organizationType={organization.type || "client"}
         />
       </div>
     </div>
