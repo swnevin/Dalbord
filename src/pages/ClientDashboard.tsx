@@ -450,26 +450,6 @@ const ClientDashboard = () => {
     }
   };
 
-  const identifySessions = (messages: DialogMessage[]) => {
-    const newSessions: { start: number; end: number }[] = [];
-    let currentStart = -1;
-
-    messages.forEach((message, index) => {
-      if (message.type === 'launch') {
-        currentStart = index;
-      } else if (message.type === 'end' && currentStart !== -1) {
-        newSessions.push({ start: currentStart, end: index });
-        currentStart = -1;
-      }
-    });
-
-    if (currentStart !== -1) {
-      newSessions.push({ start: currentStart, end: messages.length - 1 });
-    }
-
-    setSessions(newSessions);
-  };
-
   const handleScroll = (e: Event) => {
     const container = e.target as HTMLDivElement;
     const currentScroll = container.scrollTop;
@@ -561,6 +541,31 @@ const ClientDashboard = () => {
       scrollToLatestConversation();
     }
   }, [dialog]);
+
+  const [sessions, setSessions] = useState<{ start: number; end: number }[]>([]);
+  const [showNavigator, setShowNavigator] = useState(true);
+  const lastScrollPosition = useRef(0);
+  const scrollTimeout = useRef<number | null>(null);
+
+  const identifySessions = (messages: DialogMessage[]) => {
+    const newSessions: { start: number; end: number }[] = [];
+    let currentStart = -1;
+
+    messages.forEach((message, index) => {
+      if (message.type === 'launch') {
+        currentStart = index;
+      } else if (message.type === 'end' && currentStart !== -1) {
+        newSessions.push({ start: currentStart, end: index });
+        currentStart = -1;
+      }
+    });
+
+    if (currentStart !== -1) {
+      newSessions.push({ start: currentStart, end: messages.length - 1 });
+    }
+
+    setSessions(newSessions);
+  };
 
   return (
     <div className="flex h-screen bg-cream">
