@@ -61,30 +61,22 @@ interface DialogMessage {
 type FilterType = "all" | "approved" | "saved";
 
 const formatText = (text: string) => {
-  // First, normalize line endings
   text = text.replace(/\r\n/g, '\n');
   
-  // Handle bold text
   text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
   
-  // Handle links
   text = text.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" class="text-primary hover:underline">$1</a>');
   
-  // Handle numbered lists and create paragraphs
-  // Split text into lines
   const lines = text.split('\n');
   const formattedLines = lines.map(line => {
-    // Check if line is a numbered list item
     if (/^\d+\.\s/.test(line)) {
       return `<div class="mt-2">${line}</div>`;
     }
-    // If not a list item and not empty, wrap in p tag
     return line.trim() ? `<p>${line}</p>` : '';
   });
   
   text = formattedLines.join('');
   
-  // Handle blockquotes
   text = text.replace(/<p>>(.*?)<\/p>/g, '<blockquote class="border-l-4 border-gray-300 pl-4 my-2 italic">$1</blockquote>');
   
   return text;
@@ -98,7 +90,6 @@ const extractIframeAndCleanText = (text: string) => {
   const iframeMatch = text.match(/<iframe[^>]*src="([^"]*)"[^>]*>/);
   const iframeSrc = iframeMatch ? iframeMatch[1] : null;
   
-  // Remove the entire iframe tag and any surrounding whitespace
   const cleanText = text.replace(/<iframe[^>]*>.*?<\/iframe>/s, '').trim();
   
   return { cleanText, iframeSrc };
@@ -116,12 +107,7 @@ const ClientDashboard = () => {
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
-  const [sessions, setSessions] = useState<{ start: number; end: number }[]>([]);
   const dialogContainerRef = useRef<HTMLDivElement>(null);
-  const [isNavigatorMinimized, setIsNavigatorMinimized] = useState(false);
-  const [showNavigator, setShowNavigator] = useState(true);
-  const lastScrollPosition = useRef(0);
-  const scrollTimeout = useRef<number>();
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -477,7 +463,6 @@ const ClientDashboard = () => {
       }
     });
 
-    // If we have a start without an end, include it
     if (currentStart !== -1) {
       newSessions.push({ start: currentStart, end: messages.length - 1 });
     }
@@ -489,11 +474,9 @@ const ClientDashboard = () => {
     const container = e.target as HTMLDivElement;
     const currentScroll = container.scrollTop;
     
-    // Hide navigator when scrolling down, show when scrolling up
     setShowNavigator(currentScroll < lastScrollPosition.current);
     lastScrollPosition.current = currentScroll;
 
-    // Show navigator after scrolling stops
     if (scrollTimeout.current) {
       window.clearTimeout(scrollTimeout.current);
     }
@@ -517,7 +500,6 @@ const ClientDashboard = () => {
     const sessionStart = sessions[index].start;
     let targetIndex = sessionStart;
     
-    // Find the actual DOM index by counting visible messages
     let visibleCount = 0;
     for (let i = 0; i < messages.length; i++) {
       if (!['block', 'debug', 'flow', 'path', 'knowledgeBase', 'no-reply'].includes(messages[i].type)) {
@@ -548,6 +530,35 @@ const ClientDashboard = () => {
           scrollToSession(sessions.length - 1);
         });
       }
+    }
+  }, [dialog]);
+
+  const scrollToLatestConversation = () => {
+    if (!dialogContainerRef.current) return;
+    
+    const messages = filterDialog(dialog);
+    const launchMessages = messages.reduce((acc, message, index) => {
+      if (message.type === 'launch') {
+        acc.push(index);
+      }
+      return acc;
+    }, [] as number[]);
+
+    if (launchMessages.length > 0) {
+      const lastLaunchIndex = launchMessages[launchMessages.length - 1];
+      requestAnimationFrame(() => {
+        const children = Array.from(dialogContainerRef.current!.children);
+        const targetElement = children[lastLaunchIndex];
+        if (targetElement) {
+          targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (dialog.length > 0) {
+      scrollToLatestConversation();
     }
   }, [dialog]);
 
@@ -709,7 +720,10 @@ const ClientDashboard = () => {
             </div>
 
             <div className="flex-1 bg-white flex flex-col h-screen">
-              <div ref={dialogContainerRef} className="flex-1 overflow-y-auto p-4 scroll-smooth">
+              <div 
+                ref={dialogContainerRef} 
+                className="flex-1 overflow-y-auto p-4 scroll-smooth"
+              >
                 {showDialogLoader ? (
                   <div className="h-full flex items-center justify-center">
                     <Loader size="lg" />
@@ -728,53 +742,6 @@ const ClientDashboard = () => {
                   </div>
                 )}
               </div>
-
-              {sessions.length > 1 && selectedConversation && showNavigator && (
-                <div className={cn(
-                  "fixed right-6 top-24 transition-all duration-300",
-                  isNavigatorMinimized ? "w-12" : "w-auto"
-                )}>
-                  <div className="bg-white/90 backdrop-blur-sm shadow-lg rounded-2xl border border-gray-200 overflow-hidden">
-                    <div className="flex items-center justify-between p-2 border-b border-gray-100">
-                      {!isNavigatorMinimized && (
-                        <span className="text-sm text-gray-500 ml-2">Økter</span>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setIsNavigatorMinimized(!isNavigatorMinimized)}
-                        className="h-8 w-8 p-0"
-                      >
-                        {isNavigatorMinimized ? <MaximizeIcon className="h-4 w-4" /> : <MinimizeIcon className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                    <div className={cn(
-                      "transition-all duration-300",
-                      isNavigatorMinimized ? "p-2" : "p-3"
-                    )}>
-                      <div className={cn(
-                        "flex gap-2",
-                        isNavigatorMinimized ? "flex-col" : "flex-wrap"
-                      )}>
-                        {sessions.map((_, index) => (
-                          <Button
-                            key={index}
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => scrollToSession(index)}
-                            className={cn(
-                              "transition-all duration-300",
-                              isNavigatorMinimized ? "w-8 h-8 p-0" : "px-3"
-                            )}
-                          >
-                            {index + 1}
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         )}
