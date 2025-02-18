@@ -1,13 +1,24 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import Sidebar from "../components/Sidebar";
 import { KnowledgeBase } from "@/components/KnowledgeBase";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Bookmark, CheckCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Bookmark, CheckCircle, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader } from "@/components/ui/loader";
 import { useMinimumLoading } from "@/hooks/use-minimum-loading";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 interface VoiceflowTranscript {
   _id: string;
@@ -58,6 +69,8 @@ const ClientDashboard = () => {
   const [dialog, setDialog] = useState<any[]>([]);
   const [isLoadingDialog, setIsLoadingDialog] = useState(false);
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -329,6 +342,54 @@ const ClientDashboard = () => {
     }
   });
 
+  const handleDeleteClick = (conversationId: string) => {
+    setConversationToDelete(conversationId);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!conversationToDelete || !user?.organization_id) return;
+
+    try {
+      const { data: org, error: orgError } = await supabase
+        .from('organizations')
+        .select('voiceflow_api_key, voiceflow_project_id')
+        .eq('id', user.organization_id)
+        .single();
+
+      if (orgError) throw orgError;
+      if (!org.voiceflow_api_key || !org.voiceflow_project_id) {
+        throw new Error('Mangler Voiceflow-legitimasjon');
+      }
+
+      const response = await fetch(
+        `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}/${conversationToDelete}`,
+        {
+          method: 'DELETE',
+          headers: {
+            Authorization: org.voiceflow_api_key,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Kunne ikke slette samtalen');
+      }
+
+      setConversations(prevConversations => 
+        prevConversations.filter(conv => conv._id !== conversationToDelete)
+      );
+      
+      toast.success('Samtalen ble slettet');
+    } catch (error: any) {
+      console.error('Error deleting conversation:', error);
+      toast.error(error.message || 'Kunne ikke slette samtalen');
+    } finally {
+      setDeleteDialogOpen(false);
+      setConversationToDelete(null);
+    }
+  };
+
   return (
     <div className="flex h-screen bg-cream">
       <Sidebar 
@@ -467,6 +528,17 @@ const ClientDashboard = () => {
                             >
                               <CheckCircle className="h-4 w-4" />
                             </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteClick(conv._id);
+                              }}
+                              className="hover:bg-secondary/10 text-red-500"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </div>
                         )}
                       </div>
@@ -502,6 +574,23 @@ const ClientDashboard = () => {
         )}
         {activeTab === "knowledge" && <KnowledgeBase />}
       </div>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Bekreft sletting</AlertDialogTitle>
+            <AlertDialogDescription>
+              Er du sikker på at du vil slette denne samtalen? Dette kan ikke angres.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Avbryt</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-red-500 hover:bg-red-600">
+              Slett
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
