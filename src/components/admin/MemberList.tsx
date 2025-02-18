@@ -27,13 +27,15 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+type TabName = "organizations" | "conversations" | "knowledge";
+
 interface Profile {
   id: string;
   name: string;
   email: string;
   role: string;
   organization_id: string | null;
-  tabs?: { tab_name: string }[];
+  tabs?: { tab_name: TabName }[];
 }
 
 interface MemberListProps {
@@ -42,7 +44,7 @@ interface MemberListProps {
   organizationType: "admin" | "client";
 }
 
-const tabLabels: Record<string, string> = {
+const tabLabels: Record<TabName, string> = {
   organizations: "Organisasjoner",
   conversations: "Samtaler",
   knowledge: "Kunnskapsbase"
@@ -52,13 +54,13 @@ export const MemberList = ({ members, onDeleteMember, organizationType }: Member
   const [editingMember, setEditingMember] = useState<{
     id: string;
     name: string;
-    tabs: string[];
+    tabs: TabName[];
   } | null>(null);
 
   const handleEditClick = (profile: Profile) => {
     setEditingMember({
       id: profile.id,
-      name: profile.name,
+      name: profile.name || "",
       tabs: profile.tabs?.map(t => t.tab_name) || []
     });
   };
@@ -83,13 +85,13 @@ export const MemberList = ({ members, onDeleteMember, organizationType }: Member
 
       if (deleteError) throw deleteError;
 
-      // Insert new permissions
+      // Insert new permissions with correct typing
       const { error: insertError } = await supabase
         .from('user_tab_permissions')
         .insert(
           editingMember.tabs.map(tab_name => ({
             user_id: editingMember.id,
-            tab_name
+            tab_name: tab_name
           }))
         );
 
