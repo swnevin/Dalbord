@@ -19,9 +19,10 @@ type TabName = Database["public"]["Enums"]["tab_type"];
 interface Organization {
   id: string;
   name: string;
+  created_at?: string;
   voiceflow_api_key?: string;
   voiceflow_project_id?: string;
-  type?: "admin" | "client";
+  type: "admin" | "client";
 }
 
 interface Profile {
@@ -73,9 +74,14 @@ const AdminDashboard = () => {
 
       if (error) throw error;
 
-      setOrganizations(orgs || []);
+      const transformedOrgs: Organization[] = (orgs || []).map(org => ({
+        ...org,
+        type: (org.type === 'admin' ? 'admin' : 'client') as Organization['type']
+      }));
 
-      for (const org of orgs || []) {
+      setOrganizations(transformedOrgs);
+
+      for (const org of transformedOrgs) {
         const { data: orgProfiles, error: profilesError } = await supabase
           .from("profiles")
           .select(`
@@ -96,6 +102,32 @@ const AdminDashboard = () => {
       toast.error("Kunne ikke hente organisasjoner");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleCreateOrg = async (name: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("organizations")
+        .insert([{ 
+          name,
+          type: 'client' as Organization['type']
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const newOrg: Organization = {
+        ...data,
+        type: data.type === 'admin' ? 'admin' : 'client'
+      };
+
+      setOrganizations([...organizations, newOrg]);
+      toast.success("Organisasjon opprettet");
+    } catch (error) {
+      console.error("Error creating organization:", error);
+      toast.error("Kunne ikke opprette organisasjon");
     }
   };
 
@@ -174,24 +206,6 @@ const AdminDashboard = () => {
       console.error("Error adding member:", error);
       toast.error(error.message || "Kunne ikke legge til medlem");
       throw error;
-    }
-  };
-
-  const handleCreateOrg = async (name: string) => {
-    try {
-      const { data, error } = await supabase
-        .from("organizations")
-        .insert([{ name }])
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      setOrganizations([...organizations, data]);
-      toast.success("Organisasjon opprettet");
-    } catch (error) {
-      console.error("Error creating organization:", error);
-      toast.error("Kunne ikke opprette organisasjon");
     }
   };
 
