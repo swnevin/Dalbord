@@ -143,6 +143,8 @@ const AdminDashboard = () => {
         return;
       }
 
+      const currentSession = await supabase.auth.getSession();
+      
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: member.email,
         password: member.password,
@@ -151,9 +153,7 @@ const AdminDashboard = () => {
             name: member.name,
             role: 'client'
           },
-          emailRedirectTo: `${window.location.origin}/login`,
-          shouldCreateUser: true,
-          autoConfirm: false
+          emailRedirectTo: `${window.location.origin}/login`
         }
       });
 
@@ -174,6 +174,10 @@ const AdminDashboard = () => {
         .eq("id", authData.user.id);
 
       if (profileError) throw profileError;
+
+      if (currentSession.data.session) {
+        await supabase.auth.setSession(currentSession.data.session);
+      }
 
       const { data: updatedProfiles, error: fetchError } = await supabase
         .from("profiles")
