@@ -151,7 +151,9 @@ const AdminDashboard = () => {
             name: member.name,
             role: 'client'
           },
-          emailRedirectTo: `${window.location.origin}/login`
+          emailRedirectTo: `${window.location.origin}/login`,
+          shouldCreateUser: true,
+          autoConfirm: false
         }
       });
 
