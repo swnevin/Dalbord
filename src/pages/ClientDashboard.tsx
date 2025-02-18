@@ -473,74 +473,37 @@ const ClientDashboard = () => {
     }
   }, []);
 
-  const scrollToSession = (index: number) => {
+  const scrollToLatestLaunch = () => {
     if (!dialogContainerRef.current) return;
     
     const messages = filterDialog(dialog);
-    const sessionStart = sessions[index].start;
-    let targetIndex = sessionStart;
+    let lastLaunchIndex = -1;
     
-    let visibleCount = 0;
-    for (let i = 0; i < messages.length; i++) {
-      if (!['block', 'debug', 'flow', 'path', 'knowledgeBase', 'no-reply'].includes(messages[i].type)) {
-        if (visibleCount === sessionStart) {
-          targetIndex = i;
-          break;
-        }
-        visibleCount++;
-      }
-    }
-    
-    const children = Array.from(dialogContainerRef.current.children);
-    const targetElement = children[targetIndex];
-    
-    if (targetElement) {
-      targetElement.scrollIntoView({ 
-        behavior: 'smooth', 
-        block: 'start'
-      });
-    }
-  };
-
-  useEffect(() => {
-    if (dialog.length > 0) {
-      identifySessions(filterDialog(dialog));
-      if (sessions.length > 0) {
-        requestAnimationFrame(() => {
-          scrollToSession(sessions.length - 1);
-        });
-      }
-    }
-  }, [dialog]);
-
-  const scrollToLatestConversation = () => {
-    if (!dialogContainerRef.current) return;
-    
-    const messages = filterDialog(dialog);
-    const launchMessages = messages.reduce((acc, message, index) => {
+    // Find the index of the last 'launch' type message
+    messages.forEach((message, index) => {
       if (message.type === 'launch') {
-        acc.push(index);
+        lastLaunchIndex = index;
       }
-      return acc;
-    }, [] as number[]);
+    });
 
-    if (launchMessages.length > 0) {
-      const lastLaunchIndex = launchMessages[launchMessages.length - 1];
-      requestAnimationFrame(() => {
+    if (lastLaunchIndex !== -1) {
+      // Use a small timeout to ensure content is rendered
+      setTimeout(() => {
         const children = Array.from(dialogContainerRef.current!.children);
         const targetElement = children[lastLaunchIndex];
         if (targetElement) {
           targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
-      });
+      }, 100);
     }
   };
 
+  // Add effect to trigger scroll when dialog changes
   useEffect(() => {
-    if (dialog.length > 0) {
-      scrollToLatestConversation();
+    if (dialog.length > 0 && !isLoadingDialog) {
+      scrollToLatestLaunch();
     }
-  }, [dialog]);
+  }, [dialog, isLoadingDialog]);
 
   const [sessions, setSessions] = useState<{ start: number; end: number }[]>([]);
   const [showNavigator, setShowNavigator] = useState(true);
