@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { MinimizeIcon, MaximizeIcon } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import { KnowledgeBase } from "@/components/KnowledgeBase";
 import { Button } from "@/components/ui/button";
@@ -340,6 +341,48 @@ const ClientDashboard = () => {
     fetchConversations();
   }, [user?.organization_id]);
 
+  useEffect(() => {
+    const fetchDialog = async () => {
+      if (!selectedConversation || !user?.organization_id) return;
+
+      setIsLoadingDialog(true);
+      try {
+        const { data: org, error: orgError } = await supabase
+          .from('organizations')
+          .select('voiceflow_api_key, voiceflow_project_id')
+          .eq('id', user.organization_id)
+          .single();
+
+        if (orgError) throw orgError;
+        if (!org.voiceflow_api_key || !org.voiceflow_project_id) {
+          console.error('Missing Voiceflow credentials');
+          return;
+        }
+
+        const response = await fetch(
+          `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}/${selectedConversation}`,
+          {
+            headers: {
+              accept: 'application/json',
+              Authorization: org.voiceflow_api_key,
+            },
+          }
+        );
+
+        if (!response.ok) throw new Error('Failed to fetch dialog');
+
+        const data = await response.json();
+        setDialog(data);
+      } catch (error) {
+        console.error('Error fetching dialog:', error);
+      } finally {
+        setIsLoadingDialog(false);
+      }
+    };
+
+    fetchDialog();
+  }, [selectedConversation, user?.organization_id]);
+
   const isConversationReviewed = (conv: VoiceflowTranscript) => {
     return conv.reportTags?.includes("system.reviewed") ?? false;
   };
@@ -523,23 +566,6 @@ const ClientDashboard = () => {
 
     setSessions(newSessions);
   };
-
-  const scrollToBottom = () => {
-    if (dialogContainerRef.current) {
-      const container = dialogContainerRef.current;
-      container.scrollTop = container.scrollHeight;
-    }
-  };
-
-  useEffect(() => {
-    if (!isLoadingDialog && dialog.length > 0) {
-      const timeoutId = setTimeout(() => {
-        scrollToBottom();
-      }, 100);
-
-      return () => clearTimeout(timeoutId);
-    }
-  }, [dialog, isLoadingDialog]);
 
   return (
     <div className="flex h-screen bg-cream">
