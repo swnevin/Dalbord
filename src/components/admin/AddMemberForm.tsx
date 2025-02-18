@@ -7,9 +7,6 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { supabase } from "@/integrations/supabase/client";
 
 type TabName = "organizations" | "conversations" | "knowledge";
 
@@ -20,54 +17,34 @@ interface AddMemberFormProps {
     name: string; 
     email: string; 
     password: string;
-    tabs: TabName[];
+    tabs: TabName[];  // Keep for interface compatibility
   }) => Promise<void>;
 }
 
 export const AddMemberForm = ({ 
   organizationName, 
-  organizationType,
   onSubmit 
 }: AddMemberFormProps) => {
   const [member, setMember] = useState<{ 
     name: string; 
     email: string; 
     password: string;
-    tabs: TabName[];
   }>({ 
     name: "", 
     email: "", 
-    password: "",
-    tabs: []
+    password: ""
   });
-  const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleTabChange = (tabName: TabName, checked: boolean) => {
-    setMember(prev => ({
-      ...prev,
-      tabs: checked 
-        ? [...prev.tabs, tabName]
-        : prev.tabs.filter(t => t !== tabName)
-    }));
-    setError("");
-  };
-
   const handleSubmit = async () => {
-    if (member.tabs.length === 0) {
-      setError("Velg minst én fane");
-      return;
-    }
-
     try {
       setIsSubmitting(true);
-      await onSubmit(member);
+      // Pass empty tabs array since we'll set permissions later
+      await onSubmit({ ...member, tabs: [] });
       // Reset form after successful submission
-      setMember({ name: "", email: "", password: "", tabs: [] });
-      setError("");
+      setMember({ name: "", email: "", password: "" });
     } catch (error) {
       console.error("Error adding member:", error);
-      setError("Kunne ikke legge til medlem");
     } finally {
       setIsSubmitting(false);
     }
@@ -107,47 +84,6 @@ export const AddMemberForm = ({
             value={member.password}
             onChange={(e) => setMember({ ...member, password: e.target.value })}
           />
-        </div>
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Tilgang til faner</label>
-          <div className="space-y-3 mt-2">
-            {organizationType === "admin" ? (
-              <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="organizations"
-                  checked={member.tabs.includes("organizations")}
-                  onCheckedChange={(checked) => 
-                    handleTabChange("organizations", checked as boolean)
-                  }
-                />
-                <Label htmlFor="organizations">Organisasjoner</Label>
-              </div>
-            ) : (
-              <>
-                <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="conversations"
-                    checked={member.tabs.includes("conversations")}
-                    onCheckedChange={(checked) => 
-                      handleTabChange("conversations", checked as boolean)
-                    }
-                  />
-                  <Label htmlFor="conversations">Samtaler</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="knowledge"
-                    checked={member.tabs.includes("knowledge")}
-                    onCheckedChange={(checked) => 
-                      handleTabChange("knowledge", checked as boolean)
-                    }
-                  />
-                  <Label htmlFor="knowledge">Kunnskapsbase</Label>
-                </div>
-              </>
-            )}
-          </div>
-          {error && <p className="text-sm text-red-500 mt-1">{error}</p>}
         </div>
         <Button 
           className="w-full bg-secondary text-primary hover:bg-secondary/90"

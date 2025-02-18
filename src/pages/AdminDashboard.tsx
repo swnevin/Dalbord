@@ -150,7 +150,8 @@ const AdminDashboard = () => {
           data: {
             name: member.name,
             role: 'client'
-          }
+          },
+          emailRedirectTo: `${window.location.origin}/login`
         }
       });
 
