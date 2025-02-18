@@ -7,9 +7,10 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+
+type TabName = "organizations" | "conversations" | "knowledge";
 
 interface AddMemberFormProps {
   organizationName: string;
@@ -18,7 +19,7 @@ interface AddMemberFormProps {
     name: string; 
     email: string; 
     password: string;
-    tabs: string[];
+    tabs: TabName[];
   }) => Promise<void>;
 }
 
@@ -27,15 +28,20 @@ export const AddMemberForm = ({
   organizationType,
   onSubmit 
 }: AddMemberFormProps) => {
-  const [member, setMember] = useState({ 
+  const [member, setMember] = useState<{ 
+    name: string; 
+    email: string; 
+    password: string;
+    tabs: TabName[];
+  }>({ 
     name: "", 
     email: "", 
     password: "",
-    tabs: [] as string[]
+    tabs: []
   });
   const [error, setError] = useState("");
 
-  const handleTabChange = (tabName: string, checked: boolean) => {
+  const handleTabChange = (tabName: TabName, checked: boolean) => {
     setMember(prev => ({
       ...prev,
       tabs: checked 
