@@ -164,21 +164,25 @@ const AdminDashboard = () => {
         .from("profiles")
         .update({ 
           organization_id: orgId,
-          role: 'client'
+          role: 'client',
+          name: member.name,
+          email: member.email
         })
         .eq("id", authData.user.id);
 
       if (profileError) throw profileError;
 
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
       if (member.tabs.length > 0) {
+        const tabPermissions = member.tabs.map(tab_name => ({
+          user_id: authData.user!.id,
+          tab_name
+        }));
+
         const { error: tabError } = await supabase
           .from("user_tab_permissions")
-          .insert(
-            member.tabs.map(tab_name => ({
-              user_id: authData.user!.id,
-              tab_name
-            }))
-          );
+          .insert(tabPermissions);
 
         if (tabError) {
           console.error('Error adding tab permissions:', tabError);
