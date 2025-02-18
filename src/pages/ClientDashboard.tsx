@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { MinimizeIcon, MaximizeIcon } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import { KnowledgeBase } from "@/components/KnowledgeBase";
 import { Button } from "@/components/ui/button";
@@ -117,6 +118,10 @@ const ClientDashboard = () => {
   const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
   const [sessions, setSessions] = useState<{ start: number; end: number }[]>([]);
   const dialogContainerRef = useRef<HTMLDivElement>(null);
+  const [isNavigatorMinimized, setIsNavigatorMinimized] = useState(false);
+  const [showNavigator, setShowNavigator] = useState(true);
+  const lastScrollPosition = useRef(0);
+  const scrollTimeout = useRef<number>();
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -480,24 +485,69 @@ const ClientDashboard = () => {
     setSessions(newSessions);
   };
 
+  const handleScroll = (e: Event) => {
+    const container = e.target as HTMLDivElement;
+    const currentScroll = container.scrollTop;
+    
+    // Hide navigator when scrolling down, show when scrolling up
+    setShowNavigator(currentScroll < lastScrollPosition.current);
+    lastScrollPosition.current = currentScroll;
+
+    // Show navigator after scrolling stops
+    if (scrollTimeout.current) {
+      window.clearTimeout(scrollTimeout.current);
+    }
+    scrollTimeout.current = window.setTimeout(() => {
+      setShowNavigator(true);
+    }, 1000);
+  };
+
+  useEffect(() => {
+    const container = dialogContainerRef.current;
+    if (container) {
+      container.addEventListener('scroll', handleScroll);
+      return () => container.removeEventListener('scroll', handleScroll);
+    }
+  }, []);
+
   const scrollToSession = (index: number) => {
     if (!dialogContainerRef.current) return;
     
-    const sessionElement = dialogContainerRef.current.children[sessions[index].start];
-    if (sessionElement) {
-      sessionElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const messages = filterDialog(dialog);
+    const sessionStart = sessions[index].start;
+    let targetIndex = sessionStart;
+    
+    // Find the actual DOM index by counting visible messages
+    let visibleCount = 0;
+    for (let i = 0; i < messages.length; i++) {
+      if (!['block', 'debug', 'flow', 'path', 'knowledgeBase', 'no-reply'].includes(messages[i].type)) {
+        if (visibleCount === sessionStart) {
+          targetIndex = i;
+          break;
+        }
+        visibleCount++;
+      }
+    }
+    
+    const children = Array.from(dialogContainerRef.current.children);
+    const targetElement = children[targetIndex];
+    
+    if (targetElement) {
+      targetElement.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'start'
+      });
     }
   };
 
   useEffect(() => {
     if (dialog.length > 0) {
       identifySessions(filterDialog(dialog));
-      // Scroll to latest session by default
-      setTimeout(() => {
-        if (sessions.length > 0) {
+      if (sessions.length > 0) {
+        requestAnimationFrame(() => {
           scrollToSession(sessions.length - 1);
-        }
-      }, 100);
+        });
+      }
     }
   }, [dialog]);
 
@@ -659,7 +709,7 @@ const ClientDashboard = () => {
             </div>
 
             <div className="flex-1 bg-white flex flex-col h-screen">
-              <div ref={dialogContainerRef} className="flex-1 overflow-y-auto p-4">
+              <div ref={dialogContainerRef} className="flex-1 overflow-y-auto p-4 scroll-smooth">
                 {showDialogLoader ? (
                   <div className="h-full flex items-center justify-center">
                     <Loader size="lg" />
@@ -679,21 +729,49 @@ const ClientDashboard = () => {
                 )}
               </div>
 
-              {sessions.length > 1 && selectedConversation && (
-                <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2">
-                  <div className="bg-white/90 backdrop-blur-sm shadow-lg rounded-full px-4 py-2 flex items-center gap-2 border border-gray-200">
-                    <span className="text-sm text-gray-500 mr-2">Økter:</span>
-                    {sessions.map((_, index) => (
+              {sessions.length > 1 && selectedConversation && showNavigator && (
+                <div className={cn(
+                  "fixed right-6 top-24 transition-all duration-300",
+                  isNavigatorMinimized ? "w-12" : "w-auto"
+                )}>
+                  <div className="bg-white/90 backdrop-blur-sm shadow-lg rounded-2xl border border-gray-200 overflow-hidden">
+                    <div className="flex items-center justify-between p-2 border-b border-gray-100">
+                      {!isNavigatorMinimized && (
+                        <span className="text-sm text-gray-500 ml-2">Økter</span>
+                      )}
                       <Button
-                        key={index}
                         variant="ghost"
                         size="sm"
-                        onClick={() => scrollToSession(index)}
-                        className="rounded-full h-8 w-8 p-0"
+                        onClick={() => setIsNavigatorMinimized(!isNavigatorMinimized)}
+                        className="h-8 w-8 p-0"
                       >
-                        {index + 1}
+                        {isNavigatorMinimized ? <MaximizeIcon className="h-4 w-4" /> : <MinimizeIcon className="h-4 w-4" />}
                       </Button>
-                    ))}
+                    </div>
+                    <div className={cn(
+                      "transition-all duration-300",
+                      isNavigatorMinimized ? "p-2" : "p-3"
+                    )}>
+                      <div className={cn(
+                        "flex gap-2",
+                        isNavigatorMinimized ? "flex-col" : "flex-wrap"
+                      )}>
+                        {sessions.map((_, index) => (
+                          <Button
+                            key={index}
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => scrollToSession(index)}
+                            className={cn(
+                              "transition-all duration-300",
+                              isNavigatorMinimized ? "w-8 h-8 p-0" : "px-3"
+                            )}
+                          >
+                            {index + 1}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
