@@ -1,6 +1,6 @@
 
 import { createContext, useContext, useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -31,6 +31,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const fetchUserProfile = async (userId: string) => {
     try {
@@ -81,11 +82,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       setUser(userData);
 
-      // Redirect based on organization type
-      if (profile.organization_type === 'admin') {
-        navigate('/admin');
-      } else {
-        navigate('/dashboard');
+      // Only handle navigation if we're not already on the admin dashboard
+      // This prevents the flash when adding new members
+      if (location.pathname !== '/admin') {
+        if (profile.organization_type === 'admin') {
+          navigate('/admin');
+        } else {
+          navigate('/dashboard');
+        }
       }
       return true;
     } catch (error: any) {
