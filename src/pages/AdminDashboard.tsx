@@ -172,24 +172,6 @@ const AdminDashboard = () => {
 
       if (profileError) throw profileError;
 
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      if (member.tabs.length > 0) {
-        const tabPermissions = member.tabs.map(tab_name => ({
-          user_id: authData.user!.id,
-          tab_name
-        }));
-
-        const { error: tabError } = await supabase
-          .from("user_tab_permissions")
-          .insert(tabPermissions);
-
-        if (tabError) {
-          console.error('Error adding tab permissions:', tabError);
-          throw new Error('Kunne ikke legge til tilganger');
-        }
-      }
-
       const { data: updatedProfiles, error: fetchError } = await supabase
         .from("profiles")
         .select(`
@@ -205,7 +187,7 @@ const AdminDashboard = () => {
         [orgId]: updatedProfiles || []
       }));
 
-      toast.success("Medlem lagt til");
+      toast.success("Medlem lagt til. Du kan nå redigere tilgangene deres.");
     } catch (error: any) {
       console.error("Error adding member:", error);
       toast.error(error.message || "Kunne ikke legge til medlem");
