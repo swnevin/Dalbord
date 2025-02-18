@@ -28,6 +28,10 @@ interface Profile {
   organization_id: string | null;
 }
 
+interface TabName {
+  tab_name: string;
+}
+
 const AdminDashboard = () => {
   const { user } = useAuth();
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -70,14 +74,19 @@ const AdminDashboard = () => {
 
       setOrganizations(orgs || []);
 
-      // Fetch profiles for each organization
+      // Fetch profiles for each organization with their tab permissions
       for (const org of orgs || []) {
         const { data: orgProfiles, error: profilesError } = await supabase
           .from("profiles")
-          .select("*")
+          .select(`
+            *,
+            tabs:user_tab_permissions(tab_name)
+          `)
           .eq("organization_id", org.id);
 
         if (profilesError) throw profilesError;
+
+        console.log('Fetched profiles with tabs:', orgProfiles); // Debug log
 
         setProfiles(prev => ({
           ...prev,
@@ -110,7 +119,12 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleAddMember = async (orgId: string, member: { name: string; email: string; password: string }) => {
+  const handleAddMember = async (orgId: string, member: { 
+    name: string; 
+    email: string; 
+    password: string; 
+    tabs: TabName[];
+  }) => {
     try {
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: member.email,
@@ -126,6 +140,7 @@ const AdminDashboard = () => {
       if (authError) throw authError;
 
       if (authData.user) {
+        // Update profile
         const { error: profileError } = await supabase
           .from("profiles")
           .update({ 
@@ -136,12 +151,27 @@ const AdminDashboard = () => {
 
         if (profileError) throw profileError;
 
+        // Add tab permissions
+        const tabPromises = member.tabs.map(tab_name =>
+          supabase
+            .from("user_tab_permissions")
+            .insert({ user_id: authData.user!.id, tab_name })
+        );
+
+        await Promise.all(tabPromises);
+
+        // Fetch updated profiles to refresh the UI
         const { data: updatedProfiles, error: fetchError } = await supabase
           .from("profiles")
-          .select("*")
+          .select(`
+            *,
+            tabs:user_tab_permissions(tab_name)
+          `)
           .eq("organization_id", orgId);
 
         if (fetchError) throw fetchError;
+
+        console.log('Updated profiles after adding member:', updatedProfiles); // Debug log
 
         setProfiles(prev => ({
           ...prev,
