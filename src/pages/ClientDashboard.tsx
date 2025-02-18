@@ -59,6 +59,23 @@ interface DialogMessage {
 
 type FilterType = "all" | "approved" | "saved";
 
+const formatText = (text: string) => {
+  text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  text = text.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" class="text-primary hover:underline">$1</a>');
+  text = text.replace(/(\d+\. )/g, '<br>$1');
+  text = text.replace(/>(.*?)(\n|$)/g, '<blockquote class="border-l-4 border-gray-300 pl-4 my-2 italic">$1</blockquote>');
+  return text;
+};
+
+const containsIframe = (text: string) => {
+  return text.includes('<iframe');
+};
+
+const extractIframeSrc = (text: string) => {
+  const match = text.match(/src="([^"]+)"/);
+  return match ? match[1] : null;
+};
+
 const ClientDashboard = () => {
   const [activeTab, setActiveTab] = useState("conversations");
   const { user } = useAuth();
@@ -116,11 +133,40 @@ const ClientDashboard = () => {
       case 'text':
         const messageText = message.payload?.payload?.message;
         if (!messageText) return null;
+
+        const hasIframe = containsIframe(messageText);
+        const iframeSrc = hasIframe ? extractIframeSrc(messageText) : null;
+        const formattedText = formatText(messageText);
+
         return (
           <div className="flex flex-col gap-1 my-2">
             <div className="flex items-end gap-2 max-w-[80%]">
               <div className="bg-primary text-primary-foreground p-3 rounded-2xl rounded-bl-none">
-                {messageText}
+                {hasIframe ? (
+                  <div className="space-y-4">
+                    <div 
+                      dangerouslySetInnerHTML={{ 
+                        __html: formattedText.replace(/<iframe.*?<\/iframe>/s, '') 
+                      }}
+                      className="space-y-2 prose prose-invert max-w-none"
+                    />
+                    {iframeSrc && (
+                      <div className="relative w-full pt-[56.25%]">
+                        <iframe
+                          src={iframeSrc}
+                          className="absolute top-0 left-0 w-full h-full rounded-lg"
+                          frameBorder="0"
+                          allowFullScreen
+                        />
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div 
+                    dangerouslySetInnerHTML={{ __html: formattedText }}
+                    className="space-y-2 prose prose-invert max-w-none"
+                  />
+                )}
               </div>
             </div>
             <span className="text-xs text-gray-500 ml-2">
@@ -400,7 +446,6 @@ const ClientDashboard = () => {
       <div className="flex-1 overflow-auto">
         {activeTab === "conversations" && (
           <div className="flex flex-1">
-            {/* Conversations List */}
             <div 
               className={cn(
                 "border-r border-gray-200 bg-white transition-all duration-300",
@@ -548,7 +593,6 @@ const ClientDashboard = () => {
               </div>
             </div>
 
-            {/* Dialog Display */}
             <div className="flex-1 bg-white flex flex-col h-screen">
               <div className="flex-1 overflow-y-auto p-4">
                 {showDialogLoader ? (
