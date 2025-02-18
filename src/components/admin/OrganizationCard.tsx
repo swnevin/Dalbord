@@ -25,6 +25,8 @@ import { Input } from "@/components/ui/input";
 import { AddMemberForm } from "./AddMemberForm";
 import { MemberList } from "./MemberList";
 
+type TabName = "organizations" | "conversations" | "knowledge";
+
 interface Organization {
   id: string;
   name: string;
@@ -39,7 +41,7 @@ interface Profile {
   email: string;
   role: string;
   organization_id: string | null;
-  tabs?: { tab_name: string }[];
+  tabs?: { tab_name: TabName }[];
 }
 
 interface OrganizationCardProps {
@@ -51,7 +53,7 @@ interface OrganizationCardProps {
     name: string; 
     email: string; 
     password: string;
-    tabs: string[];
+    tabs: TabName[];
   }) => Promise<void>;
   onDeleteMember: (profileId: string) => Promise<void>;
   hideControls?: boolean;
