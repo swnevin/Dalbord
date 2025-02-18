@@ -60,10 +60,32 @@ interface DialogMessage {
 type FilterType = "all" | "approved" | "saved";
 
 const formatText = (text: string) => {
+  // First, normalize line endings
+  text = text.replace(/\r\n/g, '\n');
+  
+  // Handle bold text
   text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  
+  // Handle links
   text = text.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" class="text-primary hover:underline">$1</a>');
-  text = text.replace(/(\d+\. )/g, '<br>$1');
-  text = text.replace(/>(.*?)(\n|$)/g, '<blockquote class="border-l-4 border-gray-300 pl-4 my-2 italic">$1</blockquote>');
+  
+  // Handle numbered lists and create paragraphs
+  // Split text into lines
+  const lines = text.split('\n');
+  const formattedLines = lines.map(line => {
+    // Check if line is a numbered list item
+    if (/^\d+\.\s/.test(line)) {
+      return `<div class="mt-2">${line}</div>`;
+    }
+    // If not a list item and not empty, wrap in p tag
+    return line.trim() ? `<p>${line}</p>` : '';
+  });
+  
+  text = formattedLines.join('');
+  
+  // Handle blockquotes
+  text = text.replace(/<p>>(.*?)<\/p>/g, '<blockquote class="border-l-4 border-gray-300 pl-4 my-2 italic">$1</blockquote>');
+  
   return text;
 };
 
@@ -71,9 +93,14 @@ const containsIframe = (text: string) => {
   return text.includes('<iframe');
 };
 
-const extractIframeSrc = (text: string) => {
-  const match = text.match(/src="([^"]+)"/);
-  return match ? match[1] : null;
+const extractIframeAndCleanText = (text: string) => {
+  const iframeMatch = text.match(/<iframe[^>]*src="([^"]*)"[^>]*>/);
+  const iframeSrc = iframeMatch ? iframeMatch[1] : null;
+  
+  // Remove the entire iframe tag and any surrounding whitespace
+  const cleanText = text.replace(/<iframe[^>]*>.*?<\/iframe>/s, '').trim();
+  
+  return { cleanText, iframeSrc };
 };
 
 const ClientDashboard = () => {
@@ -135,38 +162,32 @@ const ClientDashboard = () => {
         if (!messageText) return null;
 
         const hasIframe = containsIframe(messageText);
-        const iframeSrc = hasIframe ? extractIframeSrc(messageText) : null;
-        const formattedText = formatText(messageText);
+        const { cleanText, iframeSrc } = hasIframe 
+          ? extractIframeAndCleanText(messageText)
+          : { cleanText: messageText, iframeSrc: null };
+        
+        const formattedText = formatText(cleanText);
 
         return (
           <div className="flex flex-col gap-1 my-2">
             <div className="flex items-end gap-2 max-w-[80%]">
               <div className="bg-primary text-primary-foreground p-3 rounded-2xl rounded-bl-none">
-                {hasIframe ? (
-                  <div className="space-y-4">
-                    <div 
-                      dangerouslySetInnerHTML={{ 
-                        __html: formattedText.replace(/<iframe.*?<\/iframe>/s, '') 
-                      }}
-                      className="space-y-2 prose prose-invert max-w-none"
-                    />
-                    {iframeSrc && (
-                      <div className="relative w-full pt-[56.25%]">
-                        <iframe
-                          src={iframeSrc}
-                          className="absolute top-0 left-0 w-full h-full rounded-lg"
-                          frameBorder="0"
-                          allowFullScreen
-                        />
-                      </div>
-                    )}
-                  </div>
-                ) : (
+                <div className="space-y-2">
                   <div 
                     dangerouslySetInnerHTML={{ __html: formattedText }}
-                    className="space-y-2 prose prose-invert max-w-none"
+                    className="prose prose-invert max-w-none [&>p]:mb-2 [&>p:last-child]:mb-0"
                   />
-                )}
+                  {iframeSrc && (
+                    <div className="relative w-full pt-[56.25%] mt-4">
+                      <iframe
+                        src={iframeSrc}
+                        className="absolute top-0 left-0 w-full h-full rounded-lg"
+                        frameBorder="0"
+                        allowFullScreen
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
             <span className="text-xs text-gray-500 ml-2">
