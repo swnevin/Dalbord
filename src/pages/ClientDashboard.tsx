@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Sidebar from "../components/Sidebar";
 import { KnowledgeBase } from "@/components/KnowledgeBase";
 import { Button } from "@/components/ui/button";
@@ -115,6 +115,8 @@ const ClientDashboard = () => {
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
+  const [sessions, setSessions] = useState<{ start: number; end: number }[]>([]);
+  const dialogContainerRef = useRef<HTMLDivElement>(null);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -457,6 +459,48 @@ const ClientDashboard = () => {
     }
   };
 
+  const identifySessions = (messages: DialogMessage[]) => {
+    const newSessions: { start: number; end: number }[] = [];
+    let currentStart = -1;
+
+    messages.forEach((message, index) => {
+      if (message.type === 'launch') {
+        currentStart = index;
+      } else if (message.type === 'end' && currentStart !== -1) {
+        newSessions.push({ start: currentStart, end: index });
+        currentStart = -1;
+      }
+    });
+
+    // If we have a start without an end, include it
+    if (currentStart !== -1) {
+      newSessions.push({ start: currentStart, end: messages.length - 1 });
+    }
+
+    setSessions(newSessions);
+  };
+
+  const scrollToSession = (index: number) => {
+    if (!dialogContainerRef.current) return;
+    
+    const sessionElement = dialogContainerRef.current.children[sessions[index].start];
+    if (sessionElement) {
+      sessionElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  useEffect(() => {
+    if (dialog.length > 0) {
+      identifySessions(filterDialog(dialog));
+      // Scroll to latest session by default
+      setTimeout(() => {
+        if (sessions.length > 0) {
+          scrollToSession(sessions.length - 1);
+        }
+      }, 100);
+    }
+  }, [dialog]);
+
   return (
     <div className="flex h-screen bg-cream">
       <Sidebar 
@@ -615,7 +659,7 @@ const ClientDashboard = () => {
             </div>
 
             <div className="flex-1 bg-white flex flex-col h-screen">
-              <div className="flex-1 overflow-y-auto p-4">
+              <div ref={dialogContainerRef} className="flex-1 overflow-y-auto p-4">
                 {showDialogLoader ? (
                   <div className="h-full flex items-center justify-center">
                     <Loader size="lg" />
@@ -634,6 +678,25 @@ const ClientDashboard = () => {
                   </div>
                 )}
               </div>
+
+              {sessions.length > 1 && selectedConversation && (
+                <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2">
+                  <div className="bg-white/90 backdrop-blur-sm shadow-lg rounded-full px-4 py-2 flex items-center gap-2 border border-gray-200">
+                    <span className="text-sm text-gray-500 mr-2">Økter:</span>
+                    {sessions.map((_, index) => (
+                      <Button
+                        key={index}
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => scrollToSession(index)}
+                        className="rounded-full h-8 w-8 p-0"
+                      >
+                        {index + 1}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
