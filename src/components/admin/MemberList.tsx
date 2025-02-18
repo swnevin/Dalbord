@@ -110,20 +110,24 @@ export const MemberList = ({ members, onDeleteMember, organizationType }: Member
   return (
     <div className="space-y-2">
       {members.map((profile) => (
-        <div key={profile.id} className="flex items-center justify-between p-4 bg-gray-50 rounded">
+        <div key={profile.id} className="flex items-center justify-between p-4 bg-gray-50 rounded hover:bg-gray-100 transition-colors">
           <div className="space-y-1">
             <p className="font-medium text-primary">{profile.name}</p>
             <p className="text-sm text-gray-500">{profile.email}</p>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {profile.tabs?.map((tab) => (
-                <span 
-                  key={tab.tab_name}
-                  className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary"
-                >
-                  {tabLabels[tab.tab_name]}
-                </span>
-              ))}
-            </div>
+            {profile.tabs && profile.tabs.length > 0 ? (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {profile.tabs.map((tab) => (
+                  <span 
+                    key={tab.tab_name}
+                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#28483F]/10 text-[#28483F]"
+                  >
+                    {tabLabels[tab.tab_name]}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400 italic mt-2">Ingen tilganger</p>
+            )}
           </div>
           <div className="flex gap-2">
             <Sheet>
@@ -131,7 +135,7 @@ export const MemberList = ({ members, onDeleteMember, organizationType }: Member
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="text-primary hover:text-primary/80 hover:bg-primary/10"
+                  className="text-[#28483F] hover:text-[#28483F]/80 hover:bg-[#28483F]/10"
                   onClick={() => handleEditClick(profile)}
                 >
                   <Pencil className="h-4 w-4" />
@@ -158,7 +162,7 @@ export const MemberList = ({ members, onDeleteMember, organizationType }: Member
                     </div>
                     <div className="space-y-2">
                       <Label>Tilgang til faner</Label>
-                      <div className="space-y-3">
+                      <div className="space-y-3 p-4 rounded-md border bg-gray-50">
                         {organizationType === "admin" ? (
                           <div className="flex items-center space-x-2">
                             <Checkbox 
@@ -173,7 +177,9 @@ export const MemberList = ({ members, onDeleteMember, organizationType }: Member
                                 });
                               }}
                             />
-                            <Label htmlFor="organizations">Organisasjoner</Label>
+                            <Label htmlFor="organizations" className="font-medium">
+                              Organisasjoner
+                            </Label>
                           </div>
                         ) : (
                           <>
@@ -190,7 +196,9 @@ export const MemberList = ({ members, onDeleteMember, organizationType }: Member
                                   });
                                 }}
                               />
-                              <Label htmlFor="conversations">Samtaler</Label>
+                              <Label htmlFor="conversations" className="font-medium">
+                                Samtaler
+                              </Label>
                             </div>
                             <div className="flex items-center space-x-2">
                               <Checkbox 
@@ -205,14 +213,16 @@ export const MemberList = ({ members, onDeleteMember, organizationType }: Member
                                   });
                                 }}
                               />
-                              <Label htmlFor="knowledge">Kunnskapsbase</Label>
+                              <Label htmlFor="knowledge" className="font-medium">
+                                Kunnskapsbase
+                              </Label>
                             </div>
                           </>
                         )}
                       </div>
                     </div>
                     <Button 
-                      className="w-full bg-secondary text-primary hover:bg-secondary/90"
+                      className="w-full bg-[#E2B808] text-[#28483F] hover:bg-[#E2B808]/90"
                       onClick={handleUpdateMember}
                     >
                       Lagre endringer
