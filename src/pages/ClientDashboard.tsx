@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { MinimizeIcon, MaximizeIcon } from "lucide-react";
 import Sidebar from "../components/Sidebar";
@@ -700,7 +701,7 @@ const ClientDashboard = () => {
             <div className="flex-1 bg-white flex flex-col h-screen">
               <div 
                 ref={dialogContainerRef} 
-                className="flex-1 overflow-y-auto p-4 scroll-smooth"
+                className="flex-1 overflow-y-auto p-4"
               >
                 {showDialogLoader ? (
                   <div className="h-full flex items-center justify-center">
