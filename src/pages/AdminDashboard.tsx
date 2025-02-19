@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import Sidebar from "../components/Sidebar";
@@ -14,7 +15,7 @@ import { AddOrganizationForm } from "@/components/admin/AddOrganizationForm";
 import { OrganizationCard } from "@/components/admin/OrganizationCard";
 import { Database } from "@/integrations/supabase/types";
 
-type TabName = Database["public"]["Enums"]["tab_type"];
+type TabName = "organizations" | "conversations" | "knowledge" | "statistics";
 
 interface Organization {
   id: string;
