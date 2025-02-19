@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus, Bot, Trash2 } from "lucide-react";
+import { Database } from "@/integrations/supabase/types";
 import {
   Sheet,
   SheetContent,
@@ -25,7 +26,7 @@ import { Input } from "@/components/ui/input";
 import { AddMemberForm } from "./AddMemberForm";
 import { MemberList } from "./MemberList";
 
-type TabName = "organizations" | "conversations" | "knowledge";
+type TabName = Database["public"]["Enums"]["tab_type"];
 
 interface Organization {
   id: string;
@@ -41,7 +42,7 @@ interface Profile {
   email: string;
   role: string;
   organization_id: string | null;
-  tabs?: { tab_name: TabName }[];
+  tabs?: { tab_name: Database["public"]["Enums"]["tab_type"] }[];
 }
 
 interface OrganizationCardProps {

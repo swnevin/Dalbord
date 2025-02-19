@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import Sidebar from "../components/Sidebar";
@@ -15,7 +14,7 @@ import { AddOrganizationForm } from "@/components/admin/AddOrganizationForm";
 import { OrganizationCard } from "@/components/admin/OrganizationCard";
 import { Database } from "@/integrations/supabase/types";
 
-type TabName = "organizations" | "conversations" | "knowledge" | "statistics";
+type TabName = Database["public"]["Enums"]["tab_type"];
 
 interface Organization {
   id: string;
@@ -32,7 +31,7 @@ interface Profile {
   email: string;
   role: string;
   organization_id: string | null;
-  tabs?: { tab_name: TabName }[];
+  tabs?: { tab_name: Database["public"]["Enums"]["tab_type"] }[];
 }
 
 const AdminDashboard = () => {
