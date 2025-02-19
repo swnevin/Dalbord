@@ -5,6 +5,7 @@ import { MessagesSquare, UserRound } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader } from "@/components/ui/loader";
+import { toast } from "sonner";
 
 interface StatisticsData {
   totalInteractions: number;
@@ -21,52 +22,65 @@ export const Statistics = () => {
       if (!user?.organization_id) return;
 
       try {
+        // Fetch organization credentials
         const { data: org, error: orgError } = await supabase
           .from('organizations')
           .select('voiceflow_api_key, voiceflow_project_id')
           .eq('id', user.organization_id)
           .single();
 
-        if (orgError) throw orgError;
+        if (orgError) {
+          toast.error('Kunne ikke hente organisasjonsdetaljer');
+          throw orgError;
+        }
+        
         if (!org.voiceflow_api_key || !org.voiceflow_project_id) {
-          console.error('Missing Voiceflow credentials');
+          toast.error('Mangler Voiceflow-legitimasjon');
           return;
         }
 
-        const response = await fetch(
+        // Fetch conversations list
+        const conversationsResponse = await fetch(
           `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}`,
           {
             headers: {
-              accept: 'application/json',
               Authorization: org.voiceflow_api_key,
+              'Content-Type': 'application/json',
             },
           }
         );
 
-        if (!response.ok) throw new Error('Failed to fetch statistics');
+        if (!conversationsResponse.ok) {
+          throw new Error('Failed to fetch conversations');
+        }
 
-        const conversations = await response.json();
+        const conversations = await conversationsResponse.json();
         
-        // Calculate total interactions by summing up all messages in all conversations
-        let totalInteractions = 0;
-        for (const conversation of conversations) {
-          const dialogResponse = await fetch(
+        // Fetch all dialogs in parallel
+        const dialogPromises = conversations.map(conversation => 
+          fetch(
             `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}/${conversation._id}`,
             {
               headers: {
-                accept: 'application/json',
                 Authorization: org.voiceflow_api_key,
+                'Content-Type': 'application/json',
               },
             }
-          );
-          
-          if (dialogResponse.ok) {
-            const dialog = await dialogResponse.json();
+          ).then(res => res.json())
+        );
+
+        const dialogs = await Promise.allSettled(dialogPromises);
+        
+        // Calculate total interactions from successful dialog fetches
+        let totalInteractions = 0;
+        dialogs.forEach(result => {
+          if (result.status === 'fulfilled') {
+            const dialog = result.value;
             totalInteractions += dialog.filter((msg: any) => 
               ['text', 'request'].includes(msg.type)
             ).length;
           }
-        }
+        });
 
         setData({
           totalInteractions,
@@ -74,6 +88,7 @@ export const Statistics = () => {
         });
       } catch (error) {
         console.error('Error fetching statistics:', error);
+        toast.error('Kunne ikke hente statistikk');
       } finally {
         setIsLoading(false);
       }
@@ -86,6 +101,15 @@ export const Statistics = () => {
     return (
       <div className="h-full flex items-center justify-center">
         <Loader size="lg" />
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="p-8">
+        <h1 className="text-3xl font-bold text-primary mb-4">Statistikk</h1>
+        <p className="text-muted-foreground">Ingen data tilgjengelig</p>
       </div>
     );
   }
@@ -104,7 +128,7 @@ export const Statistics = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {data?.totalInteractions.toLocaleString('no') ?? '0'}
+              {data.totalInteractions.toLocaleString('no')}
             </div>
             <p className="text-xs text-muted-foreground">
               Totalt antall meldinger utvekslet
@@ -121,7 +145,7 @@ export const Statistics = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {data?.totalConversations.toLocaleString('no') ?? '0'}
+              {data.totalConversations.toLocaleString('no')}
             </div>
             <p className="text-xs text-muted-foreground">
               Totalt antall påbegynte samtaler
