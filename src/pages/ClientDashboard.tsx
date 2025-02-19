@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import Sidebar from "../components/Sidebar";
 import { KnowledgeBase } from "@/components/KnowledgeBase";
@@ -9,6 +8,7 @@ import { toast } from "sonner";
 import { ConversationList } from "@/components/conversations/ConversationList";
 import { ConversationDialog } from "@/components/conversations/ConversationDialog";
 import { DeleteDialog } from "@/components/conversations/DeleteDialog";
+import { Statistics } from "@/components/statistics/Statistics";
 
 interface VoiceflowTranscript {
   _id: string;
@@ -262,6 +262,7 @@ const ClientDashboard = () => {
           </div>
         )}
         {activeTab === "knowledge" && <KnowledgeBase />}
+        {activeTab === "statistics" && <Statistics />}
       </div>
 
       <DeleteDialog

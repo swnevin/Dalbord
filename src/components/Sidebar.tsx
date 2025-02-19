@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -10,6 +9,7 @@ import {
   ChevronLeft,
   MessageSquare,
   BookOpen,
+  LineChart,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,7 +20,7 @@ interface SidebarProps {
   activeTab: string;
 }
 
-type TabName = "organizations" | "conversations" | "knowledge";
+type TabName = "organizations" | "conversations" | "knowledge" | "statistics";
 
 const Sidebar = ({ role, onTabChange, activeTab }: SidebarProps) => {
   const [collapsed, setCollapsed] = useState(false);
@@ -34,6 +34,7 @@ const Sidebar = ({ role, onTabChange, activeTab }: SidebarProps) => {
   const clientLinks = [
     { icon: MessageSquare, label: "Samtaler", value: "conversations" as TabName },
     { icon: BookOpen, label: "Kunnskapsbase", value: "knowledge" as TabName },
+    { icon: LineChart, label: "Statistikk", value: "statistics" as TabName },
   ];
 
   const allLinks = role === "admin" ? adminLinks : clientLinks;
@@ -53,7 +54,6 @@ const Sidebar = ({ role, onTabChange, activeTab }: SidebarProps) => {
         const tabs = data.map(item => item.tab_name as TabName);
         setPermittedTabs(tabs);
 
-        // If current active tab is not permitted, switch to first permitted tab
         if (tabs.length > 0 && !tabs.includes(activeTab as TabName)) {
           onTabChange(tabs[0]);
         }

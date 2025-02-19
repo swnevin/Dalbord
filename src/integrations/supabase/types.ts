@@ -122,7 +122,7 @@ export type Database = {
       }
     }
     Enums: {
-      tab_type: "organizations" | "conversations" | "knowledge"
+      tab_type: "organizations" | "conversations" | "knowledge" | "statistics"
     }
     CompositeTypes: {
       [_ in never]: never
