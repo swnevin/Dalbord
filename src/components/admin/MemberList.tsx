@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Trash2, Pencil } from "lucide-react";
+import { Database } from "@/integrations/supabase/types";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,7 +27,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-type TabName = "organizations" | "conversations" | "knowledge";
+type TabName = Database["public"]["Enums"]["tab_type"];
 
 interface Profile {
   id: string;
@@ -46,7 +47,8 @@ interface MemberListProps {
 const tabLabels: Record<TabName, string> = {
   organizations: "Organisasjoner",
   conversations: "Samtaler",
-  knowledge: "Kunnskapsbase"
+  knowledge: "Kunnskapsbase",
+  statistics: "Statistikk"
 };
 
 export const MemberList = ({ members, onDeleteMember, organizationType }: MemberListProps) => {
@@ -88,14 +90,8 @@ export const MemberList = ({ members, onDeleteMember, organizationType }: Member
         if (insertError) throw insertError;
       }
 
-      // Update the member in the local state without a page reload
-      const updatedProfile = members.find(m => m.id === editingMember.id);
-      if (updatedProfile) {
-        updatedProfile.tabs = editingMember.tabs.map(tab_name => ({ tab_name }));
-      }
-
       toast.success('Medlem oppdatert');
-      setEditingMember(null); // Close the edit sheet
+      setEditingMember(null);
     } catch (error) {
       console.error('Error updating member:', error);
       toast.error('Kunne ikke oppdatere medlem');
@@ -200,6 +196,23 @@ export const MemberList = ({ members, onDeleteMember, organizationType }: Member
                               />
                               <Label htmlFor="knowledge" className="font-medium">
                                 Kunnskapsbase
+                              </Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Checkbox 
+                                id="statistics"
+                                checked={editingMember.tabs.includes("statistics")}
+                                onCheckedChange={(checked) => {
+                                  setEditingMember({
+                                    ...editingMember,
+                                    tabs: checked 
+                                      ? [...editingMember.tabs, "statistics"]
+                                      : editingMember.tabs.filter(t => t !== "statistics")
+                                  });
+                                }}
+                              />
+                              <Label htmlFor="statistics" className="font-medium">
+                                Statistikk
                               </Label>
                             </div>
                           </>
