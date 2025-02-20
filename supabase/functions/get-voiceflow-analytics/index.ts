@@ -1,5 +1,6 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -18,19 +19,67 @@ serve(async (req) => {
       throw new Error('Start date and end date are required')
     }
 
+    // Create Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const supabase = createClient(supabaseUrl, supabaseKey)
+
+    // Get the user's JWT from the authorization header
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      throw new Error('Missing authorization header')
+    }
+
+    // Get the user's organization ID from their profile
+    const { data: { user }, error: userError } = await supabase.auth.getUser(
+      authHeader.replace('Bearer ', '')
+    )
+    if (userError || !user) {
+      throw new Error('Invalid user token')
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('organization_id')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    if (profileError) {
+      throw new Error('Error fetching user profile')
+    }
+
+    if (!profile?.organization_id) {
+      throw new Error('User has no organization assigned')
+    }
+
+    // Get the organization's Voiceflow credentials
+    const { data: org, error: orgError } = await supabase
+      .from('organizations')
+      .select('voiceflow_api_key, voiceflow_project_id')
+      .eq('id', profile.organization_id)
+      .maybeSingle()
+
+    if (orgError) {
+      throw new Error('Error fetching organization')
+    }
+
+    if (!org?.voiceflow_api_key || !org?.voiceflow_project_id) {
+      throw new Error('Organization has no Voiceflow credentials')
+    }
+
     const options = {
       method: 'POST',
       headers: {
         accept: 'application/json',
         'content-type': 'application/json',
-        authorization: '{{vf.apiKey}}'
+        authorization: org.voiceflow_api_key
       },
       body: JSON.stringify({
         query: [
           {
             name: 'interactions',
             filter: {
-              projectID: '{{vf.projectID}}',
+              projectID: org.voiceflow_project_id,
               startTime: startDate,
               endTime: endDate
             }
