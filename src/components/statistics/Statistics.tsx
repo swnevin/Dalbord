@@ -1,15 +1,14 @@
 
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MessagesSquare, UserRound, MousePointer } from "lucide-react";
+import { MessagesSquare, UserRound } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader } from "@/components/ui/loader";
 import { toast } from "sonner";
 
 interface StatisticsData {
-  totalMessages: number;
-  totalClicks: number;
+  totalInteractions: number;
   totalConversations: number;
 }
 
@@ -23,6 +22,7 @@ export const Statistics = () => {
       if (!user?.organization_id) return;
 
       try {
+        // Fetch organization credentials
         const { data: org, error: orgError } = await supabase
           .from('organizations')
           .select('voiceflow_api_key, voiceflow_project_id')
@@ -39,9 +39,9 @@ export const Statistics = () => {
           return;
         }
 
-        // Fetch only last 100 conversations for faster loading
+        // Fetch conversations list
         const conversationsResponse = await fetch(
-          `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}?limit=100`,
+          `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}`,
           {
             headers: {
               Authorization: org.voiceflow_api_key,
@@ -56,9 +56,8 @@ export const Statistics = () => {
 
         const conversations = await conversationsResponse.json();
         
-        // Fetch only the last 20 dialogs for quick statistics
-        const recentConversations = conversations.slice(0, 20);
-        const dialogPromises = recentConversations.map(conversation => 
+        // Fetch all dialogs in parallel
+        const dialogPromises = conversations.map(conversation => 
           fetch(
             `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}/${conversation._id}`,
             {
@@ -72,31 +71,19 @@ export const Statistics = () => {
 
         const dialogs = await Promise.allSettled(dialogPromises);
         
-        // Calculate separate totals for messages and clicks
-        let totalMessages = 0;
-        let totalClicks = 0;
-        
+        // Calculate total interactions from successful dialog fetches
+        let totalInteractions = 0;
         dialogs.forEach(result => {
           if (result.status === 'fulfilled') {
             const dialog = result.value;
-            dialog.forEach((msg: any) => {
-              if (msg.type === 'text') totalMessages++;
-              if (msg.type === 'request') totalClicks++;
-            });
+            totalInteractions += dialog.filter((msg: any) => 
+              ['text', 'request'].includes(msg.type)
+            ).length;
           }
         });
 
-        // Calculate averages to estimate total numbers
-        const avgMessagesPerConversation = totalMessages / recentConversations.length;
-        const avgClicksPerConversation = totalClicks / recentConversations.length;
-
-        // Extrapolate to all conversations
-        const estimatedTotalMessages = Math.round(avgMessagesPerConversation * conversations.length);
-        const estimatedTotalClicks = Math.round(avgClicksPerConversation * conversations.length);
-
         setData({
-          totalMessages: estimatedTotalMessages,
-          totalClicks: estimatedTotalClicks,
+          totalInteractions,
           totalConversations: conversations.length,
         });
       } catch (error) {
@@ -135,13 +122,13 @@ export const Statistics = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Meldinger
+              Total Interaksjoner
             </CardTitle>
             <MessagesSquare className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {data.totalMessages.toLocaleString('no')}
+              {data.totalInteractions.toLocaleString('no')}
             </div>
             <p className="text-xs text-muted-foreground">
               Totalt antall meldinger utvekslet
@@ -152,24 +139,7 @@ export const Statistics = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Knappetrykk
-            </CardTitle>
-            <MousePointer className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {data.totalClicks.toLocaleString('no')}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Totalt antall knappetrykk
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Samtaler
+              Antall Samtaler
             </CardTitle>
             <UserRound className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
