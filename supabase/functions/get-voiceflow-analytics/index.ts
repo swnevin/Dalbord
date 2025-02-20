@@ -1,6 +1,5 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,59 +12,25 @@ serve(async (req) => {
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-    )
-
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
-      throw new Error('No authorization header')
-    }
-
-    // Verify the user and get their organization
-    const { data: { user }, error: userError } = await supabase.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    )
-    if (userError || !user) throw new Error('Invalid token')
-
-    // Get organization details
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('organization_id')
-      .eq('id', user.id)
-      .single()
-
-    if (profileError || !profile?.organization_id) {
-      throw new Error('Profile or organization not found')
-    }
-
-    // Get organization details
-    const { data: org, error: orgError } = await supabase
-      .from('organizations')
-      .select('voiceflow_api_key, voiceflow_project_id')
-      .eq('id', profile.organization_id)
-      .single()
-
-    if (orgError || !org?.voiceflow_api_key || !org?.voiceflow_project_id) {
-      throw new Error('Organization credentials not found')
-    }
-
     const { startDate, endDate } = await req.json()
+
+    if (!startDate || !endDate) {
+      throw new Error('Start date and end date are required')
+    }
 
     const options = {
       method: 'POST',
       headers: {
         accept: 'application/json',
         'content-type': 'application/json',
-        authorization: org.voiceflow_api_key
+        authorization: '{{vf.apiKey}}'
       },
       body: JSON.stringify({
         query: [
           {
             name: 'interactions',
             filter: {
-              projectID: org.voiceflow_project_id,
+              projectID: '{{vf.projectID}}',
               startTime: startDate,
               endTime: endDate
             }
@@ -75,7 +40,13 @@ serve(async (req) => {
     };
 
     const response = await fetch('https://analytics-api.voiceflow.com/v1/query/usage', options)
+    
+    if (!response.ok) {
+      throw new Error(`Voiceflow API error: ${response.status}`)
+    }
+    
     const data = await response.json()
+    console.log('Voiceflow analytics response:', data)
 
     return new Response(
       JSON.stringify(data),
