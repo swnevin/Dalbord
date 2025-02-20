@@ -30,13 +30,26 @@ serve(async (req) => {
     if (userError || !user) throw new Error('Invalid token')
 
     // Get organization details
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('organization_id')
+      .eq('id', user.id)
+      .single()
+
+    if (profileError || !profile?.organization_id) {
+      throw new Error('Profile or organization not found')
+    }
+
+    // Get organization details
     const { data: org, error: orgError } = await supabase
       .from('organizations')
       .select('voiceflow_api_key, voiceflow_project_id')
-      .eq('id', user.user_metadata.organization_id)
+      .eq('id', profile.organization_id)
       .single()
 
-    if (orgError || !org) throw new Error('Organization not found')
+    if (orgError || !org?.voiceflow_api_key || !org?.voiceflow_project_id) {
+      throw new Error('Organization credentials not found')
+    }
 
     const { startDate, endDate } = await req.json()
 
@@ -69,7 +82,7 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {
-    console.error('Error:', error)
+    console.error('Error in get-voiceflow-analytics:', error)
     return new Response(
       JSON.stringify({ error: error.message }),
       { 
