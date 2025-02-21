@@ -141,25 +141,30 @@ export const Statistics = () => {
         // Initialize user counts for each day
         const usersByDate: { [key: string]: Set<string> } = {};
         dateRangeInterval.forEach(date => {
-          usersByDate[format(date, 'yyyy-MM-dd')] = new Set<string>();
+          const dateStr = format(date, 'yyyy-MM-dd');
+          usersByDate[dateStr] = new Set<string>();
         });
 
-        // Fill in user data
-        filteredConversations.forEach((conv: any) => {
-          const dateStr = format(new Date(conv.createdAt), 'yyyy-MM-dd');
-          if (usersByDate[dateStr] && conv.userId) {
-            usersByDate[dateStr].add(conv.userId);
+        // Count unique users per day from all conversations
+        conversations.forEach((conv: any) => {
+          const convDate = new Date(conv.createdAt);
+          const dateStr = format(convDate, 'yyyy-MM-dd');
+          
+          // Only count if the date is within our range
+          if (convDate >= dateRange.from && convDate <= dateRange.to && usersByDate[dateStr]) {
+            if (conv.userId) {
+              usersByDate[dateStr].add(conv.userId);
+            }
           }
         });
 
-        // Convert to time series format
-        const usersTimeSeries = Object.entries(usersByDate).map(([date, users]) => ({
-          date,
-          value: users.size
-        }));
-
-        // Sort by date
-        usersTimeSeries.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        // Convert to time series format and sort by date
+        const usersTimeSeries = Object.entries(usersByDate)
+          .map(([date, users]) => ({
+            date,
+            value: users.size
+          }))
+          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
         setUsersSeries(usersTimeSeries);
         setData({
