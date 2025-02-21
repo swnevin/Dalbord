@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader } from "@/components/ui/loader";
 import { toast } from "sonner";
-import { subDays, format } from "date-fns";
+import { subDays, format, eachDayOfInterval } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -132,22 +132,34 @@ export const Statistics = () => {
         // Get total interactions from the response
         const totalInteractions = messageData?.result?.[0]?.count || 0;
 
-        // Create time series data for users
-        const usersByDate = filteredConversations.reduce((acc: { [key: string]: Set<string> }, conv: any) => {
-          const dateStr = format(new Date(conv.createdAt), 'yyyy-MM-dd');
-          if (!acc[dateStr]) {
-            acc[dateStr] = new Set<string>();
-          }
-          if (conv.userId) {
-            acc[dateStr].add(conv.userId);
-          }
-          return acc;
-        }, {} as { [key: string]: Set<string> });
+        // Create a continuous array of dates
+        const dateRangeInterval = eachDayOfInterval({
+          start: dateRange.from,
+          end: dateRange.to
+        });
 
+        // Initialize user counts for each day
+        const usersByDate: { [key: string]: Set<string> } = {};
+        dateRangeInterval.forEach(date => {
+          usersByDate[format(date, 'yyyy-MM-dd')] = new Set<string>();
+        });
+
+        // Fill in user data
+        filteredConversations.forEach((conv: any) => {
+          const dateStr = format(new Date(conv.createdAt), 'yyyy-MM-dd');
+          if (usersByDate[dateStr] && conv.userId) {
+            usersByDate[dateStr].add(conv.userId);
+          }
+        });
+
+        // Convert to time series format
         const usersTimeSeries = Object.entries(usersByDate).map(([date, users]) => ({
           date,
           value: users.size
         }));
+
+        // Sort by date
+        usersTimeSeries.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
         setUsersSeries(usersTimeSeries);
         setData({
