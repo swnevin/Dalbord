@@ -136,17 +136,17 @@ export const Statistics = () => {
         const usersByDate = filteredConversations.reduce((acc: { [key: string]: Set<string> }, conv: any) => {
           const dateStr = format(new Date(conv.createdAt), 'yyyy-MM-dd');
           if (!acc[dateStr]) {
-            acc[dateStr] = new Set();
+            acc[dateStr] = new Set<string>();
           }
           if (conv.userId) {
             acc[dateStr].add(conv.userId);
           }
           return acc;
-        }, {});
+        }, {} as { [key: string]: Set<string> });
 
         const usersTimeSeries = Object.entries(usersByDate).map(([date, users]) => ({
           date,
-          value: users.size,
+          value: users.size
         }));
 
         setUsersSeries(usersTimeSeries);
