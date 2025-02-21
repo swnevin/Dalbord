@@ -122,8 +122,8 @@ export const Statistics = () => {
           return convDate >= dateRange.from && convDate <= dateRange.to;
         });
 
-        // Get total interactions from the first query in the response
-        const totalInteractions = messageData?.results?.[0]?.value || 0;
+        // Get total interactions from the response
+        const totalInteractions = messageData?.result?.[0]?.count || 0;
 
         setData({
           totalMessages: totalInteractions,
