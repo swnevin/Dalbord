@@ -24,7 +24,7 @@ import {
 
 interface StatisticsData {
   totalMessages: number;
-  totalUsers: number;  // Changed from totalConversations
+  totalConversations: number;
 }
 
 type DateRange = {
@@ -116,22 +116,18 @@ export const Statistics = () => {
 
         const conversations = await conversationsResponse.json();
         
-        // Get unique users within date range
-        const uniqueUsers = new Set(
-          conversations
-            .filter((conv: any) => {
-              const convDate = new Date(conv.createdAt);
-              return convDate >= dateRange.from && convDate <= dateRange.to;
-            })
-            .map((conv: any) => conv.userId)
-        );
+        // Filter conversations within date range
+        const filteredConversations = conversations.filter((conv: any) => {
+          const convDate = new Date(conv.createdAt);
+          return convDate >= dateRange.from && convDate <= dateRange.to;
+        });
 
         // Get total interactions from the response
         const totalInteractions = messageData?.result?.[0]?.count || 0;
 
         setData({
           totalMessages: totalInteractions,
-          totalUsers: uniqueUsers.size,  // Changed from conversations.length
+          totalConversations: filteredConversations.length,
         });
       } catch (error) {
         console.error('Error fetching statistics:', error);
@@ -238,16 +234,16 @@ export const Statistics = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Antall Brukere
+              Antall Samtaler
             </CardTitle>
             <UserRound className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {data.totalUsers.toLocaleString('no')}
+              {data.totalConversations.toLocaleString('no')}
             </div>
             <p className="text-xs text-muted-foreground">
-              Antall unike brukere
+              Totalt antall påbegynte samtaler
             </p>
           </CardContent>
         </Card>
