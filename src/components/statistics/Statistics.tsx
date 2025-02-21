@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MessagesSquare, UserRound } from "lucide-react";
@@ -6,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader } from "@/components/ui/loader";
 import { toast } from "sonner";
-import { addDays, addWeeks, addMonths, subDays, format } from "date-fns";
+import { subDays, format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -21,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface StatisticsData {
   totalMessages: number;
@@ -34,6 +34,11 @@ type DateRange = {
 
 type TimeRange = '1w' | '2w' | '4w' | '3m' | 'custom';
 
+interface TimeSeriesData {
+  date: string;
+  value: number;
+}
+
 export const Statistics = () => {
   const { user } = useAuth();
   const [data, setData] = useState<StatisticsData | null>(null);
@@ -43,6 +48,8 @@ export const Statistics = () => {
     from: subDays(new Date(), 7),
     to: new Date()
   });
+  const [messagesSeries, setMessagesSeries] = useState<TimeSeriesData[]>([]);
+  const [usersSeries, setUsersSeries] = useState<TimeSeriesData[]>([]);
 
   const updateDateRange = (range: TimeRange) => {
     const now = new Date();
@@ -125,10 +132,60 @@ export const Statistics = () => {
         // Get total interactions from the response
         const totalInteractions = messageData?.result?.[0]?.count || 0;
 
+        // Create time series data for users
+        const usersByDate = filteredConversations.reduce((acc: { [key: string]: Set<string> }, conv: any) => {
+          const dateStr = format(new Date(conv.createdAt), 'yyyy-MM-dd');
+          if (!acc[dateStr]) {
+            acc[dateStr] = new Set();
+          }
+          if (conv.userId) {
+            acc[dateStr].add(conv.userId);
+          }
+          return acc;
+        }, {});
+
+        const usersTimeSeries = Object.entries(usersByDate).map(([date, users]) => ({
+          date,
+          value: users.size,
+        }));
+
+        setUsersSeries(usersTimeSeries);
         setData({
           totalMessages: totalInteractions,
           totalConversations: filteredConversations.length,
         });
+
+        // Fetch daily message counts
+        const dailyMessagePromises = [];
+        let currentDate = new Date(dateRange.from);
+        while (currentDate <= dateRange.to) {
+          const endDate = new Date(currentDate);
+          endDate.setHours(23, 59, 59, 999);
+          
+          dailyMessagePromises.push(
+            supabase.functions.invoke('get-voiceflow-analytics', {
+              body: {
+                startDate: currentDate.toISOString(),
+                endDate: endDate.toISOString(),
+              },
+            })
+          );
+          
+          currentDate = new Date(currentDate);
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+
+        const dailyResults = await Promise.all(dailyMessagePromises);
+        const messagesTimeSeries = dailyResults.map((result, index) => {
+          const date = new Date(dateRange.from);
+          date.setDate(date.getDate() + index);
+          return {
+            date: format(date, 'yyyy-MM-dd'),
+            value: result.data?.result?.[0]?.count || 0,
+          };
+        });
+
+        setMessagesSeries(messagesTimeSeries);
       } catch (error) {
         console.error('Error fetching statistics:', error);
         toast.error('Kunne ikke hente statistikk');
@@ -234,7 +291,7 @@ export const Statistics = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Antall Samtaler
+              Antall Brukere
             </CardTitle>
             <UserRound className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
@@ -243,8 +300,72 @@ export const Statistics = () => {
               {data.totalConversations.toLocaleString('no')}
             </div>
             <p className="text-xs text-muted-foreground">
-              Totalt antall påbegynte samtaler
+              Antall unike brukere
             </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Meldinger over tid</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={messagesSeries}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis 
+                    dataKey="date" 
+                    tickFormatter={(value) => format(new Date(value), 'dd.MM')}
+                  />
+                  <YAxis />
+                  <Tooltip 
+                    labelFormatter={(value) => format(new Date(value), 'dd.MM.yyyy')}
+                    formatter={(value: number) => [value.toLocaleString('no'), 'Meldinger']}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="value" 
+                    stroke="#28483F" 
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Unike brukere over tid</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={usersSeries}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis 
+                    dataKey="date" 
+                    tickFormatter={(value) => format(new Date(value), 'dd.MM')}
+                  />
+                  <YAxis />
+                  <Tooltip 
+                    labelFormatter={(value) => format(new Date(value), 'dd.MM.yyyy')}
+                    formatter={(value: number) => [value.toLocaleString('no'), 'Brukere']}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="value" 
+                    stroke="#E2B808" 
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
       </div>
