@@ -77,6 +77,9 @@ export const Statistics = () => {
   useEffect(() => {
     const fetchStatistics = async () => {
       if (!user?.organization_id) return;
+      
+      // Reset data before fetching new data
+      setData(null);
       setIsLoading(true);
 
       try {
@@ -116,13 +119,13 @@ export const Statistics = () => {
 
         const conversations = await conversationsResponse.json();
         
-        // Count contacts within the time frame
+        // Count contacts within the time frame using updatedAt
         let contactCount = 0;
         
         conversations.forEach((conv: any) => {
-          const convDate = new Date(conv.createdAt);
+          const lastActiveDate = new Date(conv.updatedAt);
           // For 'all' time range, count everything
-          if (timeRange === 'all' || (convDate >= dateRange.from && convDate <= dateRange.to)) {
+          if (timeRange === 'all' || (lastActiveDate >= dateRange.from && lastActiveDate <= dateRange.to)) {
             contactCount++;
           }
         });
