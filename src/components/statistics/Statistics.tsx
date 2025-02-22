@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader } from "@/components/ui/loader";
 import { toast } from "sonner";
-import { addDays, addWeeks, addMonths, subDays, format } from "date-fns";
+import { subDays, format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -32,13 +32,13 @@ type DateRange = {
   to: Date;
 };
 
-type TimeRange = '1w' | '2w' | '4w' | '3m' | 'custom';
+type TimeRange = '7d' | '30d' | '90d' | 'all' | 'custom';
 
 export const Statistics = () => {
   const { user } = useAuth();
   const [data, setData] = useState<StatisticsData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [timeRange, setTimeRange] = useState<TimeRange>('1w');
+  const [timeRange, setTimeRange] = useState<TimeRange>('7d');
   const [dateRange, setDateRange] = useState<DateRange>({
     from: subDays(new Date(), 7),
     to: new Date()
@@ -49,17 +49,17 @@ export const Statistics = () => {
     let from = now;
 
     switch (range) {
-      case '1w':
+      case '7d':
         from = subDays(now, 7);
         break;
-      case '2w':
-        from = subDays(now, 14);
+      case '30d':
+        from = subDays(now, 30);
         break;
-      case '4w':
-        from = subDays(now, 28);
-        break;
-      case '3m':
+      case '90d':
         from = subDays(now, 90);
+        break;
+      case 'all':
+        from = new Date(0); // Beginning of time
         break;
       case 'custom':
         return; // Don't update dates for custom range
@@ -75,8 +75,14 @@ export const Statistics = () => {
   }, [timeRange]);
 
   useEffect(() => {
+    const abortController = new AbortController();
+    let isMounted = true;
+
     const fetchStatistics = async () => {
       if (!user?.organization_id) return;
+      
+      // Reset data and set loading state
+      setData(null);
       setIsLoading(true);
 
       try {
@@ -87,11 +93,12 @@ export const Statistics = () => {
               startDate: dateRange.from.toISOString(),
               endDate: dateRange.to.toISOString(),
             },
+            signal: abortController.signal,
           });
 
         if (messageError) throw messageError;
 
-        // Fetch conversations and filter by date range
+        // Fetch conversations
         const { data: org, error: orgError } = await supabase
           .from('organizations')
           .select('voiceflow_api_key, voiceflow_project_id')
@@ -107,6 +114,7 @@ export const Statistics = () => {
               Authorization: org.voiceflow_api_key,
               'Content-Type': 'application/json',
             },
+            signal: abortController.signal,
           }
         );
 
@@ -116,26 +124,47 @@ export const Statistics = () => {
 
         const conversations = await conversationsResponse.json();
         
-        // Filter conversations within date range
-        const filteredConversations = conversations.filter((conv: any) => {
-          const convDate = new Date(conv.createdAt);
-          return convDate >= dateRange.from && convDate <= dateRange.to;
-        });
+        // Only update state if the component is still mounted
+        if (isMounted) {
+          // Count contacts within the time frame using updatedAt
+          let contactCount = 0;
+          
+          conversations.forEach((conv: any) => {
+            const lastActiveDate = new Date(conv.updatedAt);
+            // For 'all' time range, count everything
+            if (timeRange === 'all' || (lastActiveDate >= dateRange.from && lastActiveDate <= dateRange.to)) {
+              contactCount++;
+            }
+          });
 
-        setData({
-          totalMessages: messageData.interactions || 0,
-          totalConversations: filteredConversations.length,
-        });
+          // Get total interactions from the response
+          const totalInteractions = messageData?.result?.[0]?.count || 0;
+
+          setData({
+            totalMessages: totalInteractions,
+            totalConversations: contactCount
+          });
+          setIsLoading(false);
+        }
       } catch (error) {
-        console.error('Error fetching statistics:', error);
-        toast.error('Kunne ikke hente statistikk');
-      } finally {
-        setIsLoading(false);
+        if (!abortController.signal.aborted) {
+          console.error('Error fetching statistics:', error);
+          toast.error('Kunne ikke hente statistikk');
+          if (isMounted) {
+            setIsLoading(false);
+          }
+        }
       }
     };
 
     fetchStatistics();
-  }, [user?.organization_id, dateRange]);
+
+    // Cleanup function
+    return () => {
+      isMounted = false;
+      abortController.abort();
+    };
+  }, [user?.organization_id, dateRange, timeRange]);
 
   if (isLoading) {
     return (
@@ -165,10 +194,10 @@ export const Statistics = () => {
               <SelectValue placeholder="Velg tidsperiode" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="1w">Siste uke</SelectItem>
-              <SelectItem value="2w">Siste 2 uker</SelectItem>
-              <SelectItem value="4w">Siste 4 uker</SelectItem>
-              <SelectItem value="3m">Siste 3 måneder</SelectItem>
+              <SelectItem value="7d">Siste 7 dager</SelectItem>
+              <SelectItem value="30d">Siste 30 dager</SelectItem>
+              <SelectItem value="90d">Siste 90 dager</SelectItem>
+              <SelectItem value="all">All tid</SelectItem>
               <SelectItem value="custom">Egendefinert</SelectItem>
             </SelectContent>
           </Select>
@@ -220,7 +249,7 @@ export const Statistics = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {data.totalMessages.toLocaleString('no')}
+              {data?.totalMessages.toLocaleString('no')}
             </div>
             <p className="text-xs text-muted-foreground">
               Antall meldinger sendt
@@ -231,16 +260,16 @@ export const Statistics = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Antall Samtaler
+              Antall Brukere
             </CardTitle>
             <UserRound className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {data.totalConversations.toLocaleString('no')}
+              {data?.totalConversations.toLocaleString('no')}
             </div>
             <p className="text-xs text-muted-foreground">
-              Totalt antall påbegynte samtaler
+              Totalt antall forskjellige brukere
             </p>
           </CardContent>
         </Card>
