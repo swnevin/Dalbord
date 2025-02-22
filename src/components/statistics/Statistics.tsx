@@ -234,7 +234,7 @@ export const Statistics = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Antall Brukere
+              Antall Samtaler
             </CardTitle>
             <UserRound className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
@@ -243,7 +243,7 @@ export const Statistics = () => {
               {data.totalConversations.toLocaleString('no')}
             </div>
             <p className="text-xs text-muted-foreground">
-              Totalt antall forskjellige brukere
+              Totalt antall påbegynte samtaler
             </p>
           </CardContent>
         </Card>
