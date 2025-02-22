@@ -91,7 +91,7 @@ export const Statistics = () => {
 
         if (messageError) throw messageError;
 
-        // Fetch conversations and filter by date range
+        // Fetch conversations
         const { data: org, error: orgError } = await supabase
           .from('organizations')
           .select('voiceflow_api_key, voiceflow_project_id')
@@ -116,10 +116,16 @@ export const Statistics = () => {
 
         const conversations = await conversationsResponse.json();
         
-        // Filter conversations within date range
-        const filteredConversations = conversations.filter((conv: any) => {
+        // Create a Set to store unique userIds within the date range
+        const uniqueUsers = new Set();
+        
+        // Filter conversations and collect unique users within date range
+        conversations.forEach((conv: any) => {
           const convDate = new Date(conv.createdAt);
-          return convDate >= dateRange.from && convDate <= dateRange.to;
+          if (convDate >= dateRange.from && convDate <= dateRange.to) {
+            // Add userId or sessionID if userId is not available
+            uniqueUsers.add(conv.userId || conv.sessionID);
+          }
         });
 
         // Get total interactions from the response
@@ -127,7 +133,7 @@ export const Statistics = () => {
 
         setData({
           totalMessages: totalInteractions,
-          totalConversations: filteredConversations.length,
+          totalConversations: uniqueUsers.size
         });
       } catch (error) {
         console.error('Error fetching statistics:', error);
