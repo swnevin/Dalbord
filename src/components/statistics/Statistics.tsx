@@ -75,10 +75,13 @@ export const Statistics = () => {
   }, [timeRange]);
 
   useEffect(() => {
+    const abortController = new AbortController();
+    let isMounted = true;
+
     const fetchStatistics = async () => {
       if (!user?.organization_id) return;
       
-      // Reset data before fetching new data
+      // Reset data and set loading state
       setData(null);
       setIsLoading(true);
 
@@ -90,6 +93,7 @@ export const Statistics = () => {
               startDate: dateRange.from.toISOString(),
               endDate: dateRange.to.toISOString(),
             },
+            signal: abortController.signal,
           });
 
         if (messageError) throw messageError;
@@ -110,6 +114,7 @@ export const Statistics = () => {
               Authorization: org.voiceflow_api_key,
               'Content-Type': 'application/json',
             },
+            signal: abortController.signal,
           }
         );
 
@@ -119,33 +124,46 @@ export const Statistics = () => {
 
         const conversations = await conversationsResponse.json();
         
-        // Count contacts within the time frame using updatedAt
-        let contactCount = 0;
-        
-        conversations.forEach((conv: any) => {
-          const lastActiveDate = new Date(conv.updatedAt);
-          // For 'all' time range, count everything
-          if (timeRange === 'all' || (lastActiveDate >= dateRange.from && lastActiveDate <= dateRange.to)) {
-            contactCount++;
-          }
-        });
+        // Only update state if the component is still mounted
+        if (isMounted) {
+          // Count contacts within the time frame using updatedAt
+          let contactCount = 0;
+          
+          conversations.forEach((conv: any) => {
+            const lastActiveDate = new Date(conv.updatedAt);
+            // For 'all' time range, count everything
+            if (timeRange === 'all' || (lastActiveDate >= dateRange.from && lastActiveDate <= dateRange.to)) {
+              contactCount++;
+            }
+          });
 
-        // Get total interactions from the response
-        const totalInteractions = messageData?.result?.[0]?.count || 0;
+          // Get total interactions from the response
+          const totalInteractions = messageData?.result?.[0]?.count || 0;
 
-        setData({
-          totalMessages: totalInteractions,
-          totalConversations: contactCount
-        });
+          setData({
+            totalMessages: totalInteractions,
+            totalConversations: contactCount
+          });
+          setIsLoading(false);
+        }
       } catch (error) {
-        console.error('Error fetching statistics:', error);
-        toast.error('Kunne ikke hente statistikk');
-      } finally {
-        setIsLoading(false);
+        if (!abortController.signal.aborted) {
+          console.error('Error fetching statistics:', error);
+          toast.error('Kunne ikke hente statistikk');
+          if (isMounted) {
+            setIsLoading(false);
+          }
+        }
       }
     };
 
     fetchStatistics();
+
+    // Cleanup function
+    return () => {
+      isMounted = false;
+      abortController.abort();
+    };
   }, [user?.organization_id, dateRange, timeRange]);
 
   if (isLoading) {
@@ -231,7 +249,7 @@ export const Statistics = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {data.totalMessages.toLocaleString('no')}
+              {data?.totalMessages.toLocaleString('no')}
             </div>
             <p className="text-xs text-muted-foreground">
               Antall meldinger sendt
@@ -248,7 +266,7 @@ export const Statistics = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {data.totalConversations.toLocaleString('no')}
+              {data?.totalConversations.toLocaleString('no')}
             </div>
             <p className="text-xs text-muted-foreground">
               Totalt antall forskjellige brukere
