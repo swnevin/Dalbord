@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader } from "@/components/ui/loader";
 import { toast } from "sonner";
-import { addDays, addWeeks, addMonths, subDays, format } from "date-fns";
+import { subDays, format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -32,13 +32,13 @@ type DateRange = {
   to: Date;
 };
 
-type TimeRange = '1w' | '2w' | '4w' | '3m' | 'custom';
+type TimeRange = '7d' | '30d' | '90d' | 'all' | 'custom';
 
 export const Statistics = () => {
   const { user } = useAuth();
   const [data, setData] = useState<StatisticsData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [timeRange, setTimeRange] = useState<TimeRange>('1w');
+  const [timeRange, setTimeRange] = useState<TimeRange>('7d');
   const [dateRange, setDateRange] = useState<DateRange>({
     from: subDays(new Date(), 7),
     to: new Date()
@@ -49,17 +49,17 @@ export const Statistics = () => {
     let from = now;
 
     switch (range) {
-      case '1w':
+      case '7d':
         from = subDays(now, 7);
         break;
-      case '2w':
-        from = subDays(now, 14);
+      case '30d':
+        from = subDays(now, 30);
         break;
-      case '4w':
-        from = subDays(now, 28);
-        break;
-      case '3m':
+      case '90d':
         from = subDays(now, 90);
+        break;
+      case 'all':
+        from = new Date(0); // Beginning of time
         break;
       case 'custom':
         return; // Don't update dates for custom range
@@ -116,15 +116,14 @@ export const Statistics = () => {
 
         const conversations = await conversationsResponse.json();
         
-        // Create a Set to store unique userIds within the date range
-        const uniqueUsers = new Set();
+        // Count contacts within the time frame
+        let contactCount = 0;
         
-        // Filter conversations and collect unique users within date range
         conversations.forEach((conv: any) => {
           const convDate = new Date(conv.createdAt);
-          if (convDate >= dateRange.from && convDate <= dateRange.to) {
-            // Add userId or sessionID if userId is not available
-            uniqueUsers.add(conv.userId || conv.sessionID);
+          // For 'all' time range, count everything
+          if (timeRange === 'all' || (convDate >= dateRange.from && convDate <= dateRange.to)) {
+            contactCount++;
           }
         });
 
@@ -133,7 +132,7 @@ export const Statistics = () => {
 
         setData({
           totalMessages: totalInteractions,
-          totalConversations: uniqueUsers.size
+          totalConversations: contactCount
         });
       } catch (error) {
         console.error('Error fetching statistics:', error);
@@ -144,7 +143,7 @@ export const Statistics = () => {
     };
 
     fetchStatistics();
-  }, [user?.organization_id, dateRange]);
+  }, [user?.organization_id, dateRange, timeRange]);
 
   if (isLoading) {
     return (
@@ -174,10 +173,10 @@ export const Statistics = () => {
               <SelectValue placeholder="Velg tidsperiode" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="1w">Siste uke</SelectItem>
-              <SelectItem value="2w">Siste 2 uker</SelectItem>
-              <SelectItem value="4w">Siste 4 uker</SelectItem>
-              <SelectItem value="3m">Siste 3 måneder</SelectItem>
+              <SelectItem value="7d">Siste 7 dager</SelectItem>
+              <SelectItem value="30d">Siste 30 dager</SelectItem>
+              <SelectItem value="90d">Siste 90 dager</SelectItem>
+              <SelectItem value="all">All tid</SelectItem>
               <SelectItem value="custom">Egendefinert</SelectItem>
             </SelectContent>
           </Select>
