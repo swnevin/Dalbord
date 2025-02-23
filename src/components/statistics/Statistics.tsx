@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MessagesSquare, UserRound } from "lucide-react";
@@ -57,7 +58,12 @@ type TimeRange = '7d' | '30d' | '90d' | 'all' | 'custom';
 
 export const Statistics = () => {
   const { user } = useAuth();
-  const [data, setData] = useState<StatisticsData>({});
+  const [data, setData] = useState<StatisticsData>({
+    totalMessages: 0,
+    totalConversations: 0,
+    messageTimeSeries: [],
+    userTimeSeries: []
+  });
   const [loading, setLoading] = useState<LoadingState>({
     summaryCards: true,
     messageChart: true,
