@@ -89,7 +89,7 @@ export const Statistics = () => {
         from = subDays(now, 90);
         break;
       case 'all':
-        from = new Date(0); // Beginning of time
+        from = subDays(now, 365); // Default to 1 year if no conversations exist
         break;
       case 'custom':
         return; // Don't update dates for custom range
@@ -104,39 +104,75 @@ export const Statistics = () => {
     }
   }, [timeRange]);
 
+  useEffect(() => {
+    const fetchEarliestConversationDate = async () => {
+      if (!user?.organization_id || timeRange !== 'all') return;
+
+      try {
+        const { data: org, error: orgError } = await supabase
+          .from('organizations')
+          .select('voiceflow_api_key, voiceflow_project_id')
+          .eq('id', user.organization_id)
+          .single();
+
+        if (orgError) throw orgError;
+
+        const conversationsResponse = await fetch(
+          `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}`,
+          {
+            headers: {
+              Authorization: org.voiceflow_api_key,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        if (!conversationsResponse.ok) {
+          throw new Error('Failed to fetch conversations');
+        }
+
+        const conversations = await conversationsResponse.json();
+        
+        if (conversations && conversations.length > 0) {
+          // Find the earliest conversation date
+          const dates = conversations.map((conv: any) => new Date(conv.createdAt));
+          const earliestDate = new Date(Math.min(...dates));
+          
+          // Update the date range to start from the earliest conversation
+          setDateRange(prev => ({ ...prev, from: earliestDate }));
+        }
+      } catch (error) {
+        console.error('Error fetching earliest conversation date:', error);
+        toast.error('Kunne ikke hente tidligste samtale dato');
+      }
+    };
+
+    fetchEarliestConversationDate();
+  }, [user?.organization_id, timeRange]);
+
   const getTimeFrames = (from: Date, to: Date) => {
     const daysDifference = differenceInDays(to, from);
-    
-    if (daysDifference <= 30) {
-      const timeFrames: { start: Date; end: Date }[] = [];
-      let currentDate = from;
-
-      while (currentDate <= to) {
-        timeFrames.push({
-          start: currentDate,
-          end: currentDate
-        });
-        currentDate = addDays(currentDate, 1);
-      }
-      return timeFrames;
-    }
-
-    let interval = 1;
-    if (daysDifference > 90) {
-      interval = 30; // Monthly
-    } else if (daysDifference > 30) {
-      interval = 7; // Weekly
-    }
-
     const timeFrames: { start: Date; end: Date }[] = [];
     let currentDate = from;
+    
+    let interval = 1; // Default to daily
+    if (daysDifference > 180) { // More than 6 months
+      interval = 14; // Bi-weekly
+    } else if (daysDifference > 60) { // More than 2 months
+      interval = 7; // Weekly
+    } else if (daysDifference > 30) { // More than 1 month
+      interval = 3; // Every 3 days
+    }
 
-    while (currentDate < to) {
+    while (currentDate <= to) {
       const frameEnd = addDays(currentDate, interval - 1);
+      const endDate = frameEnd > to ? to : frameEnd;
+      
       timeFrames.push({
         start: currentDate,
-        end: frameEnd > to ? to : frameEnd
+        end: endDate
       });
+      
       currentDate = addDays(currentDate, interval);
     }
 
@@ -220,6 +256,7 @@ export const Statistics = () => {
 
   useEffect(() => {
     let isMounted = true;
+    const abortController = new AbortController();
 
     const fetchMessageTimeSeries = async () => {
       if (!user?.organization_id) return;
@@ -380,7 +417,7 @@ export const Statistics = () => {
                 dataKey="value"
                 stroke={color}
                 strokeWidth={2}
-                dot={false}
+                dot={data.length <= 30}
                 animationDuration={1500}
                 animationEasing="ease-in-out"
               />
