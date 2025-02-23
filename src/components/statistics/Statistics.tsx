@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MessagesSquare, UserRound } from "lucide-react";
@@ -75,8 +74,8 @@ export const Statistics = () => {
   }, [timeRange]);
 
   useEffect(() => {
-    const abortController = new AbortController();
     let isMounted = true;
+    const abortController = new AbortController();
 
     const fetchStatistics = async () => {
       if (!user?.organization_id) return;
@@ -93,7 +92,6 @@ export const Statistics = () => {
               startDate: dateRange.from.toISOString(),
               endDate: dateRange.to.toISOString(),
             },
-            signal: abortController.signal,
           });
 
         if (messageError) throw messageError;
@@ -147,12 +145,10 @@ export const Statistics = () => {
           setIsLoading(false);
         }
       } catch (error) {
-        if (!abortController.signal.aborted) {
+        if (isMounted && !abortController.signal.aborted) {
           console.error('Error fetching statistics:', error);
           toast.error('Kunne ikke hente statistikk');
-          if (isMounted) {
-            setIsLoading(false);
-          }
+          setIsLoading(false);
         }
       }
     };
