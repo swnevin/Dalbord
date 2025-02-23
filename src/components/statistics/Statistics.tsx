@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MessagesSquare, UserRound } from "lucide-react";
@@ -6,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader } from "@/components/ui/loader";
 import { toast } from "sonner";
-import { subDays, format } from "date-fns";
+import { subDays, format, differenceInDays, addDays } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -21,10 +20,32 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
 interface StatisticsData {
-  totalMessages: number;
-  totalConversations: number;
+  totalMessages?: number;
+  totalConversations?: number;
+  messageTimeSeries?: TimeSeriesData[];
+  userTimeSeries?: TimeSeriesData[];
+}
+
+interface LoadingState {
+  summaryCards: boolean;
+  messageChart: boolean;
+  userChart: boolean;
+}
+
+interface TimeSeriesData {
+  date: string;
+  value: number;
 }
 
 type DateRange = {
@@ -36,8 +57,17 @@ type TimeRange = '7d' | '30d' | '90d' | 'all' | 'custom';
 
 export const Statistics = () => {
   const { user } = useAuth();
-  const [data, setData] = useState<StatisticsData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [data, setData] = useState<StatisticsData>({
+    totalMessages: 0,
+    totalConversations: 0,
+    messageTimeSeries: [],
+    userTimeSeries: []
+  });
+  const [loading, setLoading] = useState<LoadingState>({
+    summaryCards: true,
+    messageChart: true,
+    userChart: true
+  });
   const [timeRange, setTimeRange] = useState<TimeRange>('7d');
   const [dateRange, setDateRange] = useState<DateRange>({
     from: subDays(new Date(), 7),
@@ -59,7 +89,7 @@ export const Statistics = () => {
         from = subDays(now, 90);
         break;
       case 'all':
-        from = new Date(0); // Beginning of time
+        from = subDays(now, 365); // Default to 1 year if no conversations exist
         break;
       case 'custom':
         return; // Don't update dates for custom range
@@ -75,30 +105,10 @@ export const Statistics = () => {
   }, [timeRange]);
 
   useEffect(() => {
-    const abortController = new AbortController();
-    let isMounted = true;
-
-    const fetchStatistics = async () => {
-      if (!user?.organization_id) return;
-      
-      // Reset data and set loading state
-      setData(null);
-      setIsLoading(true);
+    const fetchEarliestConversationDate = async () => {
+      if (!user?.organization_id || timeRange !== 'all') return;
 
       try {
-        // Fetch messages count from edge function
-        const { data: messageData, error: messageError } = await supabase.functions
-          .invoke('get-voiceflow-analytics', {
-            body: {
-              startDate: dateRange.from.toISOString(),
-              endDate: dateRange.to.toISOString(),
-            },
-            signal: abortController.signal,
-          });
-
-        if (messageError) throw messageError;
-
-        // Fetch conversations
         const { data: org, error: orgError } = await supabase
           .from('organizations')
           .select('voiceflow_api_key, voiceflow_project_id')
@@ -106,7 +116,97 @@ export const Statistics = () => {
           .single();
 
         if (orgError) throw orgError;
+
+        const conversationsResponse = await fetch(
+          `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}`,
+          {
+            headers: {
+              Authorization: org.voiceflow_api_key,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        if (!conversationsResponse.ok) {
+          throw new Error('Failed to fetch conversations');
+        }
+
+        const conversations = await conversationsResponse.json();
         
+        if (conversations && conversations.length > 0) {
+          // Find the earliest conversation date
+          const dates = conversations.map((conv: any) => new Date(conv.createdAt));
+          const earliestDate = new Date(Math.min(...dates));
+          
+          // Update the date range to start from the earliest conversation
+          setDateRange(prev => ({ ...prev, from: earliestDate }));
+        }
+      } catch (error) {
+        console.error('Error fetching earliest conversation date:', error);
+        toast.error('Kunne ikke hente tidligste samtale dato');
+      }
+    };
+
+    fetchEarliestConversationDate();
+  }, [user?.organization_id, timeRange]);
+
+  const getTimeFrames = (from: Date, to: Date) => {
+    const daysDifference = differenceInDays(to, from);
+    const timeFrames: { start: Date; end: Date }[] = [];
+    let currentDate = from;
+    
+    let interval = 1; // Default to daily
+    if (daysDifference > 180) { // More than 6 months
+      interval = 14; // Bi-weekly
+    } else if (daysDifference > 60) { // More than 2 months
+      interval = 7; // Weekly
+    } else if (daysDifference > 30) { // More than 1 month
+      interval = 3; // Every 3 days
+    }
+
+    while (currentDate <= to) {
+      const frameEnd = addDays(currentDate, interval - 1);
+      const endDate = frameEnd > to ? to : frameEnd;
+      
+      timeFrames.push({
+        start: currentDate,
+        end: endDate
+      });
+      
+      currentDate = addDays(currentDate, interval);
+    }
+
+    return timeFrames;
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+    const abortController = new AbortController();
+
+    const fetchSummaryData = async () => {
+      if (!user?.organization_id) return;
+
+      setLoading(prev => ({ ...prev, summaryCards: true }));
+
+      try {
+        const { data: messageData, error: messageError } = await supabase.functions
+          .invoke('get-voiceflow-analytics', {
+            body: {
+              startDate: dateRange.from.toISOString(),
+              endDate: dateRange.to.toISOString(),
+            },
+          });
+
+        if (messageError) throw messageError;
+
+        const { data: org, error: orgError } = await supabase
+          .from('organizations')
+          .select('voiceflow_api_key, voiceflow_project_id')
+          .eq('id', user.organization_id)
+          .single();
+
+        if (orgError) throw orgError;
+
         const conversationsResponse = await fetch(
           `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}`,
           {
@@ -123,65 +223,214 @@ export const Statistics = () => {
         }
 
         const conversations = await conversationsResponse.json();
-        
-        // Only update state if the component is still mounted
+
+        const totalConversations = conversations.filter((conv: any) => {
+          const lastActiveDate = new Date(conv.updatedAt);
+          return timeRange === 'all' || (lastActiveDate >= dateRange.from && lastActiveDate <= dateRange.to);
+        }).length;
+
         if (isMounted) {
-          // Count contacts within the time frame using updatedAt
-          let contactCount = 0;
-          
-          conversations.forEach((conv: any) => {
-            const lastActiveDate = new Date(conv.updatedAt);
-            // For 'all' time range, count everything
-            if (timeRange === 'all' || (lastActiveDate >= dateRange.from && lastActiveDate <= dateRange.to)) {
-              contactCount++;
-            }
-          });
-
-          // Get total interactions from the response
-          const totalInteractions = messageData?.result?.[0]?.count || 0;
-
-          setData({
-            totalMessages: totalInteractions,
-            totalConversations: contactCount
-          });
-          setIsLoading(false);
+          setData(prev => ({
+            ...prev,
+            totalMessages: messageData?.result?.[0]?.count || 0,
+            totalConversations
+          }));
+          setLoading(prev => ({ ...prev, summaryCards: false }));
         }
       } catch (error) {
-        if (!abortController.signal.aborted) {
-          console.error('Error fetching statistics:', error);
-          toast.error('Kunne ikke hente statistikk');
-          if (isMounted) {
-            setIsLoading(false);
-          }
+        if (isMounted && !abortController.signal.aborted) {
+          console.error('Error fetching summary statistics:', error);
+          toast.error('Kunne ikke hente oppsummeringsdata');
+          setLoading(prev => ({ ...prev, summaryCards: false }));
         }
       }
     };
 
-    fetchStatistics();
+    fetchSummaryData();
 
-    // Cleanup function
     return () => {
       isMounted = false;
       abortController.abort();
     };
   }, [user?.organization_id, dateRange, timeRange]);
 
-  if (isLoading) {
-    return (
-      <div className="h-full flex items-center justify-center">
-        <Loader size="lg" />
-      </div>
-    );
-  }
+  useEffect(() => {
+    let isMounted = true;
+    const abortController = new AbortController();
 
-  if (!data) {
-    return (
-      <div className="p-8">
-        <h1 className="text-3xl font-bold text-primary mb-4">Statistikk</h1>
-        <p className="text-muted-foreground">Ingen data tilgjengelig</p>
-      </div>
-    );
-  }
+    const fetchMessageTimeSeries = async () => {
+      if (!user?.organization_id) return;
+
+      setLoading(prev => ({ ...prev, messageChart: true }));
+
+      try {
+        const timeFrames = getTimeFrames(dateRange.from, dateRange.to);
+        const messageTimeSeries: TimeSeriesData[] = [];
+
+        for (const frame of timeFrames) {
+          const { data: messageData, error: messageError } = await supabase.functions
+            .invoke('get-voiceflow-analytics', {
+              body: {
+                startDate: frame.start.toISOString(),
+                endDate: frame.end.toISOString(),
+              },
+            });
+
+          if (messageError) throw messageError;
+
+          messageTimeSeries.push({
+            date: format(frame.start, 'dd.MM'),
+            value: messageData?.result?.[0]?.count || 0
+          });
+        }
+
+        if (isMounted) {
+          setData(prev => ({ ...prev, messageTimeSeries }));
+          setLoading(prev => ({ ...prev, messageChart: false }));
+        }
+      } catch (error) {
+        if (isMounted) {
+          console.error('Error fetching message time series:', error);
+          toast.error('Kunne ikke hente meldingsstatistikk over tid');
+          setLoading(prev => ({ ...prev, messageChart: false }));
+        }
+      }
+    };
+
+    fetchMessageTimeSeries();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.organization_id, dateRange, timeRange]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const abortController = new AbortController();
+
+    const fetchUserTimeSeries = async () => {
+      if (!user?.organization_id) return;
+
+      setLoading(prev => ({ ...prev, userChart: true }));
+
+      try {
+        const { data: org, error: orgError } = await supabase
+          .from('organizations')
+          .select('voiceflow_api_key, voiceflow_project_id')
+          .eq('id', user.organization_id)
+          .single();
+
+        if (orgError) throw orgError;
+
+        const conversationsResponse = await fetch(
+          `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}`,
+          {
+            headers: {
+              Authorization: org.voiceflow_api_key,
+              'Content-Type': 'application/json',
+            },
+            signal: abortController.signal,
+          }
+        );
+
+        if (!conversationsResponse.ok) {
+          throw new Error('Failed to fetch conversations');
+        }
+
+        const conversations = await conversationsResponse.json();
+        const timeFrames = getTimeFrames(dateRange.from, dateRange.to);
+        const userTimeSeries: TimeSeriesData[] = [];
+
+        for (const frame of timeFrames) {
+          const userCount = conversations.filter((conv: any) => {
+            const lastActiveDate = new Date(conv.updatedAt);
+            return lastActiveDate >= frame.start && lastActiveDate <= frame.end;
+          }).length;
+
+          userTimeSeries.push({
+            date: format(frame.start, 'dd.MM'),
+            value: userCount
+          });
+        }
+
+        if (isMounted) {
+          setData(prev => ({ ...prev, userTimeSeries }));
+          setLoading(prev => ({ ...prev, userChart: false }));
+        }
+      } catch (error) {
+        if (isMounted && !abortController.signal.aborted) {
+          console.error('Error fetching user time series:', error);
+          toast.error('Kunne ikke hente brukerstatistikk over tid');
+          setLoading(prev => ({ ...prev, userChart: false }));
+        }
+      }
+    };
+
+    fetchUserTimeSeries();
+
+    return () => {
+      isMounted = false;
+      abortController.abort();
+    };
+  }, [user?.organization_id, dateRange, timeRange]);
+
+  const renderLineChart = (
+    data: TimeSeriesData[] | undefined,
+    title: string,
+    color: string = "#28483F",
+    isLoading: boolean
+  ) => (
+    <Card className="w-full h-[400px]">
+      <CardHeader>
+        <CardTitle className="text-sm font-medium">{title}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="h-[300px] flex items-center justify-center">
+            <Loader size="md" />
+          </div>
+        ) : data && data.length > 0 ? (
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={data}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+              <XAxis
+                dataKey="date"
+                stroke="#64748B"
+                fontSize={12}
+                tickLine={false}
+              />
+              <YAxis
+                stroke="#64748B"
+                fontSize={12}
+                tickLine={false}
+                axisLine={false}
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "#FFF",
+                  border: "1px solid #E2E8F0",
+                  borderRadius: "6px",
+                }}
+              />
+              <Line
+                type="monotone"
+                dataKey="value"
+                stroke={color}
+                strokeWidth={2}
+                dot={data.length <= 30}
+                animationDuration={1500}
+                animationEasing="ease-in-out"
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+            Ingen data tilgjengelig
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
 
   return (
     <div className="p-8 space-y-8">
@@ -248,12 +497,20 @@ export const Statistics = () => {
             <MessagesSquare className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {data?.totalMessages.toLocaleString('no')}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Antall meldinger sendt
-            </p>
+            {loading.summaryCards ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader size="sm" />
+              </div>
+            ) : (
+              <>
+                <div className="text-2xl font-bold">
+                  {data.totalMessages?.toLocaleString('no') ?? 0}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Antall meldinger sendt
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -265,14 +522,27 @@ export const Statistics = () => {
             <UserRound className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {data?.totalConversations.toLocaleString('no')}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Totalt antall forskjellige brukere
-            </p>
+            {loading.summaryCards ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader size="sm" />
+              </div>
+            ) : (
+              <>
+                <div className="text-2xl font-bold">
+                  {data.totalConversations?.toLocaleString('no') ?? 0}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Totalt antall forskjellige brukere
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
+      </div>
+
+      <div className="grid gap-8 mt-8">
+        {renderLineChart(data.userTimeSeries, "Brukere over tid", "#E2B808", loading.userChart)}
+        {renderLineChart(data.messageTimeSeries, "Meldinger over tid", "#28483F", loading.messageChart)}
       </div>
     </div>
   );
