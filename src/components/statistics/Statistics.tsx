@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MessagesSquare, UserRound } from "lucide-react";
@@ -107,15 +106,26 @@ export const Statistics = () => {
 
   const getTimeFrames = (from: Date, to: Date) => {
     const daysDifference = differenceInDays(to, from);
-    let interval = 1; // Default to daily for shorter periods
+    
+    if (daysDifference <= 30) {
+      const timeFrames: { start: Date; end: Date }[] = [];
+      let currentDate = from;
 
-    // Adjust interval based on total duration
+      while (currentDate <= to) {
+        timeFrames.push({
+          start: currentDate,
+          end: currentDate
+        });
+        currentDate = addDays(currentDate, 1);
+      }
+      return timeFrames;
+    }
+
+    let interval = 1;
     if (daysDifference > 90) {
       interval = 30; // Monthly
     } else if (daysDifference > 30) {
       interval = 7; // Weekly
-    } else if (daysDifference > 14) {
-      interval = 2; // Every other day
     }
 
     const timeFrames: { start: Date; end: Date }[] = [];
@@ -133,7 +143,6 @@ export const Statistics = () => {
     return timeFrames;
   };
 
-  // Fetch summary cards data
   useEffect(() => {
     let isMounted = true;
     const abortController = new AbortController();
@@ -209,7 +218,6 @@ export const Statistics = () => {
     };
   }, [user?.organization_id, dateRange, timeRange]);
 
-  // Fetch message time series data
   useEffect(() => {
     let isMounted = true;
 
@@ -259,7 +267,6 @@ export const Statistics = () => {
     };
   }, [user?.organization_id, dateRange, timeRange]);
 
-  // Fetch user time series data
   useEffect(() => {
     let isMounted = true;
     const abortController = new AbortController();
@@ -497,8 +504,8 @@ export const Statistics = () => {
       </div>
 
       <div className="grid gap-8 mt-8">
-        {renderLineChart(data.messageTimeSeries, "Meldinger over tid", "#28483F", loading.messageChart)}
         {renderLineChart(data.userTimeSeries, "Brukere over tid", "#E2B808", loading.userChart)}
+        {renderLineChart(data.messageTimeSeries, "Meldinger over tid", "#28483F", loading.messageChart)}
       </div>
     </div>
   );
