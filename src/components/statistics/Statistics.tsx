@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MessagesSquare, UserRound } from "lucide-react";
@@ -100,105 +99,6 @@ export const Statistics = () => {
     }
   }, [timeRange]);
 
-  useEffect(() => {
-    let isMounted = true;
-    const abortController = new AbortController();
-
-    const fetchStatistics = async () => {
-      if (!user?.organization_id) return;
-      
-      setData(null);
-      setIsLoading(true);
-
-      try {
-        const { data: org, error: orgError } = await supabase
-          .from('organizations')
-          .select('voiceflow_api_key, voiceflow_project_id')
-          .eq('id', user.organization_id)
-          .single();
-
-        if (orgError) throw orgError;
-
-        const timeFrames = getTimeFrames(dateRange.from, dateRange.to);
-        const messageTimeSeries: TimeSeriesData[] = [];
-        const userTimeSeries: TimeSeriesData[] = [];
-
-        const conversationsResponse = await fetch(
-          `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}`,
-          {
-            headers: {
-              Authorization: org.voiceflow_api_key,
-              'Content-Type': 'application/json',
-            },
-            signal: abortController.signal,
-          }
-        );
-
-        if (!conversationsResponse.ok) {
-          throw new Error('Failed to fetch conversations');
-        }
-
-        const conversations = await conversationsResponse.json();
-
-        for (const frame of timeFrames) {
-          const { data: messageData, error: messageError } = await supabase.functions
-            .invoke('get-voiceflow-analytics', {
-              body: {
-                startDate: frame.start.toISOString(),
-                endDate: frame.end.toISOString(),
-              },
-            });
-
-          if (messageError) throw messageError;
-
-          const userCount = conversations.filter((conv: any) => {
-            const lastActiveDate = new Date(conv.updatedAt);
-            return lastActiveDate >= frame.start && lastActiveDate <= frame.end;
-          }).length;
-
-          const frameDate = format(frame.start, 'dd.MM');
-          messageTimeSeries.push({
-            date: frameDate,
-            value: messageData?.result?.[0]?.count || 0
-          });
-          userTimeSeries.push({
-            date: frameDate,
-            value: userCount
-          });
-        }
-
-        const totalMessages = messageTimeSeries.reduce((sum, item) => sum + item.value, 0);
-        const totalConversations = conversations.filter((conv: any) => {
-          const lastActiveDate = new Date(conv.updatedAt);
-          return timeRange === 'all' || (lastActiveDate >= dateRange.from && lastActiveDate <= dateRange.to);
-        }).length;
-
-        if (isMounted) {
-          setData({
-            totalMessages,
-            totalConversations,
-            messageTimeSeries,
-            userTimeSeries
-          });
-          setIsLoading(false);
-        }
-      } catch (error) {
-        if (isMounted && !abortController.signal.aborted) {
-          console.error('Error fetching statistics:', error);
-          toast.error('Kunne ikke hente statistikk');
-          setIsLoading(false);
-        }
-      }
-    };
-
-    fetchStatistics();
-
-    return () => {
-      isMounted = false;
-      abortController.abort();
-    };
-  }, [user?.organization_id, dateRange, timeRange]);
-
   const getTimeFrames = (from: Date, to: Date) => {
     const daysDifference = differenceInDays(to, from);
     let interval = 1; // Default to daily for shorter periods
@@ -227,14 +127,14 @@ export const Statistics = () => {
     return timeFrames;
   };
 
-  // Fetch user and message summary data
+  // Fetch summary cards data
   useEffect(() => {
     let isMounted = true;
     const abortController = new AbortController();
 
     const fetchSummaryData = async () => {
       if (!user?.organization_id) return;
-      
+
       setLoading(prev => ({ ...prev, summaryCards: true }));
 
       try {
@@ -272,7 +172,7 @@ export const Statistics = () => {
         }
 
         const conversations = await conversationsResponse.json();
-        
+
         const totalConversations = conversations.filter((conv: any) => {
           const lastActiveDate = new Date(conv.updatedAt);
           return timeRange === 'all' || (lastActiveDate >= dateRange.from && lastActiveDate <= dateRange.to);
@@ -303,13 +203,13 @@ export const Statistics = () => {
     };
   }, [user?.organization_id, dateRange, timeRange]);
 
-  // Fetch time series data for messages
+  // Fetch message time series data
   useEffect(() => {
     let isMounted = true;
-    
+
     const fetchMessageTimeSeries = async () => {
       if (!user?.organization_id) return;
-      
+
       setLoading(prev => ({ ...prev, messageChart: true }));
 
       try {
@@ -353,14 +253,14 @@ export const Statistics = () => {
     };
   }, [user?.organization_id, dateRange, timeRange]);
 
-  // Fetch time series data for users
+  // Fetch user time series data
   useEffect(() => {
     let isMounted = true;
     const abortController = new AbortController();
 
     const fetchUserTimeSeries = async () => {
       if (!user?.organization_id) return;
-      
+
       setLoading(prev => ({ ...prev, userChart: true }));
 
       try {
