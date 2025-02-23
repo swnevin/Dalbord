@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader } from "@/components/ui/loader";
 import { toast } from "sonner";
-import { subDays, format } from "date-fns";
+import { subDays, eachDayOfInterval, format, differenceInDays, addDays } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -20,10 +20,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
 interface StatisticsData {
   totalMessages: number;
   totalConversations: number;
+  messageTimeSeries: TimeSeriesData[];
+  userTimeSeries: TimeSeriesData[];
+}
+
+interface TimeSeriesData {
+  date: string;
+  value: number;
 }
 
 type DateRange = {
@@ -80,23 +96,10 @@ export const Statistics = () => {
     const fetchStatistics = async () => {
       if (!user?.organization_id) return;
       
-      // Reset data and set loading state
       setData(null);
       setIsLoading(true);
 
       try {
-        // Fetch messages count from edge function
-        const { data: messageData, error: messageError } = await supabase.functions
-          .invoke('get-voiceflow-analytics', {
-            body: {
-              startDate: dateRange.from.toISOString(),
-              endDate: dateRange.to.toISOString(),
-            },
-          });
-
-        if (messageError) throw messageError;
-
-        // Fetch conversations
         const { data: org, error: orgError } = await supabase
           .from('organizations')
           .select('voiceflow_api_key, voiceflow_project_id')
@@ -104,7 +107,11 @@ export const Statistics = () => {
           .single();
 
         if (orgError) throw orgError;
-        
+
+        const timeFrames = getTimeFrames(dateRange.from, dateRange.to);
+        const messageTimeSeries: TimeSeriesData[] = [];
+        const userTimeSeries: TimeSeriesData[] = [];
+
         const conversationsResponse = await fetch(
           `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}`,
           {
@@ -121,26 +128,46 @@ export const Statistics = () => {
         }
 
         const conversations = await conversationsResponse.json();
-        
-        // Only update state if the component is still mounted
-        if (isMounted) {
-          // Count contacts within the time frame using updatedAt
-          let contactCount = 0;
-          
-          conversations.forEach((conv: any) => {
+
+        for (const frame of timeFrames) {
+          const { data: messageData, error: messageError } = await supabase.functions
+            .invoke('get-voiceflow-analytics', {
+              body: {
+                startDate: frame.start.toISOString(),
+                endDate: frame.end.toISOString(),
+              },
+            });
+
+          if (messageError) throw messageError;
+
+          const userCount = conversations.filter((conv: any) => {
             const lastActiveDate = new Date(conv.updatedAt);
-            // For 'all' time range, count everything
-            if (timeRange === 'all' || (lastActiveDate >= dateRange.from && lastActiveDate <= dateRange.to)) {
-              contactCount++;
-            }
+            return lastActiveDate >= frame.start && lastActiveDate <= frame.end;
+          }).length;
+
+          const frameDate = format(frame.start, 'dd.MM');
+          messageTimeSeries.push({
+            date: frameDate,
+            value: messageData?.result?.[0]?.count || 0
           });
+          userTimeSeries.push({
+            date: frameDate,
+            value: userCount
+          });
+        }
 
-          // Get total interactions from the response
-          const totalInteractions = messageData?.result?.[0]?.count || 0;
+        const totalMessages = messageTimeSeries.reduce((sum, item) => sum + item.value, 0);
+        const totalConversations = conversations.filter((conv: any) => {
+          const lastActiveDate = new Date(conv.updatedAt);
+          return timeRange === 'all' || (lastActiveDate >= dateRange.from && lastActiveDate <= dateRange.to);
+        }).length;
 
+        if (isMounted) {
           setData({
-            totalMessages: totalInteractions,
-            totalConversations: contactCount
+            totalMessages,
+            totalConversations,
+            messageTimeSeries,
+            userTimeSeries
           });
           setIsLoading(false);
         }
@@ -155,12 +182,85 @@ export const Statistics = () => {
 
     fetchStatistics();
 
-    // Cleanup function
     return () => {
       isMounted = false;
       abortController.abort();
     };
   }, [user?.organization_id, dateRange, timeRange]);
+
+  const getTimeFrames = (from: Date, to: Date) => {
+    const daysDifference = differenceInDays(to, from);
+    let interval = 1;
+
+    if (daysDifference > 90) {
+      interval = 30;
+    } else if (daysDifference > 30) {
+      interval = 7;
+    } else if (daysDifference > 14) {
+      interval = 2;
+    }
+
+    const timeFrames: { start: Date; end: Date }[] = [];
+    let currentDate = from;
+
+    while (currentDate < to) {
+      const frameEnd = addDays(currentDate, interval - 1);
+      timeFrames.push({
+        start: currentDate,
+        end: frameEnd > to ? to : frameEnd
+      });
+      currentDate = addDays(currentDate, interval);
+    }
+
+    return timeFrames;
+  };
+
+  const renderLineChart = (
+    data: TimeSeriesData[],
+    title: string,
+    color: string = "#28483F"
+  ) => (
+    <Card className="w-full h-[400px]">
+      <CardHeader>
+        <CardTitle className="text-sm font-medium">{title}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart data={data}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+            <XAxis
+              dataKey="date"
+              stroke="#64748B"
+              fontSize={12}
+              tickLine={false}
+            />
+            <YAxis
+              stroke="#64748B"
+              fontSize={12}
+              tickLine={false}
+              axisLine={false}
+            />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: "#FFF",
+                border: "1px solid #E2E8F0",
+                borderRadius: "6px",
+              }}
+            />
+            <Line
+              type="monotone"
+              dataKey="value"
+              stroke={color}
+              strokeWidth={2}
+              dot={false}
+              animationDuration={1500}
+              animationEasing="ease-in-out"
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </CardContent>
+    </Card>
+  );
 
   if (isLoading) {
     return (
@@ -245,7 +345,7 @@ export const Statistics = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {data?.totalMessages.toLocaleString('no')}
+              {data.totalMessages.toLocaleString('no')}
             </div>
             <p className="text-xs text-muted-foreground">
               Antall meldinger sendt
@@ -262,13 +362,18 @@ export const Statistics = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {data?.totalConversations.toLocaleString('no')}
+              {data.totalConversations.toLocaleString('no')}
             </div>
             <p className="text-xs text-muted-foreground">
               Totalt antall forskjellige brukere
             </p>
           </CardContent>
         </Card>
+      </div>
+
+      <div className="grid gap-8 mt-8">
+        {renderLineChart(data.messageTimeSeries, "Meldinger over tid", "#28483F")}
+        {renderLineChart(data.userTimeSeries, "Brukere over tid", "#E2B808")}
       </div>
     </div>
   );
