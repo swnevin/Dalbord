@@ -151,29 +151,16 @@ export const Statistics = () => {
   }, [user?.organization_id, timeRange]);
 
   const getTimeFrames = (from: Date, to: Date) => {
-    const daysDifference = differenceInDays(to, from);
     const timeFrames: { start: Date; end: Date }[] = [];
     let currentDate = from;
-    
-    let interval = 1; // Default to daily
-    if (daysDifference > 180) { // More than 6 months
-      interval = 14; // Bi-weekly
-    } else if (daysDifference > 60) { // More than 2 months
-      interval = 7; // Weekly
-    } else if (daysDifference > 30) { // More than 1 month
-      interval = 3; // Every 3 days
-    }
 
+    // Always use daily intervals
     while (currentDate <= to) {
-      const frameEnd = addDays(currentDate, interval - 1);
-      const endDate = frameEnd > to ? to : frameEnd;
-      
       timeFrames.push({
         start: currentDate,
-        end: endDate
+        end: currentDate // For daily data, start and end are the same
       });
-      
-      currentDate = addDays(currentDate, interval);
+      currentDate = addDays(currentDate, 1);
     }
 
     return timeFrames;
