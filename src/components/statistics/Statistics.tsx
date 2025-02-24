@@ -1,59 +1,14 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MessagesSquare, UserRound } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader } from "@/components/ui/loader";
 import { toast } from "sonner";
-import { subDays, format, differenceInDays, addDays } from "date-fns";
-import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
-
-interface StatisticsData {
-  totalMessages?: number;
-  totalConversations?: number;
-  messageTimeSeries?: TimeSeriesData[];
-  userTimeSeries?: TimeSeriesData[];
-}
-
-interface LoadingState {
-  summaryCards: boolean;
-  messageChart: boolean;
-  userChart: boolean;
-}
-
-interface TimeSeriesData {
-  date: string;
-  value: number;
-}
-
-type DateRange = {
-  from: Date;
-  to: Date;
-};
-
-type TimeRange = '7d' | '30d' | '90d' | 'all' | 'custom';
+import { subDays, differenceInDays, addDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
+import { getWeek, format as dateFnsFormat } from "date-fns";
+import { nb } from "date-fns/locale";
+import { StatisticsHeader } from "./StatisticsHeader";
+import { SummaryCards } from "./SummaryCards";
+import { TimeSeriesChart } from "./TimeSeriesChart";
+import { StatisticsData, LoadingState, TimeSeriesData, DateRange, TimeRange } from "./types";
 
 export const Statistics = () => {
   const { user } = useAuth();
@@ -88,6 +43,9 @@ export const Statistics = () => {
       case '90d':
         from = subDays(now, 90);
         break;
+      case '365d':
+        from = subDays(now, 365);
+        break;
       case 'all':
         from = subDays(now, 365); // Default to 1 year if no conversations exist
         break;
@@ -104,79 +62,64 @@ export const Statistics = () => {
     }
   }, [timeRange]);
 
-  useEffect(() => {
-    const fetchEarliestConversationDate = async () => {
-      if (!user?.organization_id || timeRange !== 'all') return;
-
-      try {
-        const { data: org, error: orgError } = await supabase
-          .from('organizations')
-          .select('voiceflow_api_key, voiceflow_project_id')
-          .eq('id', user.organization_id)
-          .single();
-
-        if (orgError) throw orgError;
-
-        const conversationsResponse = await fetch(
-          `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}`,
-          {
-            headers: {
-              Authorization: org.voiceflow_api_key,
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-
-        if (!conversationsResponse.ok) {
-          throw new Error('Failed to fetch conversations');
-        }
-
-        const conversations = await conversationsResponse.json();
-        
-        if (conversations && conversations.length > 0) {
-          // Find the earliest conversation date
-          const dates = conversations.map((conv: any) => new Date(conv.createdAt));
-          const earliestDate = new Date(Math.min(...dates));
-          
-          // Update the date range to start from the earliest conversation
-          setDateRange(prev => ({ ...prev, from: earliestDate }));
-        }
-      } catch (error) {
-        console.error('Error fetching earliest conversation date:', error);
-        toast.error('Kunne ikke hente tidligste samtale dato');
-      }
-    };
-
-    fetchEarliestConversationDate();
-  }, [user?.organization_id, timeRange]);
-
   const getTimeFrames = (from: Date, to: Date) => {
     const daysDifference = differenceInDays(to, from);
     const timeFrames: { start: Date; end: Date }[] = [];
     let currentDate = from;
-    
-    let interval = 1; // Default to daily
-    if (daysDifference > 180) { // More than 6 months
-      interval = 14; // Bi-weekly
-    } else if (daysDifference > 60) { // More than 2 months
-      interval = 7; // Weekly
-    } else if (daysDifference > 30) { // More than 1 month
-      interval = 3; // Every 3 days
-    }
 
-    while (currentDate <= to) {
-      const frameEnd = addDays(currentDate, interval - 1);
-      const endDate = frameEnd > to ? to : frameEnd;
-      
-      timeFrames.push({
-        start: currentDate,
-        end: endDate
-      });
-      
-      currentDate = addDays(currentDate, interval);
+    // Daily data for ≤30 days
+    if (daysDifference <= 30) {
+      while (currentDate <= to) {
+        timeFrames.push({
+          start: currentDate,
+          end: currentDate
+        });
+        currentDate = addDays(currentDate, 1);
+      }
+    }
+    // Weekly data for 30-365 days
+    else if (daysDifference <= 365) {
+      while (currentDate <= to) {
+        const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 }); // Monday
+        const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 }); // Sunday
+        
+        timeFrames.push({
+          start: weekStart,
+          end: weekEnd > to ? to : weekEnd
+        });
+        
+        currentDate = addDays(weekEnd, 1);
+      }
+    }
+    // Monthly data for >365 days
+    else {
+      while (currentDate <= to) {
+        const monthStart = startOfMonth(currentDate);
+        const monthEnd = endOfMonth(currentDate);
+        
+        timeFrames.push({
+          start: monthStart,
+          end: monthEnd > to ? to : monthEnd
+        });
+        
+        currentDate = addDays(monthEnd, 1);
+      }
     }
 
     return timeFrames;
+  };
+
+  const formatDateLabel = (date: Date, daysDiff: number) => {
+    if (daysDiff <= 30) {
+      // Daily format: "01.02"
+      return dateFnsFormat(date, 'dd.MM');
+    } else if (daysDiff <= 365) {
+      // Weekly format: "Uke X"
+      return `Uke ${getWeek(date, { locale: nb })}`;
+    } else {
+      // Monthly format: "Januar"
+      return dateFnsFormat(date, 'LLLL', { locale: nb });
+    }
   };
 
   useEffect(() => {
@@ -266,22 +209,45 @@ export const Statistics = () => {
       try {
         const timeFrames = getTimeFrames(dateRange.from, dateRange.to);
         const messageTimeSeries: TimeSeriesData[] = [];
+        const daysDiff = differenceInDays(dateRange.to, dateRange.from);
 
         for (const frame of timeFrames) {
-          const { data: messageData, error: messageError } = await supabase.functions
-            .invoke('get-voiceflow-analytics', {
-              body: {
-                startDate: frame.start.toISOString(),
-                endDate: frame.end.toISOString(),
-              },
+          if (daysDiff <= 30) {
+            const startOfDay = new Date(frame.start);
+            startOfDay.setHours(0, 0, 0, 0);
+            const endOfDay = new Date(frame.start);
+            endOfDay.setHours(23, 59, 59, 999);
+
+            const { data: messageData, error: messageError } = await supabase.functions
+              .invoke('get-voiceflow-analytics', {
+                body: {
+                  startDate: startOfDay.toISOString(),
+                  endDate: endOfDay.toISOString(),
+                },
+              });
+
+            if (messageError) throw messageError;
+
+            messageTimeSeries.push({
+              date: formatDateLabel(frame.start, daysDiff),
+              value: messageData?.result?.[0]?.count || 0
             });
+          } else {
+            const { data: messageData, error: messageError } = await supabase.functions
+              .invoke('get-voiceflow-analytics', {
+                body: {
+                  startDate: frame.start.toISOString(),
+                  endDate: frame.end.toISOString(),
+                },
+              });
 
-          if (messageError) throw messageError;
+            if (messageError) throw messageError;
 
-          messageTimeSeries.push({
-            date: format(frame.start, 'dd.MM'),
-            value: messageData?.result?.[0]?.count || 0
-          });
+            messageTimeSeries.push({
+              date: formatDateLabel(frame.start, daysDiff),
+              value: messageData?.result?.[0]?.count || 0
+            });
+          }
         }
 
         if (isMounted) {
@@ -340,17 +306,35 @@ export const Statistics = () => {
         const conversations = await conversationsResponse.json();
         const timeFrames = getTimeFrames(dateRange.from, dateRange.to);
         const userTimeSeries: TimeSeriesData[] = [];
+        const daysDiff = differenceInDays(dateRange.to, dateRange.from);
 
         for (const frame of timeFrames) {
-          const userCount = conversations.filter((conv: any) => {
-            const lastActiveDate = new Date(conv.updatedAt);
-            return lastActiveDate >= frame.start && lastActiveDate <= frame.end;
-          }).length;
+          if (daysDiff <= 30) {
+            const startOfDay = new Date(frame.start);
+            startOfDay.setHours(0, 0, 0, 0);
+            const endOfDay = new Date(frame.start);
+            endOfDay.setHours(23, 59, 59, 999);
 
-          userTimeSeries.push({
-            date: format(frame.start, 'dd.MM'),
-            value: userCount
-          });
+            const userCount = conversations.filter((conv: any) => {
+              const convDate = new Date(conv.updatedAt);
+              return convDate >= startOfDay && convDate <= endOfDay;
+            }).length;
+
+            userTimeSeries.push({
+              date: formatDateLabel(frame.start, daysDiff),
+              value: userCount
+            });
+          } else {
+            const userCount = conversations.filter((conv: any) => {
+              const convDate = new Date(conv.updatedAt);
+              return convDate >= frame.start && convDate <= frame.end;
+            }).length;
+
+            userTimeSeries.push({
+              date: formatDateLabel(frame.start, daysDiff),
+              value: userCount
+            });
+          }
         }
 
         if (isMounted) {
@@ -374,175 +358,34 @@ export const Statistics = () => {
     };
   }, [user?.organization_id, dateRange, timeRange]);
 
-  const renderLineChart = (
-    data: TimeSeriesData[] | undefined,
-    title: string,
-    color: string = "#28483F",
-    isLoading: boolean
-  ) => (
-    <Card className="w-full h-[400px]">
-      <CardHeader>
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <div className="h-[300px] flex items-center justify-center">
-            <Loader size="md" />
-          </div>
-        ) : data && data.length > 0 ? (
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
-              <XAxis
-                dataKey="date"
-                stroke="#64748B"
-                fontSize={12}
-                tickLine={false}
-              />
-              <YAxis
-                stroke="#64748B"
-                fontSize={12}
-                tickLine={false}
-                axisLine={false}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "#FFF",
-                  border: "1px solid #E2E8F0",
-                  borderRadius: "6px",
-                }}
-              />
-              <Line
-                type="monotone"
-                dataKey="value"
-                stroke={color}
-                strokeWidth={2}
-                dot={data.length <= 30}
-                animationDuration={1500}
-                animationEasing="ease-in-out"
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        ) : (
-          <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-            Ingen data tilgjengelig
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-
   return (
     <div className="p-8 space-y-8">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-primary">Statistikk</h1>
-        
-        <div className="flex gap-4 items-center">
-          <Select value={timeRange} onValueChange={(value: TimeRange) => setTimeRange(value)}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Velg tidsperiode" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="7d">Siste 7 dager</SelectItem>
-              <SelectItem value="30d">Siste 30 dager</SelectItem>
-              <SelectItem value="90d">Siste 90 dager</SelectItem>
-              <SelectItem value="all">All tid</SelectItem>
-              <SelectItem value="custom">Egendefinert</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {timeRange === 'custom' && (
-            <div className="flex gap-2">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline">
-                    {format(dateRange.from, 'dd.MM.yyyy')}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={dateRange.from}
-                    onSelect={(date) => date && setDateRange({ ...dateRange, from: date })}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline">
-                    {format(dateRange.to, 'dd.MM.yyyy')}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={dateRange.to}
-                    onSelect={(date) => date && setDateRange({ ...dateRange, to: date })}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-          )}
-        </div>
-      </div>
+      <StatisticsHeader
+        timeRange={timeRange}
+        dateRange={dateRange}
+        onTimeRangeChange={setTimeRange}
+        onDateRangeChange={setDateRange}
+      />
       
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Antall meldinger
-            </CardTitle>
-            <MessagesSquare className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {loading.summaryCards ? (
-              <div className="flex items-center justify-center py-4">
-                <Loader size="sm" />
-              </div>
-            ) : (
-              <>
-                <div className="text-2xl font-bold">
-                  {data.totalMessages?.toLocaleString('no') ?? 0}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Antall meldinger sendt
-                </p>
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Antall Brukere
-            </CardTitle>
-            <UserRound className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {loading.summaryCards ? (
-              <div className="flex items-center justify-center py-4">
-                <Loader size="sm" />
-              </div>
-            ) : (
-              <>
-                <div className="text-2xl font-bold">
-                  {data.totalConversations?.toLocaleString('no') ?? 0}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Totalt antall forskjellige brukere
-                </p>
-              </>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      <SummaryCards
+        totalMessages={data.totalMessages ?? 0}
+        totalConversations={data.totalConversations ?? 0}
+        isLoading={loading.summaryCards}
+      />
 
       <div className="grid gap-8 mt-8">
-        {renderLineChart(data.userTimeSeries, "Brukere over tid", "#E2B808", loading.userChart)}
-        {renderLineChart(data.messageTimeSeries, "Meldinger over tid", "#28483F", loading.messageChart)}
+        <TimeSeriesChart
+          data={data.userTimeSeries}
+          title="Brukere over tid"
+          color="#E2B808"
+          isLoading={loading.userChart}
+        />
+        <TimeSeriesChart
+          data={data.messageTimeSeries}
+          title="Meldinger over tid"
+          color="#28483F"
+          isLoading={loading.messageChart}
+        />
       </div>
     </div>
   );
