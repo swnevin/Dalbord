@@ -302,20 +302,42 @@ export const Statistics = () => {
         const daysDiff = differenceInDays(dateRange.to, dateRange.from);
 
         for (const frame of timeFrames) {
-          const { data: messageData, error: messageError } = await supabase.functions
-            .invoke('get-voiceflow-analytics', {
-              body: {
-                startDate: frame.start.toISOString(),
-                endDate: frame.end.toISOString(),
-              },
+          if (daysDiff <= 30) {
+            const startOfDay = new Date(frame.start);
+            startOfDay.setHours(0, 0, 0, 0);
+            const endOfDay = new Date(frame.start);
+            endOfDay.setHours(23, 59, 59, 999);
+
+            const { data: messageData, error: messageError } = await supabase.functions
+              .invoke('get-voiceflow-analytics', {
+                body: {
+                  startDate: startOfDay.toISOString(),
+                  endDate: endOfDay.toISOString(),
+                },
+              });
+
+            if (messageError) throw messageError;
+
+            messageTimeSeries.push({
+              date: formatDateLabel(frame.start, daysDiff),
+              value: messageData?.result?.[0]?.count || 0
             });
+          } else {
+            const { data: messageData, error: messageError } = await supabase.functions
+              .invoke('get-voiceflow-analytics', {
+                body: {
+                  startDate: frame.start.toISOString(),
+                  endDate: frame.end.toISOString(),
+                },
+              });
 
-          if (messageError) throw messageError;
+            if (messageError) throw messageError;
 
-          messageTimeSeries.push({
-            date: formatDateLabel(frame.start, daysDiff),
-            value: messageData?.result?.[0]?.count || 0
-          });
+            messageTimeSeries.push({
+              date: formatDateLabel(frame.start, daysDiff),
+              value: messageData?.result?.[0]?.count || 0
+            });
+          }
         }
 
         if (isMounted) {
@@ -377,15 +399,32 @@ export const Statistics = () => {
         const daysDiff = differenceInDays(dateRange.to, dateRange.from);
 
         for (const frame of timeFrames) {
-          const userCount = conversations.filter((conv: any) => {
-            const convDate = new Date(conv.updatedAt);
-            return convDate >= frame.start && convDate <= frame.end;
-          }).length;
+          if (daysDiff <= 30) {
+            const startOfDay = new Date(frame.start);
+            startOfDay.setHours(0, 0, 0, 0);
+            const endOfDay = new Date(frame.start);
+            endOfDay.setHours(23, 59, 59, 999);
 
-          userTimeSeries.push({
-            date: formatDateLabel(frame.start, daysDiff),
-            value: userCount
-          });
+            const userCount = conversations.filter((conv: any) => {
+              const convDate = new Date(conv.updatedAt);
+              return convDate >= startOfDay && convDate <= endOfDay;
+            }).length;
+
+            userTimeSeries.push({
+              date: formatDateLabel(frame.start, daysDiff),
+              value: userCount
+            });
+          } else {
+            const userCount = conversations.filter((conv: any) => {
+              const convDate = new Date(conv.updatedAt);
+              return convDate >= frame.start && convDate <= frame.end;
+            }).length;
+
+            userTimeSeries.push({
+              date: formatDateLabel(frame.start, daysDiff),
+              value: userCount
+            });
+          }
         }
 
         if (isMounted) {
