@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MessagesSquare, UserRound } from "lucide-react";
@@ -30,6 +29,8 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { getWeek, format as dateFnsFormat } from "date-fns";
+import { nb } from "date-fns/locale";
 
 interface StatisticsData {
   totalMessages?: number;
@@ -198,6 +199,19 @@ export const Statistics = () => {
     return timeFrames;
   };
 
+  const formatDateLabel = (date: Date, daysDiff: number) => {
+    if (daysDiff <= 30) {
+      // Daily format: "01.02"
+      return dateFnsFormat(date, 'dd.MM');
+    } else if (daysDiff <= 365) {
+      // Weekly format: "Uke X"
+      return `Uke ${getWeek(date, { locale: nb })}`;
+    } else {
+      // Monthly format: "Januar"
+      return dateFnsFormat(date, 'LLLL', { locale: nb });
+    }
+  };
+
   useEffect(() => {
     let isMounted = true;
     const abortController = new AbortController();
@@ -285,6 +299,7 @@ export const Statistics = () => {
       try {
         const timeFrames = getTimeFrames(dateRange.from, dateRange.to);
         const messageTimeSeries: TimeSeriesData[] = [];
+        const daysDiff = differenceInDays(dateRange.to, dateRange.from);
 
         for (const frame of timeFrames) {
           const { data: messageData, error: messageError } = await supabase.functions
@@ -298,7 +313,7 @@ export const Statistics = () => {
           if (messageError) throw messageError;
 
           messageTimeSeries.push({
-            date: format(frame.start, 'dd.MM'),
+            date: formatDateLabel(frame.start, daysDiff),
             value: messageData?.result?.[0]?.count || 0
           });
         }
@@ -359,27 +374,16 @@ export const Statistics = () => {
         const conversations = await conversationsResponse.json();
         const timeFrames = getTimeFrames(dateRange.from, dateRange.to);
         const userTimeSeries: TimeSeriesData[] = [];
+        const daysDiff = differenceInDays(dateRange.to, dateRange.from);
 
         for (const frame of timeFrames) {
-          // For periods ≤30 days, count conversations that occurred on that specific day
-          // For longer periods, count conversations within the frame period
           const userCount = conversations.filter((conv: any) => {
             const convDate = new Date(conv.updatedAt);
-            if (differenceInDays(dateRange.to, dateRange.from) <= 30) {
-              // For daily view, match the exact day
-              return (
-                convDate.getDate() === frame.start.getDate() &&
-                convDate.getMonth() === frame.start.getMonth() &&
-                convDate.getFullYear() === frame.start.getFullYear()
-              );
-            } else {
-              // For weekly/monthly view, check if date falls within the frame period
-              return convDate >= frame.start && convDate <= frame.end;
-            }
+            return convDate >= frame.start && convDate <= frame.end;
           }).length;
 
           userTimeSeries.push({
-            date: format(frame.start, 'dd.MM'),
+            date: formatDateLabel(frame.start, daysDiff),
             value: userCount
           });
         }
@@ -442,16 +446,7 @@ export const Statistics = () => {
                   border: "1px solid #E2E8F0",
                   borderRadius: "6px",
                 }}
-                labelFormatter={(label) => {
-                  const daysDiff = differenceInDays(dateRange.to, dateRange.from);
-                  if (daysDiff <= 30) {
-                    return `${label}`;
-                  } else if (daysDiff <= 365) {
-                    return `Uke: ${label}`;
-                  } else {
-                    return `Måned: ${label}`;
-                  }
-                }}
+                formatter={(value: number) => [`Verdi: ${value}`, '']}
               />
               <Line
                 type="monotone"
