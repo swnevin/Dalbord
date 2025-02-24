@@ -361,9 +361,21 @@ export const Statistics = () => {
         const userTimeSeries: TimeSeriesData[] = [];
 
         for (const frame of timeFrames) {
+          // For periods ≤30 days, count conversations that occurred on that specific day
+          // For longer periods, count conversations within the frame period
           const userCount = conversations.filter((conv: any) => {
-            const lastActiveDate = new Date(conv.updatedAt);
-            return lastActiveDate >= frame.start && lastActiveDate <= frame.end;
+            const convDate = new Date(conv.updatedAt);
+            if (differenceInDays(dateRange.to, dateRange.from) <= 30) {
+              // For daily view, match the exact day
+              return (
+                convDate.getDate() === frame.start.getDate() &&
+                convDate.getMonth() === frame.start.getMonth() &&
+                convDate.getFullYear() === frame.start.getFullYear()
+              );
+            } else {
+              // For weekly/monthly view, check if date falls within the frame period
+              return convDate >= frame.start && convDate <= frame.end;
+            }
           }).length;
 
           userTimeSeries.push({
