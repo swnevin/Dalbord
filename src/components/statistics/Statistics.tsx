@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MessagesSquare, UserRound } from "lucide-react";
@@ -5,7 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader } from "@/components/ui/loader";
 import { toast } from "sonner";
-import { subDays, format, differenceInDays, addDays } from "date-fns";
+import { subDays, format, differenceInDays, addDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -154,26 +155,44 @@ export const Statistics = () => {
     const daysDifference = differenceInDays(to, from);
     const timeFrames: { start: Date; end: Date }[] = [];
     let currentDate = from;
-    
-    let interval = 1; // Default to daily
-    if (daysDifference > 180) { // More than 6 months
-      interval = 14; // Bi-weekly
-    } else if (daysDifference > 60) { // More than 2 months
-      interval = 7; // Weekly
-    } else if (daysDifference > 30) { // More than 1 month
-      interval = 3; // Every 3 days
-    }
 
-    while (currentDate <= to) {
-      const frameEnd = addDays(currentDate, interval - 1);
-      const endDate = frameEnd > to ? to : frameEnd;
-      
-      timeFrames.push({
-        start: currentDate,
-        end: endDate
-      });
-      
-      currentDate = addDays(currentDate, interval);
+    // Daily data for ≤30 days
+    if (daysDifference <= 30) {
+      while (currentDate <= to) {
+        timeFrames.push({
+          start: currentDate,
+          end: currentDate
+        });
+        currentDate = addDays(currentDate, 1);
+      }
+    }
+    // Weekly data for 30-365 days
+    else if (daysDifference <= 365) {
+      while (currentDate <= to) {
+        const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 }); // Monday
+        const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 }); // Sunday
+        
+        timeFrames.push({
+          start: weekStart,
+          end: weekEnd > to ? to : weekEnd
+        });
+        
+        currentDate = addDays(weekEnd, 1);
+      }
+    }
+    // Monthly data for >365 days
+    else {
+      while (currentDate <= to) {
+        const monthStart = startOfMonth(currentDate);
+        const monthEnd = endOfMonth(currentDate);
+        
+        timeFrames.push({
+          start: monthStart,
+          end: monthEnd > to ? to : monthEnd
+        });
+        
+        currentDate = addDays(monthEnd, 1);
+      }
     }
 
     return timeFrames;
@@ -410,6 +429,16 @@ export const Statistics = () => {
                   backgroundColor: "#FFF",
                   border: "1px solid #E2E8F0",
                   borderRadius: "6px",
+                }}
+                labelFormatter={(label) => {
+                  const daysDiff = differenceInDays(dateRange.to, dateRange.from);
+                  if (daysDiff <= 30) {
+                    return `${label}`;
+                  } else if (daysDiff <= 365) {
+                    return `Uke: ${label}`;
+                  } else {
+                    return `Måned: ${label}`;
+                  }
                 }}
               />
               <Line
