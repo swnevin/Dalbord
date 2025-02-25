@@ -77,8 +77,8 @@ export const Statistics = () => {
         currentDate = addDays(currentDate, 1);
       }
     }
-    // Weekly data for 30-365 days
-    else if (daysDifference <= 365) {
+    // Weekly data for 31-364 days
+    else if (daysDifference < 365) {
       while (currentDate <= to) {
         const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 }); // Monday
         const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 }); // Sunday
@@ -91,7 +91,7 @@ export const Statistics = () => {
         currentDate = addDays(weekEnd, 1);
       }
     }
-    // Monthly data for >365 days
+    // Monthly data for ≥365 days
     else {
       while (currentDate <= to) {
         const monthStart = startOfMonth(currentDate);
