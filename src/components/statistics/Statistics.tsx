@@ -78,7 +78,7 @@ export const Statistics = () => {
       }
     }
     // Weekly data for 30-365 days
-    else if (daysDifference <= 365) {
+    else if (daysDifference < 365) {
       while (currentDate <= to) {
         const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 }); // Monday
         const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 }); // Sunday
@@ -113,7 +113,7 @@ export const Statistics = () => {
     if (daysDiff <= 30) {
       // Daily format: "01.02"
       return dateFnsFormat(date, 'dd.MM');
-    } else if (daysDiff <= 365) {
+    } else if (daysDiff < 365) {
       // Weekly format: "Uke X"
       return `Uke ${getWeek(date, { locale: nb })}`;
     } else {
