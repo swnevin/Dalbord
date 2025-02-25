@@ -91,7 +91,7 @@ export const Statistics = () => {
         currentDate = addDays(weekEnd, 1);
       }
     }
-    // Monthly data for ≥365 days
+    // Monthly data for ≥365 days (including exactly 365 days)
     else {
       while (currentDate <= to) {
         const monthStart = startOfMonth(currentDate);
@@ -113,7 +113,7 @@ export const Statistics = () => {
     if (daysDiff <= 30) {
       // Daily format: "01.02"
       return dateFnsFormat(date, 'dd.MM');
-    } else if (daysDiff <= 365) {
+    } else if (daysDiff < 365) {
       // Weekly format: "Uke X"
       return `Uke ${getWeek(date, { locale: nb })}`;
     } else {
