@@ -38,10 +38,18 @@
 
 @layer utilities {
   .sidebar-link {
-    @apply flex items-center gap-3 px-4 py-2 text-primary hover:bg-secondary/10 rounded-lg transition-colors;
+    @apply flex items-center gap-3 px-4 py-2 text-primary hover:bg-secondary/10 active:bg-secondary/20 rounded-lg transition-colors;
   }
 
   .sidebar-link.active {
-    @apply bg-secondary text-primary font-medium;
+    @apply bg-secondary text-primary font-medium hover:bg-secondary;
+  }
+  
+  .hover-highlight {
+    @apply hover:bg-gray-50 active:bg-gray-100;
+  }
+  
+  .hover-highlight-active {
+    @apply bg-secondary text-primary hover:bg-secondary;
   }
 }

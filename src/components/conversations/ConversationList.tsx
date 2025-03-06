@@ -67,7 +67,7 @@ export const ConversationList = ({
             variant="ghost"
             size="icon"
             onClick={() => onCollapsedChange(!collapsed)}
-            className="hover:bg-secondary/10"
+            className="hover:bg-secondary/10 active:bg-secondary/20"
           >
             {collapsed ? <ChevronRight /> : <ChevronLeft />}
           </Button>
@@ -110,8 +110,10 @@ export const ConversationList = ({
             <div
               key={conv._id}
               className={cn(
-                "p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors",
-                selectedId === conv._id && "bg-secondary text-primary",
+                "p-4 border-b border-gray-100 cursor-pointer transition-colors",
+                selectedId === conv._id 
+                  ? "bg-secondary text-primary" 
+                  : "hover:bg-gray-50 active:bg-gray-100",
                 collapsed && "px-2"
               )}
             >
@@ -156,7 +158,7 @@ export const ConversationList = ({
                         onToggleTag(conv._id, "system.saved");
                       }}
                       className={cn(
-                        "hover:bg-secondary/10",
+                        "hover:bg-secondary/10 active:bg-secondary/20",
                         isConversationSaved(conv) && "text-secondary"
                       )}
                     >
@@ -170,7 +172,7 @@ export const ConversationList = ({
                         onToggleTag(conv._id, "system.reviewed");
                       }}
                       className={cn(
-                        "hover:bg-secondary/10",
+                        "hover:bg-secondary/10 active:bg-secondary/20",
                         isConversationReviewed(conv) && "text-green-500"
                       )}
                     >
@@ -183,7 +185,7 @@ export const ConversationList = ({
                         e.stopPropagation();
                         onDeleteClick(conv._id);
                       }}
-                      className="hover:bg-secondary/10 text-red-500"
+                      className="hover:bg-secondary/10 active:bg-secondary/20 text-red-500"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -86,7 +87,7 @@ const Sidebar = ({ role, onTabChange, activeTab }: SidebarProps) => {
           variant="ghost"
           size="icon"
           onClick={() => setCollapsed(!collapsed)}
-          className="hover:bg-white/10"
+          className="hover:bg-white/20 active:bg-white/30"
         >
           {collapsed ? <ChevronRight /> : <ChevronLeft />}
         </Button>
@@ -105,7 +106,7 @@ const Sidebar = ({ role, onTabChange, activeTab }: SidebarProps) => {
               <TabsTrigger
                 key={link.value}
                 value={link.value}
-                className="w-full justify-start gap-3 text-white data-[state=active]:bg-secondary data-[state=active]:text-primary"
+                className="w-full justify-start gap-3 text-white data-[state=active]:bg-secondary data-[state=active]:text-primary hover:bg-white/10 active:bg-white/20 data-[state=active]:hover:bg-secondary"
               >
                 <link.icon size={20} />
                 {!collapsed && <span>{link.label}</span>}
@@ -118,7 +119,7 @@ const Sidebar = ({ role, onTabChange, activeTab }: SidebarProps) => {
       <div className="p-4 border-t border-white/10">
         <Button
           variant="ghost"
-          className="w-full flex items-center gap-2 text-white hover:bg-white/10"
+          className="w-full flex items-center gap-2 text-white hover:bg-white/10 active:bg-white/20"
           onClick={logout}
         >
           <LogOut size={20} />
