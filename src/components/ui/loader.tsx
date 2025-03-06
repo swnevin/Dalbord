@@ -19,7 +19,7 @@ export const Loader = ({ className, size = "md" }: LoaderProps) => {
         src="/lovable-uploads/f59d2e9a-80de-456b-bf9a-dd2bd0058c4b.png"
         alt="Dalai Loader"
         className={cn(
-          "animate-[spin_3s_ease-in-out_infinite] animate-[pulse_2s_ease-in-out_infinite]",
+          "animate-pulse",
           sizeClasses[size],
           className
         )}

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -68,13 +67,14 @@ export const KnowledgeBase = () => {
   const { toast } = useToast();
   const [sources, setSources] = useState<VoiceflowDocument[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedSourceType, setSelectedSourceType] = useState<"url" | "file">("url");
   const [url, setUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [expandedSourceId, setExpandedSourceId] = useState<string | null>(null);
   const [chunks, setChunks] = useState<Chunk[]>([]);
   const [isLoadingChunks, setIsLoadingChunks] = useState(false);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [selectedSourceType, setSelectedSourceType] = useState<"url" | "file">("url");
 
   const showLoader = useMinimumLoading(isLoading);
   const showChunksLoader = useMinimumLoading(isLoadingChunks);
@@ -352,19 +352,11 @@ export const KnowledgeBase = () => {
     source.data.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  if (showLoader) {
-    return (
-      <div className="h-[calc(100vh-200px)] flex items-center justify-center">
-        <Loader size="lg" />
-      </div>
-    );
-  }
-
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-semibold text-primary">Kunnskapsbase</h1>
-        <Sheet>
+        <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
           <SheetTrigger asChild>
             <Button className="bg-primary text-white">
               + Legg til kilde
@@ -379,7 +371,7 @@ export const KnowledgeBase = () => {
             </SheetHeader>
             
             <div className="mt-6">
-              <Tabs value={selectedSourceType} onValueChange={(v) => setSelectedSourceType(v as "url" | "file")}>
+              <Tabs defaultValue="url" value={selectedSourceType} onValueChange={(v) => setSelectedSourceType(v as "url" | "file")}>
                 <TabsList className="w-full mb-4">
                   <TabsTrigger value="url" className="flex-1">URL</TabsTrigger>
                   <TabsTrigger value="file" className="flex-1">Filopplasting</TabsTrigger>
@@ -446,96 +438,109 @@ export const KnowledgeBase = () => {
         />
       </div>
 
-      <div className="space-y-3">
-        {filteredSources.map((source) => (
-          <div 
-            key={source.documentID}
-            className="bg-white rounded-lg border hover:border-primary/20 transition-colors"
-          >
-            <div className="flex items-center justify-between p-4">
-              <div className="flex items-center gap-3">
-                <LinkIcon className="text-primary h-5 w-5" />
-                <div>
-                  <h3 className="font-medium text-gray-900">{source.data.name}</h3>
-                  <p className="text-sm text-gray-500">
-                    Oppdatert: {new Date(source.updatedAt).toLocaleDateString('no')}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => handleExpandSource(source.documentID)}
-                  className={cn(
-                    "transition-transform",
-                    expandedSourceId === source.documentID && "rotate-180"
-                  )}
-                >
-                  <ChevronDown className="h-5 w-5 text-gray-400" />
-                </Button>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
+      {showLoader ? (
+        <div className="mt-8 flex justify-center">
+          <Loader size="lg" />
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filteredSources.length > 0 ? (
+            filteredSources.map((source) => (
+              <div 
+                key={source.documentID}
+                className="bg-white rounded-lg border hover:border-primary/20 transition-colors"
+              >
+                <div className="flex items-center justify-between p-4">
+                  <div className="flex items-center gap-3">
+                    <LinkIcon className="text-primary h-5 w-5" />
+                    <div>
+                      <h3 className="font-medium text-gray-900">{source.data.name}</h3>
+                      <p className="text-sm text-gray-500">
+                        Oppdatert: {new Date(source.updatedAt).toLocaleDateString('no')}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                      onClick={() => handleExpandSource(source.documentID)}
+                      className={cn(
+                        "transition-transform",
+                        expandedSourceId === source.documentID && "rotate-180"
+                      )}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <ChevronDown className="h-5 w-5 text-gray-400" />
                     </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Er du sikker?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Dette vil permanent slette kilden fra kunnskapsbasen. Denne handlingen kan ikke angres.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Avbryt</AlertDialogCancel>
-                      <AlertDialogAction 
-                        onClick={async () => {
-                          try {
-                            await handleDelete(source.documentID);
-                          } catch (error) {
-                            console.error('Error in delete action:', error);
-                          }
-                        }}
-                        className="bg-red-500 hover:bg-red-600"
-                      >
-                        Slett
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
-            </div>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Er du sikker?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Dette vil permanent slette kilden fra kunnskapsbasen. Denne handlingen kan ikke angres.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Avbryt</AlertDialogCancel>
+                          <AlertDialogAction 
+                            onClick={async () => {
+                              try {
+                                await handleDelete(source.documentID);
+                              } catch (error) {
+                                console.error('Error in delete action:', error);
+                              }
+                            }}
+                            className="bg-red-500 hover:bg-red-600"
+                          >
+                            Slett
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </div>
 
-            {expandedSourceId === source.documentID && (
-              <div className="border-t px-4 py-3">
-                {showChunksLoader ? (
-                  <div className="flex justify-center py-4">
-                    <Loader size="md" />
-                  </div>
-                ) : chunks.length > 0 ? (
-                  <div className="space-y-4">
-                    {chunks.map((chunk) => (
-                      <div 
-                        key={chunk.chunkID}
-                        className="p-3 bg-gray-50 rounded-md"
-                      >
-                        <p className="text-sm text-gray-700 whitespace-pre-wrap">{chunk.content}</p>
+                {expandedSourceId === source.documentID && (
+                  <div className="border-t px-4 py-3">
+                    {showChunksLoader ? (
+                      <div className="flex justify-center py-4">
+                        <Loader size="md" />
                       </div>
-                    ))}
+                    ) : chunks.length > 0 ? (
+                      <div className="space-y-4">
+                        {chunks.map((chunk) => (
+                          <div 
+                            key={chunk.chunkID}
+                            className="p-3 bg-gray-50 rounded-md"
+                          >
+                            <p className="text-sm text-gray-700 whitespace-pre-wrap">{chunk.content}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-center text-gray-500 py-2">Ingen chunks funnet</p>
+                    )}
                   </div>
-                ) : (
-                  <p className="text-center text-gray-500 py-2">Ingen chunks funnet</p>
                 )}
               </div>
-            )}
-          </div>
-        ))}
-      </div>
+            ))
+          ) : (
+            <div className="text-center py-10 text-gray-500">
+              <p>Ingen kilder funnet</p>
+              <p className="text-sm mt-2">Legg til din første kilde ved å klikke på "Legg til kilde" knappen</p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

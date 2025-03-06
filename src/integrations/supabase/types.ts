@@ -122,6 +122,7 @@ export type Database = {
       }
     }
     Enums: {
+      custom_tab_icon: "default"
       tab_type: "organizations" | "conversations" | "knowledge" | "statistics"
     }
     CompositeTypes: {
