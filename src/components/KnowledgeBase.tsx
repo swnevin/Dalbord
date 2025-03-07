@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -76,9 +75,11 @@ export const KnowledgeBase = () => {
   const [sources, setSources] = useState<VoiceflowDocument[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [url, setUrl] = useState("");
+  const [urlError, setUrlError] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [rawText, setRawText] = useState("");
   const [textFileName, setTextFileName] = useState("custom-text.txt");
+  const [textFileNameError, setTextFileNameError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [expandedSourceId, setExpandedSourceId] = useState<string | null>(null);
   const [chunks, setChunks] = useState<Chunk[]>([]);
@@ -88,6 +89,22 @@ export const KnowledgeBase = () => {
 
   const showLoader = useMinimumLoading(isLoading);
   const showChunksLoader = useMinimumLoading(isLoadingChunks);
+
+  useEffect(() => {
+    if (url && !url.startsWith('https://')) {
+      setUrlError('URL må starte med https://');
+    } else {
+      setUrlError('');
+    }
+  }, [url]);
+
+  useEffect(() => {
+    if (textFileName && !textFileName.endsWith('.txt')) {
+      setTextFileNameError('Filnavnet må slutte med .txt');
+    } else {
+      setTextFileNameError('');
+    }
+  }, [textFileName]);
 
   const fetchSources = async () => {
     if (!user?.organization_id) return;
@@ -228,6 +245,44 @@ export const KnowledgeBase = () => {
       return;
     }
 
+    if (selectedSourceType === "url") {
+      if (!url) {
+        toast({
+          title: "Feil",
+          description: "URL kan ikke være tom.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (!url.startsWith('https://')) {
+        toast({
+          title: "Feil",
+          description: "URL må starte med https://",
+          variant: "destructive",
+        });
+        return;
+      }
+    } else if (selectedSourceType === "text") {
+      if (!rawText) {
+        toast({
+          title: "Feil",
+          description: "Tekst kan ikke være tom.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (!textFileName.endsWith('.txt')) {
+        toast({
+          title: "Feil",
+          description: "Filnavnet må slutte med .txt",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     setIsLoading(true);
 
     try {
@@ -244,6 +299,8 @@ export const KnowledgeBase = () => {
       let response;
 
       if (selectedSourceType === "url" && url) {
+        const formattedUrl = url.startsWith('https://') ? url : `https://${url}`;
+        
         const options = {
           method: 'POST',
           headers: {
@@ -254,8 +311,8 @@ export const KnowledgeBase = () => {
           body: JSON.stringify({
             data: {
               type: "url",
-              name: url,
-              url: url
+              name: formattedUrl,
+              url: formattedUrl
             }
           })
         };
@@ -276,9 +333,9 @@ export const KnowledgeBase = () => {
 
         response = await fetch('https://api.voiceflow.com/v1/knowledge-base/docs/upload?maxChunkSize=1000', options);
       } else if (selectedSourceType === "text" && rawText) {
-        // Create a text file from the raw text
         const textBlob = new Blob([rawText], { type: 'text/plain' });
-        const textFile = new File([textBlob], textFileName, { type: 'text/plain' });
+        const fileName = textFileName.endsWith('.txt') ? textFileName : `${textFileName}.txt`;
+        const textFile = new File([textBlob], fileName, { type: 'text/plain' });
         
         const formData = new FormData();
         formData.append('file', textFile);
@@ -315,6 +372,8 @@ export const KnowledgeBase = () => {
       setFile(null);
       setRawText("");
       setTextFileName("custom-text.txt");
+      setUrlError("");
+      setTextFileNameError("");
     } catch (error) {
       console.error('Error adding source:', error);
       toast({
@@ -419,14 +478,18 @@ export const KnowledgeBase = () => {
               
               {selectedSourceType === "url" ? (
                 <div className="space-y-4">
-                  <Input
-                    placeholder="Lim inn URL"
-                    value={url}
-                    onChange={(e) => setUrl(e.target.value)}
-                  />
+                  <div>
+                    <Input
+                      placeholder="Lim inn URL (https://...)"
+                      value={url}
+                      onChange={(e) => setUrl(e.target.value)}
+                      className={urlError ? "border-red-500" : ""}
+                    />
+                    {urlError && <p className="text-red-500 text-sm mt-1">{urlError}</p>}
+                  </div>
                   <Button 
                     className="w-full" 
-                    disabled={!url || isLoading}
+                    disabled={!url || !!urlError || isLoading}
                     onClick={handleSourceAdd}
                   >
                     {isLoading ? "Laster opp..." : "Last opp URL"}
@@ -463,12 +526,15 @@ export const KnowledgeBase = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <Input
-                    placeholder="Filnavn (f.eks. min-tekst.txt)"
-                    value={textFileName}
-                    onChange={(e) => setTextFileName(e.target.value)}
-                    className="mb-2"
-                  />
+                  <div>
+                    <Input
+                      placeholder="Filnavn (f.eks. min-tekst.txt)"
+                      value={textFileName}
+                      onChange={(e) => setTextFileName(e.target.value)}
+                      className={cn("mb-2", textFileNameError ? "border-red-500" : "")}
+                    />
+                    {textFileNameError && <p className="text-red-500 text-sm mb-2">{textFileNameError}</p>}
+                  </div>
                   <Textarea
                     placeholder="Skriv eller lim inn tekst her"
                     value={rawText}
@@ -477,7 +543,7 @@ export const KnowledgeBase = () => {
                   />
                   <Button 
                     className="w-full" 
-                    disabled={!rawText || isLoading}
+                    disabled={!rawText || !!textFileNameError || isLoading}
                     onClick={handleSourceAdd}
                   >
                     {isLoading ? "Laster opp..." : "Last opp tekst"}
