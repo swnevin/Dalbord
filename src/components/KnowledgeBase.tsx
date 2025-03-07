@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -94,7 +93,6 @@ export const KnowledgeBase = () => {
   const [isLoadingChunks, setIsLoadingChunks] = useState(false);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   
-  // Update the type to include "qa"
   const [selectedSourceType, setSelectedSourceType] = useState<"url" | "file" | "text" | "qa">("url");
   
   const [qaTitle, setQaTitle] = useState("");
@@ -534,7 +532,7 @@ export const KnowledgeBase = () => {
               + Legg til kilde
             </Button>
           </SheetTrigger>
-          <SheetContent>
+          <SheetContent className="overflow-y-auto max-h-screen pb-20">
             <SheetHeader>
               <SheetTitle>Legg til ny kilde</SheetTitle>
               <SheetDescription>
@@ -645,52 +643,63 @@ export const KnowledgeBase = () => {
                     />
                   </div>
                   
-                  {qaPairs.map((pair, index) => (
-                    <div key={pair.id} className="space-y-3 p-4 border rounded-lg bg-gray-50">
-                      <div className="flex justify-between items-center">
-                        <h4 className="font-medium">Spørsmål og svar #{index + 1}</h4>
-                        {qaPairs.length > 1 && (
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            onClick={() => removeQAPair(pair.id)}
-                            className="h-8 w-8 text-gray-500"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
+                  <div className="overflow-y-auto max-h-[400px] pr-2">
+                    {qaPairs.map((pair, index) => (
+                      <div key={pair.id} className="space-y-3 p-4 border rounded-lg bg-gray-50 mb-4">
+                        <div className="flex justify-between items-center">
+                          <h4 className="font-medium">Spørsmål og svar #{index + 1}</h4>
+                          {qaPairs.length > 1 && (
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={() => removeQAPair(pair.id)}
+                              className="h-8 w-8 text-gray-500"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label htmlFor={`question-${pair.id}`}>Spørsmål:</Label>
+                          <Input
+                            id={`question-${pair.id}`}
+                            placeholder="Skriv inn spørsmål"
+                            value={pair.question}
+                            onChange={(e) => updateQAPair(pair.id, "question", e.target.value)}
+                          />
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label htmlFor={`answer-${pair.id}`}>Svar:</Label>
+                          <Textarea
+                            id={`answer-${pair.id}`}
+                            placeholder="Skriv inn svar"
+                            value={pair.answer}
+                            onChange={(e) => updateQAPair(pair.id, "answer", e.target.value)}
+                            className="min-h-20 resize-y"
+                          />
+                        </div>
                       </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor={`question-${pair.id}`}>Spørsmål:</Label>
-                        <Input
-                          id={`question-${pair.id}`}
-                          placeholder="Skriv inn spørsmål"
-                          value={pair.question}
-                          onChange={(e) => updateQAPair(pair.id, "question", e.target.value)}
-                        />
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor={`answer-${pair.id}`}>Svar:</Label>
-                        <Textarea
-                          id={`answer-${pair.id}`}
-                          placeholder="Skriv inn svar"
-                          value={pair.answer}
-                          onChange={(e) => updateQAPair(pair.id, "answer", e.target.value)}
-                          className="min-h-20 resize-y"
-                        />
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                   
-                  <Button 
-                    variant="outline" 
-                    className="w-full mt-2 flex items-center gap-2" 
-                    onClick={addQAPair}
-                  >
-                    <Plus className="h-4 w-4" /> Legg til spørsmål og svar
-                  </Button>
+                  <div className="space-y-3">
+                    <Button 
+                      variant="outline" 
+                      className="w-full flex items-center gap-2" 
+                      onClick={addQAPair}
+                    >
+                      <Plus className="h-4 w-4" /> Legg til spørsmål og svar
+                    </Button>
+                    
+                    <Button 
+                      variant="outline"
+                      className="w-full flex items-center gap-2" 
+                    >
+                      <Upload className="h-4 w-4" /> Last opp FAQ set
+                    </Button>
+                  </div>
                   
                   <Button 
                     className="w-full bg-primary text-white" 
