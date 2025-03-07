@@ -78,6 +78,7 @@ export const KnowledgeBase = () => {
   const [url, setUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [rawText, setRawText] = useState("");
+  const [textFileName, setTextFileName] = useState("custom-text.txt");
   const [isLoading, setIsLoading] = useState(false);
   const [expandedSourceId, setExpandedSourceId] = useState<string | null>(null);
   const [chunks, setChunks] = useState<Chunk[]>([]);
@@ -277,7 +278,7 @@ export const KnowledgeBase = () => {
       } else if (selectedSourceType === "text" && rawText) {
         // Create a text file from the raw text
         const textBlob = new Blob([rawText], { type: 'text/plain' });
-        const textFile = new File([textBlob], 'custom-text.txt', { type: 'text/plain' });
+        const textFile = new File([textBlob], textFileName, { type: 'text/plain' });
         
         const formData = new FormData();
         formData.append('file', textFile);
@@ -313,6 +314,7 @@ export const KnowledgeBase = () => {
       setUrl("");
       setFile(null);
       setRawText("");
+      setTextFileName("custom-text.txt");
     } catch (error) {
       console.error('Error adding source:', error);
       toast({
@@ -461,10 +463,12 @@ export const KnowledgeBase = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div className="flex items-center gap-2 text-primary mb-1">
-                    <FileText className="h-4 w-4" />
-                    <span className="text-sm font-medium">Tekst</span>
-                  </div>
+                  <Input
+                    placeholder="Filnavn (f.eks. min-tekst.txt)"
+                    value={textFileName}
+                    onChange={(e) => setTextFileName(e.target.value)}
+                    className="mb-2"
+                  />
                   <Textarea
                     placeholder="Skriv eller lim inn tekst her"
                     value={rawText}
