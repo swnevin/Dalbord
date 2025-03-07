@@ -1,8 +1,9 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChevronDown, Link as LinkIcon, Search, Trash2, Upload } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { ChevronDown, Link as LinkIcon, Search, Trash2, Upload, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,6 +26,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Loader } from "@/components/ui/loader";
 import { useMinimumLoading } from "@/hooks/use-minimum-loading";
@@ -69,12 +77,13 @@ export const KnowledgeBase = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [url, setUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [rawText, setRawText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [expandedSourceId, setExpandedSourceId] = useState<string | null>(null);
   const [chunks, setChunks] = useState<Chunk[]>([]);
   const [isLoadingChunks, setIsLoadingChunks] = useState(false);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
-  const [selectedSourceType, setSelectedSourceType] = useState<"url" | "file">("url");
+  const [selectedSourceType, setSelectedSourceType] = useState<"url" | "file" | "text">("url");
 
   const showLoader = useMinimumLoading(isLoading);
   const showChunksLoader = useMinimumLoading(isLoadingChunks);
@@ -265,6 +274,24 @@ export const KnowledgeBase = () => {
         };
 
         response = await fetch('https://api.voiceflow.com/v1/knowledge-base/docs/upload?maxChunkSize=1000', options);
+      } else if (selectedSourceType === "text" && rawText) {
+        // Create a text file from the raw text
+        const textBlob = new Blob([rawText], { type: 'text/plain' });
+        const textFile = new File([textBlob], 'custom-text.txt', { type: 'text/plain' });
+        
+        const formData = new FormData();
+        formData.append('file', textFile);
+
+        const options = {
+          method: 'POST',
+          headers: {
+            accept: 'application/json',
+            Authorization: org.voiceflow_api_key
+          },
+          body: formData
+        };
+
+        response = await fetch('https://api.voiceflow.com/v1/knowledge-base/docs/upload?maxChunkSize=1000', options);
       } else {
         throw new Error('Ingen gyldig kilde valgt');
       }
@@ -285,6 +312,7 @@ export const KnowledgeBase = () => {
 
       setUrl("");
       setFile(null);
+      setRawText("");
     } catch (error) {
       console.error('Error adding source:', error);
       toast({
@@ -366,17 +394,26 @@ export const KnowledgeBase = () => {
             <SheetHeader>
               <SheetTitle>Legg til ny kilde</SheetTitle>
               <SheetDescription>
-                Last opp en fil eller legg til en URL til kunnskapsbasen.
+                Last opp en fil, legg til en URL eller skriv inn tekst til kunnskapsbasen.
               </SheetDescription>
             </SheetHeader>
             
             <div className="mt-6">
-              <Tabs defaultValue="url" value={selectedSourceType} onValueChange={(v) => setSelectedSourceType(v as "url" | "file")}>
-                <TabsList className="w-full mb-4">
-                  <TabsTrigger value="url" className="flex-1">URL</TabsTrigger>
-                  <TabsTrigger value="file" className="flex-1">Filopplasting</TabsTrigger>
-                </TabsList>
-              </Tabs>
+              <div className="mb-4">
+                <Select 
+                  value={selectedSourceType} 
+                  onValueChange={(value) => setSelectedSourceType(value as "url" | "file" | "text")}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Velg kildetype" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="url">URL</SelectItem>
+                    <SelectItem value="file">Filopplasting</SelectItem>
+                    <SelectItem value="text">Rå tekst</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               
               {selectedSourceType === "url" ? (
                 <div className="space-y-4">
@@ -393,7 +430,7 @@ export const KnowledgeBase = () => {
                     {isLoading ? "Laster opp..." : "Last opp URL"}
                   </Button>
                 </div>
-              ) : (
+              ) : selectedSourceType === "file" ? (
                 <div className="space-y-4">
                   <div 
                     className={cn(
@@ -420,6 +457,26 @@ export const KnowledgeBase = () => {
                     onClick={handleSourceAdd}
                   >
                     {isLoading ? "Laster opp..." : "Last opp fil"}
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 text-primary mb-1">
+                    <FileText className="h-4 w-4" />
+                    <span className="text-sm font-medium">Tekst</span>
+                  </div>
+                  <Textarea
+                    placeholder="Skriv eller lim inn tekst her"
+                    value={rawText}
+                    onChange={(e) => setRawText(e.target.value)}
+                    className="min-h-32 resize-y"
+                  />
+                  <Button 
+                    className="w-full" 
+                    disabled={!rawText || isLoading}
+                    onClick={handleSourceAdd}
+                  >
+                    {isLoading ? "Laster opp..." : "Last opp tekst"}
                   </Button>
                 </div>
               )}
