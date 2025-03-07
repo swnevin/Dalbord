@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ChevronDown, Link as LinkIcon, Search, Trash2, Upload, FileText } from "lucide-react";
+import { ChevronDown, Link as LinkIcon, Search, Trash2, Upload, FileText, MessageCircleQuestion, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,10 +35,11 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Loader } from "@/components/ui/loader";
 import { useMinimumLoading } from "@/hooks/use-minimum-loading";
+import { Label } from "@/components/ui/label";
 
 interface VoiceflowDocument {
   data: {
-    type: "url" | "docx" | "text" | "pdf";
+    type: "url" | "docx" | "text" | "pdf" | "qa";
     name: string;
     url?: string;
     refreshRate?: string;
@@ -69,6 +70,12 @@ interface VoiceflowChunksResponse {
   chunks: Chunk[];
 }
 
+interface QAPair {
+  question: string;
+  answer: string;
+  id: string;
+}
+
 export const KnowledgeBase = () => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -85,7 +92,12 @@ export const KnowledgeBase = () => {
   const [chunks, setChunks] = useState<Chunk[]>([]);
   const [isLoadingChunks, setIsLoadingChunks] = useState(false);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
-  const [selectedSourceType, setSelectedSourceType] = useState<"url" | "file" | "text">("url");
+  const [selectedSourceType, setSelectedSourceType] = useState<"url" | "file" | "text" | "qa">("url");
+  
+  const [qaTitle, setQaTitle] = useState("");
+  const [qaPairs, setQaPairs] = useState<QAPair[]>([
+    { question: "", answer: "", id: crypto.randomUUID() }
+  ]);
 
   const showLoader = useMinimumLoading(isLoading);
   const showChunksLoader = useMinimumLoading(isLoadingChunks);
@@ -235,6 +247,22 @@ export const KnowledgeBase = () => {
     }
   };
 
+  const addQAPair = () => {
+    setQaPairs([...qaPairs, { question: "", answer: "", id: crypto.randomUUID() }]);
+  };
+
+  const updateQAPair = (id: string, field: "question" | "answer", value: string) => {
+    setQaPairs(qaPairs.map(pair => 
+      pair.id === id ? { ...pair, [field]: value } : pair
+    ));
+  };
+
+  const removeQAPair = (id: string) => {
+    if (qaPairs.length > 1) {
+      setQaPairs(qaPairs.filter(pair => pair.id !== id));
+    }
+  };
+
   const handleSourceAdd = async () => {
     if (!user?.organization_id) {
       toast({
@@ -281,6 +309,35 @@ export const KnowledgeBase = () => {
         });
         return;
       }
+    } else if (selectedSourceType === "qa") {
+      if (!qaTitle.trim()) {
+        toast({
+          title: "Feil",
+          description: "Tittel kan ikke være tom.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      const hasEmptyFields = qaPairs.some(pair => !pair.question.trim() || !pair.answer.trim());
+      if (hasEmptyFields) {
+        toast({
+          title: "Feil",
+          description: "Alle spørsmål og svar må fylles ut.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      toast({
+        title: "Suksess",
+        description: "Q&A kilde registrert (backend ikke implementert ennå)",
+      });
+      
+      setQaTitle("");
+      setQaPairs([{ question: "", answer: "", id: crypto.randomUUID() }]);
+      setIsSheetOpen(false);
+      return;
     }
 
     setIsLoading(true);
@@ -347,6 +404,24 @@ export const KnowledgeBase = () => {
             Authorization: org.voiceflow_api_key
           },
           body: formData
+        };
+
+        response = await fetch('https://api.voiceflow.com/v1/knowledge-base/docs/upload?maxChunkSize=1000', options);
+      } else if (selectedSourceType === "qa") {
+        const options = {
+          method: 'POST',
+          headers: {
+            accept: 'application/json',
+            'content-type': 'application/json; charset=utf-8',
+            Authorization: org.voiceflow_api_key
+          },
+          body: JSON.stringify({
+            data: {
+              type: "qa",
+              name: qaTitle,
+              qa_pairs: qaPairs.map(pair => ({ question: pair.question, answer: pair.answer }))
+            }
+          })
         };
 
         response = await fetch('https://api.voiceflow.com/v1/knowledge-base/docs/upload?maxChunkSize=1000', options);
@@ -441,6 +516,11 @@ export const KnowledgeBase = () => {
     source.data.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const isQAPairValid = (pair: QAPair) => !!pair.question.trim() && !!pair.answer.trim();
+  const areAllQAPairsValid = qaPairs.every(isQAPairValid);
+  const isQATitleValid = !!qaTitle.trim();
+  const isQAFormValid = isQATitleValid && areAllQAPairsValid;
+
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <div className="flex justify-between items-center mb-6">
@@ -463,7 +543,7 @@ export const KnowledgeBase = () => {
               <div className="mb-4">
                 <Select 
                   value={selectedSourceType} 
-                  onValueChange={(value) => setSelectedSourceType(value as "url" | "file" | "text")}
+                  onValueChange={(value) => setSelectedSourceType(value as "url" | "file" | "text" | "qa")}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Velg kildetype" />
@@ -472,6 +552,7 @@ export const KnowledgeBase = () => {
                     <SelectItem value="url">URL</SelectItem>
                     <SelectItem value="file">Filopplasting</SelectItem>
                     <SelectItem value="text">Rå tekst</SelectItem>
+                    <SelectItem value="qa">Spørsmål & Svar</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -524,7 +605,7 @@ export const KnowledgeBase = () => {
                     {isLoading ? "Laster opp..." : "Last opp fil"}
                   </Button>
                 </div>
-              ) : (
+              ) : selectedSourceType === "text" ? (
                 <div className="space-y-4">
                   <div>
                     <Input
@@ -547,6 +628,73 @@ export const KnowledgeBase = () => {
                     onClick={handleSourceAdd}
                   >
                     {isLoading ? "Laster opp..." : "Last opp tekst"}
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="qa-title">Tittel</Label>
+                    <Input
+                      id="qa-title"
+                      placeholder="Tittel på Q&A kilden"
+                      value={qaTitle}
+                      onChange={(e) => setQaTitle(e.target.value)}
+                    />
+                  </div>
+                  
+                  {qaPairs.map((pair, index) => (
+                    <div key={pair.id} className="space-y-3 p-4 border rounded-lg bg-gray-50">
+                      <div className="flex justify-between items-center">
+                        <h4 className="font-medium">Spørsmål og svar #{index + 1}</h4>
+                        {qaPairs.length > 1 && (
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={() => removeQAPair(pair.id)}
+                            className="h-8 w-8 text-gray-500"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor={`question-${pair.id}`}>Spørsmål:</Label>
+                        <Input
+                          id={`question-${pair.id}`}
+                          placeholder="Skriv inn spørsmål"
+                          value={pair.question}
+                          onChange={(e) => updateQAPair(pair.id, "question", e.target.value)}
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor={`answer-${pair.id}`}>Svar:</Label>
+                        <Textarea
+                          id={`answer-${pair.id}`}
+                          placeholder="Skriv inn svar"
+                          value={pair.answer}
+                          onChange={(e) => updateQAPair(pair.id, "answer", e.target.value)}
+                          className="min-h-20 resize-y"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                  
+                  <Button 
+                    variant="outline" 
+                    className="w-full mt-2 flex items-center gap-2" 
+                    onClick={addQAPair}
+                  >
+                    <Plus className="h-4 w-4" /> Legg til spørsmål og svar
+                  </Button>
+                  
+                  <Button 
+                    className="w-full bg-primary text-white" 
+                    disabled={!isQAFormValid || isLoading}
+                    onClick={handleSourceAdd}
+                  >
+                    {isLoading ? "Lagrer..." : "Lagre Q&A"}
                   </Button>
                 </div>
               )}
