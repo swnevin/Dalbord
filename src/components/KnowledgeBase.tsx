@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -107,6 +108,7 @@ export const KnowledgeBase = () => {
   const [bulkQAText, setBulkQAText] = useState("");
   
   const [sourceTypeFilter, setSourceTypeFilter] = useState<SourceType>("all");
+  const [duplicateQATitleWarning, setDuplicateQATitleWarning] = useState(false);
 
   const showLoader = useMinimumLoading(isLoading);
   const showChunksLoader = useMinimumLoading(isLoadingChunks);
@@ -153,6 +155,19 @@ export const KnowledgeBase = () => {
       setTextFileNameError('');
     }
   }, [textFileName]);
+
+  // Check if Q&A title already exists
+  useEffect(() => {
+    if (selectedSourceType === 'qa' && qaTitle.trim()) {
+      const formattedTitle = ensureQATitleSuffix(qaTitle.trim());
+      const titleExists = sources.some(source => 
+        source.detectedType === 'qa' && source.data.name === formattedTitle
+      );
+      setDuplicateQATitleWarning(titleExists);
+    } else {
+      setDuplicateQATitleWarning(false);
+    }
+  }, [qaTitle, sources, selectedSourceType]);
 
   const fetchSources = async () => {
     if (!user?.organization_id) return;
@@ -315,49 +330,33 @@ export const KnowledgeBase = () => {
       return;
     }
     
-    const lines = bulkQAText.split('\n');
-    let currentQuestion = "";
-    let currentAnswer = "";
+    const lines = bulkQAText.split('\n').filter(line => line.trim());
     const newQAPairs: QAPair[] = [];
     
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
+    for (const line of lines) {
+      if (!line.trim()) continue;
       
-      if (line.toLowerCase().startsWith('spørsmål:')) {
-        if (currentQuestion && currentAnswer) {
+      // New format: "question: Q; answer: A"
+      const match = line.match(/question:(.*?);[\s]*answer:(.*)/i);
+      
+      if (match) {
+        const question = match[1].trim();
+        const answer = match[2].trim();
+        
+        if (question && answer) {
           newQAPairs.push({
-            question: currentQuestion,
-            answer: currentAnswer,
+            question,
+            answer,
             id: crypto.randomUUID()
           });
         }
-        
-        currentQuestion = line.substring('spørsmål:'.length).trim();
-        currentAnswer = "";
-      } else if (line.toLowerCase().startsWith('svar:')) {
-        currentAnswer = line.substring('svar:'.length).trim();
-        
-        if (i === lines.length - 1 || 
-            (i + 1 < lines.length && lines[i + 1].trim().toLowerCase().startsWith('spørsmål:'))) {
-          if (currentQuestion) {
-            newQAPairs.push({
-              question: currentQuestion,
-              answer: currentAnswer,
-              id: crypto.randomUUID()
-            });
-          }
-        }
-      } else if (currentAnswer) {
-        currentAnswer += " " + line;
-      } else if (currentQuestion) {
-        currentQuestion += " " + line;
       }
     }
     
     if (newQAPairs.length === 0) {
       toast({
         title: "Feil",
-        description: "Kunne ikke finne noen gyldige spørsmål og svar i teksten. Bruk formatet 'spørsmål: [spørsmål]' etterfulgt av 'svar: [svar]'.",
+        description: "Kunne ikke finne noen gyldige spørsmål og svar i teksten. Bruk formatet 'question: [spørsmål]; answer: [svar]'.",
         variant: "destructive",
       });
       return;
@@ -492,7 +491,7 @@ export const KnowledgeBase = () => {
       } else if (selectedSourceType === "text" && rawText) {
         const textBlob = new Blob([rawText], { type: 'text/plain' });
         const fileName = textFileName.endsWith('.txt') ? textFileName : `${textFileName}.txt`;
-        const textFile = new File([textBlob], fileName, { type: 'text/plain' });
+        const textFile = new File([textBlob], fileName);
         
         const formData = new FormData();
         formData.append('file', textFile);
@@ -531,7 +530,11 @@ export const KnowledgeBase = () => {
           })
         };
 
-        response = await fetch('https://api.voiceflow.com/v1/knowledge-base/docs/upload/table?overwrite=false', options);
+        // Check if a Q&A source with the same title already exists
+        const shouldOverwrite = duplicateQATitleWarning;
+        const endpoint = `https://api.voiceflow.com/v1/knowledge-base/docs/upload/table?overwrite=${shouldOverwrite}`;
+        
+        response = await fetch(endpoint, options);
       } else {
         throw new Error('Ingen gyldig kilde valgt');
       }
@@ -781,10 +784,16 @@ export const KnowledgeBase = () => {
                       placeholder="Tittel på Q&A kilden (vil få '- Q&A' lagt til)"
                       value={qaTitle}
                       onChange={(e) => handleQATitleChange(e.target.value)}
+                      className={duplicateQATitleWarning ? "border-yellow-500" : ""}
                     />
                     <p className="text-xs text-muted-foreground">
                       "- Q&A" vil automatisk legges til på slutten av tittelen for å identifisere kilden som en Q&A.
                     </p>
+                    {duplicateQATitleWarning && (
+                      <p className="text-yellow-600 text-xs mt-1">
+                        NB! Det finnes allerede en FAQ-kilde med dette navnet. Hvis du fortsetter vil denne kilden bli overskrevet.
+                      </p>
+                    )}
                   </div>
                   
                   <div className="overflow-y-auto max-h-[400px] pr-2">
@@ -852,15 +861,12 @@ export const KnowledgeBase = () => {
                         <Label htmlFor="bulk-qa-text">
                           Legg inn Q&A i format:
                           <code className="ml-2 p-1 bg-gray-200 rounded text-xs">
-                            spørsmål: Ditt spørsmål her
-                            <br />
-                            svar: Ditt svar her
+                            question: Ditt spørsmål her; answer: Ditt svar her
                           </code>
                         </Label>
                         <Textarea
                           id="bulk-qa-text"
-                          placeholder="spørsmål: Hva er dette?
-svar: Dette er et eksempel."
+                          placeholder="question: Hvordan endrer jeg språk på meldinger?; answer: Språket på e-poster kan ikke endres, de sendes kun på engelsk."
                           value={bulkQAText}
                           onChange={(e) => setBulkQAText(e.target.value)}
                           className="min-h-32 resize-y font-mono text-sm"
