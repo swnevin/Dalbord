@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ChevronDown, Link as LinkIcon, Search, Trash2, Upload, FileText, MessageCircleQuestion, Plus } from "lucide-react";
+import { ChevronDown, Link as LinkIcon, Search, Trash2, Upload, FileText, MessageCircleQuestion, Plus, File, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -37,6 +37,8 @@ import { Loader } from "@/components/ui/loader";
 import { useMinimumLoading } from "@/hooks/use-minimum-loading";
 import { Label } from "@/components/ui/label";
 
+type SourceType = "url" | "file" | "qa" | "all";
+
 interface VoiceflowDocument {
   data: {
     type: "url" | "docx" | "text" | "pdf" | "qa";
@@ -52,6 +54,7 @@ interface VoiceflowDocument {
     type: "SUCCESS" | "PENDING" | "FAILED";
     data?: any;
   };
+  detectedType?: SourceType;
 }
 
 interface VoiceflowResponse {
@@ -93,7 +96,6 @@ export const KnowledgeBase = () => {
   const [isLoadingChunks, setIsLoadingChunks] = useState(false);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   
-  // Fix the type definition to include "qa"
   const [selectedSourceType, setSelectedSourceType] = useState<"url" | "file" | "text" | "qa">("url");
   
   const [qaTitle, setQaTitle] = useState("");
@@ -101,12 +103,40 @@ export const KnowledgeBase = () => {
     { question: "", answer: "", id: crypto.randomUUID() }
   ]);
   
-  // State for Q&A bulk upload
   const [showQABulkUpload, setShowQABulkUpload] = useState(false);
   const [bulkQAText, setBulkQAText] = useState("");
+  
+  const [sourceTypeFilter, setSourceTypeFilter] = useState<SourceType>("all");
 
   const showLoader = useMinimumLoading(isLoading);
   const showChunksLoader = useMinimumLoading(isLoadingChunks);
+
+  const detectSourceType = (source: VoiceflowDocument): SourceType => {
+    const name = source.data.name;
+    
+    if (name.endsWith("- Q&A")) {
+      return "qa";
+    }
+    
+    if (name.match(/\.(pdf|txt|docx)$/i)) {
+      return "file";
+    }
+    
+    if (name.match(/^https?:\/\//i) || 
+        name.match(/\w+\.\w+(\.\w+)?(\/\S*)?$/i)) {
+      return "url";
+    }
+    
+    if (source.data.type === "url") {
+      return "url";
+    } else if (["docx", "text", "pdf"].includes(source.data.type)) {
+      return "file";
+    } else if (source.data.type === "qa") {
+      return "qa";
+    }
+    
+    return "url";
+  };
 
   useEffect(() => {
     if (url && !url.startsWith('https://')) {
@@ -161,7 +191,13 @@ export const KnowledgeBase = () => {
         }
 
         const result: VoiceflowResponse = await response.json();
-        allSources = [...allSources, ...result.data];
+        
+        const processedSources = result.data.map(source => ({
+          ...source,
+          detectedType: detectSourceType(source)
+        }));
+        
+        allSources = [...allSources, ...processedSources];
 
         hasMore = result.data.length === limit && result.total > allSources.length;
         page++;
@@ -269,7 +305,6 @@ export const KnowledgeBase = () => {
     }
   };
   
-  // Parse bulk Q&A text and add as individual pairs
   const processBulkQAText = () => {
     if (!bulkQAText.trim()) {
       toast({
@@ -289,7 +324,6 @@ export const KnowledgeBase = () => {
       const line = lines[i].trim();
       
       if (line.toLowerCase().startsWith('spørsmål:')) {
-        // If we already have a question and answer, save them
         if (currentQuestion && currentAnswer) {
           newQAPairs.push({
             question: currentQuestion,
@@ -298,13 +332,11 @@ export const KnowledgeBase = () => {
           });
         }
         
-        // Start a new question
         currentQuestion = line.substring('spørsmål:'.length).trim();
         currentAnswer = "";
       } else if (line.toLowerCase().startsWith('svar:')) {
         currentAnswer = line.substring('svar:'.length).trim();
         
-        // If this is the last line or next line is a new question, save the pair
         if (i === lines.length - 1 || 
             (i + 1 < lines.length && lines[i + 1].trim().toLowerCase().startsWith('spørsmål:'))) {
           if (currentQuestion) {
@@ -316,21 +348,10 @@ export const KnowledgeBase = () => {
           }
         }
       } else if (currentAnswer) {
-        // Append to current answer if we're in an answer section
         currentAnswer += " " + line;
       } else if (currentQuestion) {
-        // Append to current question if we're in a question section
         currentQuestion += " " + line;
       }
-    }
-    
-    // Add the last pair if it wasn't added in the loop
-    if (currentQuestion && currentAnswer) {
-      newQAPairs.push({
-        question: currentQuestion,
-        answer: currentAnswer,
-        id: crypto.randomUUID()
-      });
     }
     
     if (newQAPairs.length === 0) {
@@ -342,7 +363,6 @@ export const KnowledgeBase = () => {
       return;
     }
     
-    // Update the QA pairs
     setQaPairs([...qaPairs, ...newQAPairs]);
     setBulkQAText("");
     setShowQABulkUpload(false);
@@ -488,7 +508,8 @@ export const KnowledgeBase = () => {
 
         response = await fetch('https://api.voiceflow.com/v1/knowledge-base/docs/upload?maxChunkSize=1000', options);
       } else if (selectedSourceType === "qa" && qaTitle) {
-        // New implementation for QA upload using the provided API endpoint
+        const formattedTitle = ensureQATitleSuffix(qaTitle.trim());
+        
         const qaItems = qaPairs.map(pair => ({
           question: pair.question.trim(),
           answer: pair.answer.trim()
@@ -504,7 +525,7 @@ export const KnowledgeBase = () => {
           body: JSON.stringify({
             data: {
               schema: { searchableFields: ['question', 'answer'] },
-              name: qaTitle,
+              name: formattedTitle,
               items: qaItems
             }
           })
@@ -529,7 +550,6 @@ export const KnowledgeBase = () => {
         description: "Kilde lagt til i kunnskapsbasen",
       });
 
-      // Reset form fields
       setUrl("");
       setFile(null);
       setRawText("");
@@ -602,14 +622,46 @@ export const KnowledgeBase = () => {
     }
   };
 
-  const filteredSources = sources.filter(source => 
-    source.data.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredSources = sources.filter(source => {
+    const matchesSearch = source.data.name.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesType = 
+      sourceTypeFilter === "all" || 
+      (source.detectedType === sourceTypeFilter);
+    
+    return matchesSearch && matchesType;
+  });
 
   const isQAPairValid = (pair: QAPair) => !!pair.question.trim() && !!pair.answer.trim();
   const areAllQAPairsValid = qaPairs.every(isQAPairValid);
   const isQATitleValid = !!qaTitle.trim();
   const isQAFormValid = isQATitleValid && areAllQAPairsValid;
+
+  const handleQATitleChange = (value: string) => {
+    setQaTitle(value);
+  };
+
+  const ensureQATitleSuffix = (title: string): string => {
+    if (!title.endsWith("- Q&A")) {
+      return `${title} - Q&A`;
+    }
+    return title;
+  };
+
+  const getSourceIcon = (source: VoiceflowDocument) => {
+    const type = source.detectedType;
+    
+    switch (type) {
+      case "url":
+        return <ExternalLink className="text-primary h-5 w-5" />;
+      case "file":
+        return <FileText className="text-primary h-5 w-5" />;
+      case "qa":
+        return <MessageCircleQuestion className="text-primary h-5 w-5" />;
+      default:
+        return <LinkIcon className="text-primary h-5 w-5" />;
+    }
+  };
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -726,10 +778,13 @@ export const KnowledgeBase = () => {
                     <Label htmlFor="qa-title">Tittel</Label>
                     <Input
                       id="qa-title"
-                      placeholder="Tittel på Q&A kilden"
+                      placeholder="Tittel på Q&A kilden (vil få '- Q&A' lagt til)"
                       value={qaTitle}
-                      onChange={(e) => setQaTitle(e.target.value)}
+                      onChange={(e) => handleQATitleChange(e.target.value)}
                     />
+                    <p className="text-xs text-muted-foreground">
+                      "- Q&A" vil automatisk legges til på slutten av tittelen for å identifisere kilden som en Q&A.
+                    </p>
                   </div>
                   
                   <div className="overflow-y-auto max-h-[400px] pr-2">
@@ -836,14 +891,33 @@ svar: Dette er et eksempel."
         </Sheet>
       </div>
 
-      <div className="relative mb-6">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-        <Input
-          placeholder="Søk i kilder..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
-        />
+      <div className="flex gap-3 mb-6">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+          <Input
+            placeholder="Søk i kilder..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        
+        <div className="w-40">
+          <Select 
+            value={sourceTypeFilter} 
+            onValueChange={(value) => setSourceTypeFilter(value as SourceType)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Alle typer" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Alle typer</SelectItem>
+              <SelectItem value="url">URL</SelectItem>
+              <SelectItem value="file">Fil</SelectItem>
+              <SelectItem value="qa">Spørsmål & Svar</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {showLoader ? (
@@ -860,7 +934,7 @@ svar: Dette er et eksempel."
               >
                 <div className="flex items-center justify-between p-4">
                   <div className="flex items-center gap-3">
-                    <LinkIcon className="text-primary h-5 w-5" />
+                    {getSourceIcon(source)}
                     <div>
                       <h3 className="font-medium text-gray-900">{source.data.name}</h3>
                       <p className="text-sm text-gray-500">
