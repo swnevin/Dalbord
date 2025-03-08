@@ -2,19 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { 
-  ChevronDown, 
-  Link as LinkIcon, 
-  Search, 
-  Trash2, 
-  Upload, 
-  FileText, 
-  MessageCircleQuestion, 
-  Plus, 
-  File, 
-  ExternalLink,
-  Pencil
-} from "lucide-react";
+import { ChevronDown, Link as LinkIcon, Search, Trash2, Upload, FileText, MessageCircleQuestion, Plus, File, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -48,11 +36,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader } from "@/components/ui/loader";
 import { useMinimumLoading } from "@/hooks/use-minimum-loading";
 import { Label } from "@/components/ui/label";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 
 type SourceType = "url" | "file" | "qa" | "all";
 
@@ -124,12 +107,6 @@ export const KnowledgeBase = () => {
   const [bulkQAText, setBulkQAText] = useState("");
   
   const [sourceTypeFilter, setSourceTypeFilter] = useState<SourceType>("all");
-
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [editSourceId, setEditSourceId] = useState<string | null>(null);
-  const [editSourceName, setEditSourceName] = useState("");
-  const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
-  const [editSourceType, setEditSourceType] = useState<"url" | "file" | "text" | "qa">("url");
 
   const showLoader = useMinimumLoading(isLoading);
   const showChunksLoader = useMinimumLoading(isLoadingChunks);
@@ -594,245 +571,6 @@ export const KnowledgeBase = () => {
     }
   };
 
-  const handleEditSource = (source: VoiceflowDocument) => {
-    setEditSourceId(source.documentID);
-    setEditSourceName(source.data.name);
-    
-    const detectedType = detectSourceType(source);
-    setEditSourceType(detectedType === "url" ? "url" : 
-                      detectedType === "file" ? "file" : 
-                      detectedType === "qa" ? "qa" : "url");
-    
-    if (detectedType === "url") {
-      setUrl(source.data.name);
-    } else if (detectedType === "qa") {
-      setQaTitle(source.data.name.replace(/ - Q&A$/, ''));
-      
-      fetchQAPairsForEditing(source.documentID);
-    }
-    
-    setIsEditMode(true);
-    setIsEditSheetOpen(true);
-  };
-  
-  const fetchQAPairsForEditing = async (documentId: string) => {
-    setIsLoadingChunks(true);
-    
-    try {
-      const { data: org, error: orgError } = await supabase
-        .from('organizations')
-        .select('voiceflow_api_key')
-        .eq('id', user?.organization_id)
-        .single();
-
-      if (orgError || !org.voiceflow_api_key) {
-        throw new Error('Kunne ikke hente Voiceflow API nøkkel');
-      }
-
-      const response = await fetch(
-        `https://api.voiceflow.com/v1/knowledge-base/docs/${documentId}`,
-        {
-          method: 'GET',
-          headers: {
-            'accept': 'application/json',
-            'Authorization': org.voiceflow_api_key
-          }
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Kunne ikke hente Q&A detaljer');
-      }
-
-      const result: VoiceflowChunksResponse = await response.json();
-      
-      const extractedPairs: QAPair[] = result.chunks.map(chunk => {
-        const metadata = chunk.metadata || {};
-        return {
-          question: metadata.question || "",
-          answer: metadata.answer || "",
-          id: crypto.randomUUID()
-        };
-      }).filter(pair => pair.question && pair.answer);
-      
-      if (extractedPairs.length > 0) {
-        setQaPairs(extractedPairs);
-      } else {
-        toast({
-          title: "Advarsel",
-          description: "Kunne ikke hente alle spørsmål og svar. Noen elementer kan mangle.",
-          variant: "destructive",
-        });
-        setQaPairs([{ question: "", answer: "", id: crypto.randomUUID() }]);
-      }
-    } catch (error) {
-      console.error('Error fetching QA pairs:', error);
-      toast({
-        title: "Feil",
-        description: error instanceof Error ? error.message : "Kunne ikke hente Q&A detaljer",
-        variant: "destructive",
-      });
-      setQaPairs([{ question: "", answer: "", id: crypto.randomUUID() }]);
-    } finally {
-      setIsLoadingChunks(false);
-    }
-  };
-
-  const handleSourceUpdate = async () => {
-    if (!user?.organization_id || !editSourceId) {
-      toast({
-        title: "Feil",
-        description: "Ingen organisasjon eller kilde funnet.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (editSourceType === "url") {
-      if (!url) {
-        toast({
-          title: "Feil",
-          description: "URL kan ikke være tom.",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      if (!url.startsWith('https://')) {
-        toast({
-          title: "Feil",
-          description: "URL må starte med https://",
-          variant: "destructive",
-        });
-        return;
-      }
-    } else if (editSourceType === "qa") {
-      const hasEmptyFields = qaPairs.some(pair => !pair.question.trim() || !pair.answer.trim());
-      if (hasEmptyFields) {
-        toast({
-          title: "Feil",
-          description: "Alle spørsmål og svar må fylles ut.",
-          variant: "destructive",
-        });
-        return;
-      }
-    } else if (editSourceType === "file" && !file) {
-      toast({
-        title: "Feil",
-        description: "Du må velge en fil å laste opp.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      const { data: org, error: orgError } = await supabase
-        .from('organizations')
-        .select('voiceflow_api_key')
-        .eq('id', user.organization_id)
-        .single();
-
-      if (orgError || !org.voiceflow_api_key) {
-        throw new Error('Kunne ikke hente Voiceflow API nøkkel');
-      }
-
-      let response;
-
-      if (editSourceType === "url" && url) {
-        const formattedUrl = url.startsWith('https://') ? url : `https://${url}`;
-        
-        const options = {
-          method: 'PUT',
-          headers: {
-            accept: 'application/json',
-            'content-type': 'application/json; charset=utf-8',
-            Authorization: org.voiceflow_api_key
-          },
-          body: JSON.stringify({
-            data: {
-              type: "url",
-              name: formattedUrl,
-              url: formattedUrl
-            }
-          })
-        };
-
-        response = await fetch(`https://api.voiceflow.com/v1/knowledge-base/docs/${editSourceId}`, options);
-      } else if (editSourceType === "file" && file) {
-        const formData = new FormData();
-        formData.append('file', file);
-
-        const options = {
-          method: 'PUT',
-          headers: {
-            accept: 'application/json',
-            Authorization: org.voiceflow_api_key
-          },
-          body: formData
-        };
-
-        response = await fetch(`https://api.voiceflow.com/v1/knowledge-base/docs/${editSourceId}`, options);
-      } else if (editSourceType === "qa") {
-        const qaItems = qaPairs.map(pair => ({
-          question: pair.question.trim(),
-          answer: pair.answer.trim()
-        }));
-
-        const options = {
-          method: 'POST',
-          headers: {
-            accept: 'application/json',
-            'content-type': 'application/json',
-            Authorization: org.voiceflow_api_key
-          },
-          body: JSON.stringify({
-            data: {
-              schema: { searchableFields: ['question', 'answer'] },
-              name: editSourceName,
-              items: qaItems
-            }
-          })
-        };
-
-        response = await fetch('https://api.voiceflow.com/v1/knowledge-base/docs/upload/table?overwrite=true', options);
-      } else {
-        throw new Error('Ingen gyldig kilde valgt for oppdatering');
-      }
-
-      if (!response.ok) {
-        throw new Error('Feil ved oppdatering av kilde');
-      }
-
-      await fetchSources();
-
-      toast({
-        title: "Suksess",
-        description: "Kilden ble oppdatert",
-      });
-
-      setUrl("");
-      setFile(null);
-      setQaPairs([{ question: "", answer: "", id: crypto.randomUUID() }]);
-      setUrlError("");
-      setEditSourceId(null);
-      setEditSourceName("");
-      setEditSourceType("url");
-      setIsEditMode(false);
-      setIsEditSheetOpen(false);
-    } catch (error) {
-      console.error('Error updating source:', error);
-      toast({
-        title: "Feil",
-        description: error instanceof Error ? error.message : "Kunne ikke oppdatere kilden",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleExpandSource = async (documentId: string) => {
     if (expandedSourceId === documentId) {
       setExpandedSourceId(null);
@@ -923,17 +661,6 @@ export const KnowledgeBase = () => {
       default:
         return <LinkIcon className="text-primary h-5 w-5" />;
     }
-  };
-
-  const closeEditSheet = () => {
-    setIsEditSheetOpen(false);
-    setIsEditMode(false);
-    setEditSourceId(null);
-    setEditSourceName("");
-    setEditSourceType("url");
-    setFile(null);
-    setUrl("");
-    setQaPairs([{ question: "", answer: "", id: crypto.randomUUID() }]);
   };
 
   return (
@@ -1193,174 +920,6 @@ svar: Dette er et eksempel."
         </div>
       </div>
 
-      <Sheet open={isEditSheetOpen} onOpenChange={setIsEditSheetOpen}>
-        <SheetContent className="overflow-y-auto max-h-screen pb-20">
-          <SheetHeader>
-            <SheetTitle>Rediger kilde</SheetTitle>
-            <SheetDescription>
-              Oppdater din eksisterende kilde i kunnskapsbasen.
-            </SheetDescription>
-          </SheetHeader>
-          
-          <div className="mt-6">
-            <div className="mb-4">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-between"
-                    disabled
-                  >
-                    {editSourceType === "url" ? "URL" : 
-                     editSourceType === "file" ? "Filopplasting" : 
-                     editSourceType === "qa" ? "Spørsm��l & Svar" : 
-                     "Velg kildetype"}
-                    <ChevronDown className="h-4 w-4 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-full p-0" align="start">
-                  <p className="p-2 text-sm text-muted-foreground">
-                    Kildetype kan ikke endres ved redigering.
-                  </p>
-                </PopoverContent>
-              </Popover>
-            </div>
-            
-            {editSourceType === "url" ? (
-              <div className="space-y-4">
-                <div>
-                  <Input
-                    placeholder="Lim inn URL (https://...)"
-                    value={url}
-                    onChange={(e) => setUrl(e.target.value)}
-                    className={urlError ? "border-red-500" : ""}
-                  />
-                  {urlError && <p className="text-red-500 text-sm mt-1">{urlError}</p>}
-                </div>
-                <Button 
-                  className="w-full" 
-                  disabled={!url || !!urlError || isLoading}
-                  onClick={handleSourceUpdate}
-                >
-                  {isLoading ? "Oppdaterer..." : "Oppdater URL"}
-                </Button>
-              </div>
-            ) : editSourceType === "file" ? (
-              <div className="space-y-4">
-                <div 
-                  className={cn(
-                    "border-2 border-dashed rounded-lg p-6 text-center transition-colors",
-                    "hover:border-primary/50 hover:bg-primary/5 cursor-pointer"
-                  )}
-                  onClick={() => document.getElementById("edit-file-upload")?.click()}
-                >
-                  <Upload className="mx-auto h-8 w-8 text-gray-400 mb-2" />
-                  <p className="text-sm text-gray-500">
-                    {file ? file.name : "Dra og slipp ny fil her eller klikk for å velge"}
-                  </p>
-                  <input
-                    id="edit-file-upload"
-                    type="file"
-                    accept=".pdf,.txt,.docx"
-                    className="hidden"
-                    onChange={handleFileChange}
-                  />
-                </div>
-                <Button 
-                  className="w-full" 
-                  disabled={!file || isLoading}
-                  onClick={handleSourceUpdate}
-                >
-                  {isLoading ? "Oppdaterer..." : "Last opp ny fil"}
-                </Button>
-              </div>
-            ) : editSourceType === "qa" ? (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="edit-qa-title">Tittel</Label>
-                  <Input
-                    id="edit-qa-title"
-                    value={editSourceName}
-                    disabled
-                    className="bg-gray-100"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Tittelen på Q&A kilden kan ikke endres.
-                  </p>
-                </div>
-                
-                {isLoadingChunks ? (
-                  <div className="flex justify-center py-8">
-                    <Loader size="lg" />
-                  </div>
-                ) : (
-                  <>
-                    <div className="overflow-y-auto max-h-[400px] pr-2">
-                      {qaPairs.map((pair, index) => (
-                        <div key={pair.id} className="space-y-3 p-4 border rounded-lg bg-gray-50 mb-4">
-                          <div className="flex justify-between items-center">
-                            <h4 className="font-medium">Spørsmål og svar #{index + 1}</h4>
-                            {qaPairs.length > 1 && (
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                onClick={() => removeQAPair(pair.id)}
-                                className="h-8 w-8 text-gray-500"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <Label htmlFor={`edit-question-${pair.id}`}>Spørsmål:</Label>
-                            <Input
-                              id={`edit-question-${pair.id}`}
-                              placeholder="Skriv inn spørsmål"
-                              value={pair.question}
-                              onChange={(e) => updateQAPair(pair.id, "question", e.target.value)}
-                            />
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <Label htmlFor={`edit-answer-${pair.id}`}>Svar:</Label>
-                            <Textarea
-                              id={`edit-answer-${pair.id}`}
-                              placeholder="Skriv inn svar"
-                              value={pair.answer}
-                              onChange={(e) => updateQAPair(pair.id, "answer", e.target.value)}
-                              className="min-h-20 resize-y"
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    
-                    <div className="space-y-3">
-                      <Button 
-                        variant="outline" 
-                        className="w-full flex items-center gap-2" 
-                        onClick={addQAPair}
-                      >
-                        <Plus className="h-4 w-4" /> Legg til spørsmål og svar
-                      </Button>
-                    </div>
-                    
-                    <Button 
-                      className="w-full bg-primary text-white" 
-                      disabled={!areAllQAPairsValid || isLoading}
-                      onClick={handleSourceUpdate}
-                    >
-                      {isLoading ? "Lagrer endringer..." : "Lagre endringer"}
-                    </Button>
-                  </>
-                )}
-              </div>
-            ) : null}
-          </div>
-        </SheetContent>
-      </Sheet>
-
       {showLoader ? (
         <div className="mt-8 flex justify-center">
           <Loader size="lg" />
@@ -1387,10 +946,13 @@ svar: Dette er et eksempel."
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => handleEditSource(source)}
-                      className="text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                      onClick={() => handleExpandSource(source.documentID)}
+                      className={cn(
+                        "transition-transform",
+                        expandedSourceId === source.documentID && "rotate-180"
+                      )}
                     >
-                      <Pencil className="h-4 w-4" />
+                      <ChevronDown className="h-5 w-5 text-gray-400" />
                     </Button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
@@ -1426,17 +988,6 @@ svar: Dette er et eksempel."
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleExpandSource(source.documentID)}
-                      className={cn(
-                        "transition-transform",
-                        expandedSourceId === source.documentID && "rotate-180"
-                      )}
-                    >
-                      <ChevronDown className="h-5 w-5 text-gray-400" />
-                    </Button>
                   </div>
                 </div>
 
