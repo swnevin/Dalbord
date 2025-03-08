@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -94,6 +93,7 @@ export const KnowledgeBase = () => {
   const [isLoadingChunks, setIsLoadingChunks] = useState(false);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   
+  // Fix the type definition to include "qa"
   const [selectedSourceType, setSelectedSourceType] = useState<"url" | "file" | "text" | "qa">("url");
   
   const [qaTitle, setQaTitle] = useState("");
@@ -101,7 +101,7 @@ export const KnowledgeBase = () => {
     { question: "", answer: "", id: crypto.randomUUID() }
   ]);
   
-  // New state for Q&A bulk upload
+  // State for Q&A bulk upload
   const [showQABulkUpload, setShowQABulkUpload] = useState(false);
   const [bulkQAText, setBulkQAText] = useState("");
 
@@ -418,16 +418,6 @@ export const KnowledgeBase = () => {
         });
         return;
       }
-      
-      toast({
-        title: "Suksess",
-        description: "Q&A kilde registrert (backend ikke implementert ennå)",
-      });
-      
-      setQaTitle("");
-      setQaPairs([{ question: "", answer: "", id: crypto.randomUUID() }]);
-      setIsSheetOpen(false);
-      return;
     }
 
     setIsLoading(true);
@@ -497,24 +487,30 @@ export const KnowledgeBase = () => {
         };
 
         response = await fetch('https://api.voiceflow.com/v1/knowledge-base/docs/upload?maxChunkSize=1000', options);
-      } else if (selectedSourceType === "qa") {
+      } else if (selectedSourceType === "qa" && qaTitle) {
+        // New implementation for QA upload using the provided API endpoint
+        const qaItems = qaPairs.map(pair => ({
+          question: pair.question.trim(),
+          answer: pair.answer.trim()
+        }));
+
         const options = {
           method: 'POST',
           headers: {
             accept: 'application/json',
-            'content-type': 'application/json; charset=utf-8',
+            'content-type': 'application/json',
             Authorization: org.voiceflow_api_key
           },
           body: JSON.stringify({
             data: {
-              type: "qa",
+              schema: { searchableFields: ['question', 'answer'] },
               name: qaTitle,
-              qa_pairs: qaPairs.map(pair => ({ question: pair.question, answer: pair.answer }))
+              items: qaItems
             }
           })
         };
 
-        response = await fetch('https://api.voiceflow.com/v1/knowledge-base/docs/upload?maxChunkSize=1000', options);
+        response = await fetch('https://api.voiceflow.com/v1/knowledge-base/docs/upload/table?overwrite=false', options);
       } else {
         throw new Error('Ingen gyldig kilde valgt');
       }
@@ -533,12 +529,16 @@ export const KnowledgeBase = () => {
         description: "Kilde lagt til i kunnskapsbasen",
       });
 
+      // Reset form fields
       setUrl("");
       setFile(null);
       setRawText("");
       setTextFileName("custom-text.txt");
+      setQaTitle("");
+      setQaPairs([{ question: "", answer: "", id: crypto.randomUUID() }]);
       setUrlError("");
       setTextFileNameError("");
+      setIsSheetOpen(false);
     } catch (error) {
       console.error('Error adding source:', error);
       toast({
