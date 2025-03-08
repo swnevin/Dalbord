@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -99,6 +100,10 @@ export const KnowledgeBase = () => {
   const [qaPairs, setQaPairs] = useState<QAPair[]>([
     { question: "", answer: "", id: crypto.randomUUID() }
   ]);
+  
+  // New state for Q&A bulk upload
+  const [showQABulkUpload, setShowQABulkUpload] = useState(false);
+  const [bulkQAText, setBulkQAText] = useState("");
 
   const showLoader = useMinimumLoading(isLoading);
   const showChunksLoader = useMinimumLoading(isLoadingChunks);
@@ -262,6 +267,90 @@ export const KnowledgeBase = () => {
     if (qaPairs.length > 1) {
       setQaPairs(qaPairs.filter(pair => pair.id !== id));
     }
+  };
+  
+  // Parse bulk Q&A text and add as individual pairs
+  const processBulkQAText = () => {
+    if (!bulkQAText.trim()) {
+      toast({
+        title: "Feil",
+        description: "Teksten kan ikke være tom.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const lines = bulkQAText.split('\n');
+    let currentQuestion = "";
+    let currentAnswer = "";
+    const newQAPairs: QAPair[] = [];
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      
+      if (line.toLowerCase().startsWith('spørsmål:')) {
+        // If we already have a question and answer, save them
+        if (currentQuestion && currentAnswer) {
+          newQAPairs.push({
+            question: currentQuestion,
+            answer: currentAnswer,
+            id: crypto.randomUUID()
+          });
+        }
+        
+        // Start a new question
+        currentQuestion = line.substring('spørsmål:'.length).trim();
+        currentAnswer = "";
+      } else if (line.toLowerCase().startsWith('svar:')) {
+        currentAnswer = line.substring('svar:'.length).trim();
+        
+        // If this is the last line or next line is a new question, save the pair
+        if (i === lines.length - 1 || 
+            (i + 1 < lines.length && lines[i + 1].trim().toLowerCase().startsWith('spørsmål:'))) {
+          if (currentQuestion) {
+            newQAPairs.push({
+              question: currentQuestion,
+              answer: currentAnswer,
+              id: crypto.randomUUID()
+            });
+          }
+        }
+      } else if (currentAnswer) {
+        // Append to current answer if we're in an answer section
+        currentAnswer += " " + line;
+      } else if (currentQuestion) {
+        // Append to current question if we're in a question section
+        currentQuestion += " " + line;
+      }
+    }
+    
+    // Add the last pair if it wasn't added in the loop
+    if (currentQuestion && currentAnswer) {
+      newQAPairs.push({
+        question: currentQuestion,
+        answer: currentAnswer,
+        id: crypto.randomUUID()
+      });
+    }
+    
+    if (newQAPairs.length === 0) {
+      toast({
+        title: "Feil",
+        description: "Kunne ikke finne noen gyldige spørsmål og svar i teksten. Bruk formatet 'spørsmål: [spørsmål]' etterfulgt av 'svar: [svar]'.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Update the QA pairs
+    setQaPairs([...qaPairs, ...newQAPairs]);
+    setBulkQAText("");
+    setShowQABulkUpload(false);
+    
+    toast({
+      title: "Suksess",
+      description: `${newQAPairs.length} spørsmål og svar lagt til.`,
+    });
   };
 
   const handleSourceAdd = async () => {
@@ -695,11 +784,43 @@ export const KnowledgeBase = () => {
                     
                     <Button 
                       variant="outline"
-                      className="w-full flex items-center gap-2" 
+                      className="w-full flex items-center gap-2"
+                      onClick={() => setShowQABulkUpload(!showQABulkUpload)}
                     >
-                      <Upload className="h-4 w-4" /> Last opp FAQ set
+                      <Upload className="h-4 w-4" /> Last opp Q&A set
                     </Button>
                   </div>
+                  
+                  {showQABulkUpload && (
+                    <div className="space-y-3 p-4 border rounded-lg bg-gray-50">
+                      <div className="space-y-2">
+                        <Label htmlFor="bulk-qa-text">
+                          Legg inn Q&A i format:
+                          <code className="ml-2 p-1 bg-gray-200 rounded text-xs">
+                            spørsmål: Ditt spørsmål her
+                            <br />
+                            svar: Ditt svar her
+                          </code>
+                        </Label>
+                        <Textarea
+                          id="bulk-qa-text"
+                          placeholder="spørsmål: Hva er dette?
+svar: Dette er et eksempel."
+                          value={bulkQAText}
+                          onChange={(e) => setBulkQAText(e.target.value)}
+                          className="min-h-32 resize-y font-mono text-sm"
+                        />
+                      </div>
+                      <Button 
+                        variant="outline"
+                        className="w-full"
+                        onClick={processBulkQAText}
+                        disabled={!bulkQAText.trim()}
+                      >
+                        Legg til
+                      </Button>
+                    </div>
+                  )}
                   
                   <Button 
                     className="w-full bg-primary text-white" 
