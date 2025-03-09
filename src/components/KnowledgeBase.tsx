@@ -1,9 +1,8 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ChevronDown, Link as LinkIcon, Search, Trash2, Upload, FileText, MessageCircleQuestion, Plus, File, ExternalLink } from "lucide-react";
+import { ChevronDown, Link as LinkIcon, Search, Trash2, Upload, FileText, MessageCircleQuestion, Plus, File, ExternalLink, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -109,7 +108,9 @@ export const KnowledgeBase = () => {
   
   const [sourceTypeFilter, setSourceTypeFilter] = useState<SourceType>("all");
   const [duplicateQATitleWarning, setDuplicateQATitleWarning] = useState(false);
-
+  const [duplicateUrlWarning, setDuplicateUrlWarning] = useState(false);
+  const [duplicateFileWarning, setDuplicateFileWarning] = useState(false);
+  
   const showLoader = useMinimumLoading(isLoading);
   const showChunksLoader = useMinimumLoading(isLoadingChunks);
 
@@ -156,7 +157,6 @@ export const KnowledgeBase = () => {
     }
   }, [textFileName]);
 
-  // Check if Q&A title already exists
   useEffect(() => {
     if (selectedSourceType === 'qa' && qaTitle.trim()) {
       const formattedTitle = ensureQATitleSuffix(qaTitle.trim());
@@ -168,6 +168,30 @@ export const KnowledgeBase = () => {
       setDuplicateQATitleWarning(false);
     }
   }, [qaTitle, sources, selectedSourceType]);
+
+  useEffect(() => {
+    if (selectedSourceType === 'url' && url.trim()) {
+      const formattedUrl = url.trim().startsWith('https://') ? url.trim() : `https://${url.trim()}`;
+      const urlExists = sources.some(source => 
+        source.detectedType === 'url' && source.data.name === formattedUrl
+      );
+      setDuplicateUrlWarning(urlExists);
+    } else {
+      setDuplicateUrlWarning(false);
+    }
+  }, [url, sources, selectedSourceType]);
+
+  useEffect(() => {
+    if (selectedSourceType === 'file' && file) {
+      const fileName = file.name;
+      const fileExists = sources.some(source => 
+        source.detectedType === 'file' && source.data.name === fileName
+      );
+      setDuplicateFileWarning(fileExists);
+    } else {
+      setDuplicateFileWarning(false);
+    }
+  }, [file, sources, selectedSourceType]);
 
   const fetchSources = async () => {
     if (!user?.organization_id) return;
@@ -530,7 +554,6 @@ export const KnowledgeBase = () => {
           })
         };
 
-        // Check if a Q&A source with the same title already exists
         const shouldOverwrite = duplicateQATitleWarning;
         const endpoint = `https://api.voiceflow.com/v1/knowledge-base/docs/upload/table?overwrite=${shouldOverwrite}`;
         
@@ -709,13 +732,19 @@ export const KnowledgeBase = () => {
                       placeholder="Lim inn URL (https://...)"
                       value={url}
                       onChange={(e) => setUrl(e.target.value)}
-                      className={urlError ? "border-red-500" : ""}
+                      className={cn(urlError ? "border-red-500" : "", duplicateUrlWarning ? "border-yellow-500" : "")}
                     />
                     {urlError && <p className="text-red-500 text-sm mt-1">{urlError}</p>}
+                    {duplicateUrlWarning && (
+                      <p className="text-yellow-600 text-xs flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        NB! Denne URL-en finnes allerede i kunnskapsbasen.
+                      </p>
+                    )}
                   </div>
                   <Button 
                     className="w-full" 
-                    disabled={!url || !!urlError || isLoading}
+                    disabled={!url || !!urlError || isLoading || duplicateUrlWarning}
                     onClick={handleSourceAdd}
                   >
                     {isLoading ? "Laster opp..." : "Last opp URL"}
@@ -726,7 +755,8 @@ export const KnowledgeBase = () => {
                   <div 
                     className={cn(
                       "border-2 border-dashed rounded-lg p-6 text-center transition-colors",
-                      "hover:border-primary/50 hover:bg-primary/5 cursor-pointer"
+                      "hover:border-primary/50 hover:bg-primary/5 cursor-pointer",
+                      duplicateFileWarning ? "border-yellow-500 bg-yellow-50/50" : ""
                     )}
                     onClick={() => document.getElementById("file-upload")?.click()}
                   >
@@ -742,9 +772,17 @@ export const KnowledgeBase = () => {
                       onChange={handleFileChange}
                     />
                   </div>
+                  
+                  {duplicateFileWarning && (
+                    <p className="text-yellow-600 text-xs flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      NB! En fil med samme navn finnes allerede i kunnskapsbasen.
+                    </p>
+                  )}
+                  
                   <Button 
                     className="w-full" 
-                    disabled={!file || isLoading}
+                    disabled={!file || isLoading || duplicateFileWarning}
                     onClick={handleSourceAdd}
                   >
                     {isLoading ? "Laster opp..." : "Last opp fil"}
