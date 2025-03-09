@@ -1,8 +1,9 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ChevronDown, Link as LinkIcon, Search, Trash2, Upload, FileText, MessageCircleQuestion, Plus, File, ExternalLink, AlertCircle } from "lucide-react";
+import { ChevronDown, Link as LinkIcon, Search, Trash2, Upload, FileText, MessageCircleQuestion, Plus, File, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -108,21 +109,9 @@ export const KnowledgeBase = () => {
   
   const [sourceTypeFilter, setSourceTypeFilter] = useState<SourceType>("all");
   const [duplicateQATitleWarning, setDuplicateQATitleWarning] = useState(false);
-  const [duplicateUrlWarning, setDuplicateUrlWarning] = useState(false);
-  const [duplicateFileWarning, setDuplicateFileWarning] = useState(false);
-  
+
   const showLoader = useMinimumLoading(isLoading);
   const showChunksLoader = useMinimumLoading(isLoadingChunks);
-
-  // Helper function to normalize URLs for comparison
-  const normalizeUrl = (inputUrl: string): string => {
-    let normalized = inputUrl.trim().toLowerCase();
-    // Remove https:// or http:// prefix
-    normalized = normalized.replace(/^https?:\/\//i, '');
-    // Remove trailing slash if present
-    normalized = normalized.replace(/\/$/, '');
-    return normalized;
-  };
 
   const detectSourceType = (source: VoiceflowDocument): SourceType => {
     const name = source.data.name;
@@ -167,6 +156,7 @@ export const KnowledgeBase = () => {
     }
   }, [textFileName]);
 
+  // Check if Q&A title already exists
   useEffect(() => {
     if (selectedSourceType === 'qa' && qaTitle.trim()) {
       const formattedTitle = ensureQATitleSuffix(qaTitle.trim());
@@ -178,34 +168,6 @@ export const KnowledgeBase = () => {
       setDuplicateQATitleWarning(false);
     }
   }, [qaTitle, sources, selectedSourceType]);
-
-  useEffect(() => {
-    if (selectedSourceType === 'url' && url.trim()) {
-      const normalizedInputUrl = normalizeUrl(url.trim());
-      const urlExists = sources.some(source => {
-        if (source.detectedType === 'url') {
-          const normalizedSourceUrl = normalizeUrl(source.data.name);
-          return normalizedInputUrl === normalizedSourceUrl;
-        }
-        return false;
-      });
-      setDuplicateUrlWarning(urlExists);
-    } else {
-      setDuplicateUrlWarning(false);
-    }
-  }, [url, sources, selectedSourceType]);
-
-  useEffect(() => {
-    if (selectedSourceType === 'file' && file) {
-      const fileName = file.name;
-      const fileExists = sources.some(source => 
-        source.detectedType === 'file' && source.data.name === fileName
-      );
-      setDuplicateFileWarning(fileExists);
-    } else {
-      setDuplicateFileWarning(false);
-    }
-  }, [file, sources, selectedSourceType]);
 
   const fetchSources = async () => {
     if (!user?.organization_id) return;
@@ -438,15 +400,6 @@ export const KnowledgeBase = () => {
         });
         return;
       }
-      
-      if (duplicateUrlWarning) {
-        toast({
-          title: "Feil",
-          description: "Denne URL-en finnes allerede i kunnskapsbasen.",
-          variant: "destructive",
-        });
-        return;
-      }
     } else if (selectedSourceType === "text") {
       if (!rawText) {
         toast({
@@ -484,13 +437,6 @@ export const KnowledgeBase = () => {
         });
         return;
       }
-    } else if (selectedSourceType === "file" && duplicateFileWarning) {
-      toast({
-        title: "Feil",
-        description: "En fil med samme navn finnes allerede i kunnskapsbasen.",
-        variant: "destructive",
-      });
-      return;
     }
 
     setIsLoading(true);
@@ -584,6 +530,7 @@ export const KnowledgeBase = () => {
           })
         };
 
+        // Check if a Q&A source with the same title already exists
         const shouldOverwrite = duplicateQATitleWarning;
         const endpoint = `https://api.voiceflow.com/v1/knowledge-base/docs/upload/table?overwrite=${shouldOverwrite}`;
         
@@ -762,19 +709,13 @@ export const KnowledgeBase = () => {
                       placeholder="Lim inn URL (https://...)"
                       value={url}
                       onChange={(e) => setUrl(e.target.value)}
-                      className={cn(urlError ? "border-red-500" : "", duplicateUrlWarning ? "border-yellow-500" : "")}
+                      className={urlError ? "border-red-500" : ""}
                     />
                     {urlError && <p className="text-red-500 text-sm mt-1">{urlError}</p>}
-                    {duplicateUrlWarning && (
-                      <p className="text-yellow-600 text-xs flex items-center gap-1 mt-1">
-                        <AlertCircle className="h-3 w-3" />
-                        NB! Denne URL-en finnes allerede i kunnskapsbasen.
-                      </p>
-                    )}
                   </div>
                   <Button 
                     className="w-full" 
-                    disabled={!url || !!urlError || isLoading || duplicateUrlWarning}
+                    disabled={!url || !!urlError || isLoading}
                     onClick={handleSourceAdd}
                   >
                     {isLoading ? "Laster opp..." : "Last opp URL"}
@@ -785,8 +726,7 @@ export const KnowledgeBase = () => {
                   <div 
                     className={cn(
                       "border-2 border-dashed rounded-lg p-6 text-center transition-colors",
-                      "hover:border-primary/50 hover:bg-primary/5 cursor-pointer",
-                      duplicateFileWarning ? "border-yellow-500 bg-yellow-50/50" : ""
+                      "hover:border-primary/50 hover:bg-primary/5 cursor-pointer"
                     )}
                     onClick={() => document.getElementById("file-upload")?.click()}
                   >
@@ -802,17 +742,9 @@ export const KnowledgeBase = () => {
                       onChange={handleFileChange}
                     />
                   </div>
-                  
-                  {duplicateFileWarning && (
-                    <p className="text-yellow-600 text-xs flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3" />
-                      NB! En fil med samme navn finnes allerede i kunnskapsbasen.
-                    </p>
-                  )}
-                  
                   <Button 
                     className="w-full" 
-                    disabled={!file || isLoading || duplicateFileWarning}
+                    disabled={!file || isLoading}
                     onClick={handleSourceAdd}
                   >
                     {isLoading ? "Laster opp..." : "Last opp fil"}
@@ -935,4 +867,168 @@ export const KnowledgeBase = () => {
                         <Textarea
                           id="bulk-qa-text"
                           placeholder="question: Hvordan endrer jeg språk på meldinger?; answer: Språket på e-poster kan ikke endres, de sendes kun på engelsk."
-                          value={bulkQAT
+                          value={bulkQAText}
+                          onChange={(e) => setBulkQAText(e.target.value)}
+                          className="min-h-32 resize-y font-mono text-sm"
+                        />
+                      </div>
+                      <Button 
+                        variant="outline"
+                        className="w-full"
+                        onClick={processBulkQAText}
+                        disabled={!bulkQAText.trim()}
+                      >
+                        Legg til
+                      </Button>
+                    </div>
+                  )}
+                  
+                  <Button 
+                    className="w-full bg-primary text-white" 
+                    disabled={!isQAFormValid || isLoading}
+                    onClick={handleSourceAdd}
+                  >
+                    {isLoading ? "Lagrer..." : "Lagre Q&A"}
+                  </Button>
+                </div>
+              )}
+            </div>
+          </SheetContent>
+        </Sheet>
+      </div>
+
+      <div className="flex gap-3 mb-6">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+          <Input
+            placeholder="Søk i kilder..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        
+        <div className="w-40">
+          <Select 
+            value={sourceTypeFilter} 
+            onValueChange={(value) => setSourceTypeFilter(value as SourceType)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Alle typer" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Alle typer</SelectItem>
+              <SelectItem value="url">URL</SelectItem>
+              <SelectItem value="file">Fil</SelectItem>
+              <SelectItem value="qa">Spørsmål & Svar</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {showLoader ? (
+        <div className="mt-8 flex justify-center">
+          <Loader size="lg" />
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filteredSources.length > 0 ? (
+            filteredSources.map((source) => (
+              <div 
+                key={source.documentID}
+                className="bg-white rounded-lg border hover:border-primary/20 transition-colors"
+              >
+                <div className="flex items-center justify-between p-4">
+                  <div className="flex items-center gap-3">
+                    {getSourceIcon(source)}
+                    <div>
+                      <h3 className="font-medium text-gray-900">{source.data.name}</h3>
+                      <p className="text-sm text-gray-500">
+                        Oppdatert: {new Date(source.updatedAt).toLocaleDateString('no')}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleExpandSource(source.documentID)}
+                      className={cn(
+                        "transition-transform",
+                        expandedSourceId === source.documentID && "rotate-180"
+                      )}
+                    >
+                      <ChevronDown className="h-5 w-5 text-gray-400" />
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Er du sikker?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Dette vil permanent slette kilden fra kunnskapsbasen. Denne handlingen kan ikke angres.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Avbryt</AlertDialogCancel>
+                          <AlertDialogAction 
+                            onClick={async () => {
+                              try {
+                                await handleDelete(source.documentID);
+                              } catch (error) {
+                                console.error('Error in delete action:', error);
+                              }
+                            }}
+                            className="bg-red-500 hover:bg-red-600"
+                          >
+                            Slett
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </div>
+
+                {expandedSourceId === source.documentID && (
+                  <div className="border-t px-4 py-3">
+                    {showChunksLoader ? (
+                      <div className="flex justify-center py-4">
+                        <Loader size="md" />
+                      </div>
+                    ) : chunks.length > 0 ? (
+                      <div className="space-y-4">
+                        {chunks.map((chunk) => (
+                          <div 
+                            key={chunk.chunkID}
+                            className="p-3 bg-gray-50 rounded-md"
+                          >
+                            <p className="text-sm text-gray-700 whitespace-pre-wrap">{chunk.content}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-center text-gray-500 py-2">Ingen chunks funnet</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))
+          ) : (
+            <div className="text-center py-10 text-gray-500">
+              <p>Ingen kilder funnet</p>
+              <p className="text-sm mt-2">Legg til din første kilde ved å klikke på "Legg til kilde" knappen</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
