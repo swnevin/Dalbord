@@ -171,10 +171,16 @@ export const KnowledgeBase = () => {
 
   useEffect(() => {
     if (selectedSourceType === 'url' && url.trim()) {
-      const formattedUrl = url.trim().startsWith('https://') ? url.trim() : `https://${url.trim()}`;
-      const urlExists = sources.some(source => 
-        source.detectedType === 'url' && source.data.name === formattedUrl
-      );
+      const formattedUrl = normalizeUrl(url.trim());
+      
+      const urlExists = sources.some(source => {
+        if (source.detectedType === 'url') {
+          const existingUrl = normalizeUrl(source.data.name);
+          return existingUrl === formattedUrl;
+        }
+        return false;
+      });
+      
       setDuplicateUrlWarning(urlExists);
     } else {
       setDuplicateUrlWarning(false);
@@ -479,7 +485,7 @@ export const KnowledgeBase = () => {
       let response;
 
       if (selectedSourceType === "url" && url) {
-        const formattedUrl = url.startsWith('https://') ? url : `https://${url}`;
+        const formattedUrl = normalizeUrl(url);
         
         const options = {
           method: 'POST',
@@ -672,6 +678,17 @@ export const KnowledgeBase = () => {
       return `${title} - Q&A`;
     }
     return title;
+  };
+
+  const normalizeUrl = (inputUrl: string): string => {
+    if (!inputUrl) return '';
+    
+    // Add https:// if not present
+    if (!inputUrl.startsWith('http://') && !inputUrl.startsWith('https://')) {
+      return `https://${inputUrl}`;
+    }
+    
+    return inputUrl;
   };
 
   const getSourceIcon = (source: VoiceflowDocument) => {
