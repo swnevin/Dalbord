@@ -1,9 +1,8 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ChevronDown, Link as LinkIcon, Search, Trash2, Upload, FileText, MessageCircleQuestion, Plus, File, ExternalLink } from "lucide-react";
+import { ChevronDown, Link as LinkIcon, Search, Trash2, Upload, FileText, MessageCircleQuestion, Plus, File, ExternalLink, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -109,6 +108,11 @@ export const KnowledgeBase = () => {
   
   const [sourceTypeFilter, setSourceTypeFilter] = useState<SourceType>("all");
   const [duplicateQATitleWarning, setDuplicateQATitleWarning] = useState(false);
+  
+  const [urlTitle, setUrlTitle] = useState("");
+  const [duplicateUrlWarning, setDuplicateUrlWarning] = useState(false);
+  const [fileTitle, setFileTitle] = useState("");
+  const [duplicateFileWarning, setDuplicateFileWarning] = useState(false);
 
   const showLoader = useMinimumLoading(isLoading);
   const showChunksLoader = useMinimumLoading(isLoadingChunks);
@@ -140,6 +144,16 @@ export const KnowledgeBase = () => {
     return "url";
   };
 
+  const normalizeUrl = (url: string): string => {
+    let normalizedUrl = url;
+    
+    normalizedUrl = normalizedUrl.replace(/^https?:\/\//, '');
+    
+    normalizedUrl = normalizedUrl.replace(/\/+$/, '');
+    
+    return normalizedUrl.toLowerCase();
+  };
+
   useEffect(() => {
     if (url && !url.startsWith('https://')) {
       setUrlError('URL må starte med https://');
@@ -156,7 +170,6 @@ export const KnowledgeBase = () => {
     }
   }, [textFileName]);
 
-  // Check if Q&A title already exists
   useEffect(() => {
     if (selectedSourceType === 'qa' && qaTitle.trim()) {
       const formattedTitle = ensureQATitleSuffix(qaTitle.trim());
@@ -168,6 +181,31 @@ export const KnowledgeBase = () => {
       setDuplicateQATitleWarning(false);
     }
   }, [qaTitle, sources, selectedSourceType]);
+
+  useEffect(() => {
+    if (selectedSourceType === 'url' && url.trim()) {
+      const normalizedInputUrl = normalizeUrl(url.trim());
+      
+      const urlExists = sources.some(source => 
+        source.detectedType === 'url' && normalizeUrl(source.data.name) === normalizedInputUrl
+      );
+      
+      setDuplicateUrlWarning(urlExists);
+    } else {
+      setDuplicateUrlWarning(false);
+    }
+  }, [url, sources, selectedSourceType]);
+
+  useEffect(() => {
+    if (selectedSourceType === 'file' && file && fileTitle.trim()) {
+      const titleExists = sources.some(source => 
+        source.detectedType === 'file' && source.data.name === fileTitle.trim()
+      );
+      setDuplicateFileWarning(titleExists);
+    } else {
+      setDuplicateFileWarning(false);
+    }
+  }, [fileTitle, file, sources, selectedSourceType]);
 
   const fetchSources = async () => {
     if (!user?.organization_id) return;
@@ -301,6 +339,7 @@ export const KnowledgeBase = () => {
       }
       
       setFile(selectedFile);
+      setFileTitle(selectedFile.name);
     }
   };
 
@@ -336,7 +375,6 @@ export const KnowledgeBase = () => {
     for (const line of lines) {
       if (!line.trim()) continue;
       
-      // New format: "question: Q; answer: A"
       const match = line.match(/question:(.*?);[\s]*answer:(.*)/i);
       
       if (match) {
@@ -400,6 +438,15 @@ export const KnowledgeBase = () => {
         });
         return;
       }
+      
+      if (duplicateUrlWarning) {
+        toast({
+          title: "Feil",
+          description: "Denne URL-en finnes allerede i kunnskapsbasen.",
+          variant: "destructive",
+        });
+        return;
+      }
     } else if (selectedSourceType === "text") {
       if (!rawText) {
         toast({
@@ -414,6 +461,24 @@ export const KnowledgeBase = () => {
         toast({
           title: "Feil",
           description: "Filnavnet må slutte med .txt",
+          variant: "destructive",
+        });
+        return;
+      }
+    } else if (selectedSourceType === "file") {
+      if (!file) {
+        toast({
+          title: "Feil",
+          description: "Ingen fil valgt.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (duplicateFileWarning) {
+        toast({
+          title: "Feil",
+          description: "En fil med samme navn finnes allerede i kunnskapsbasen.",
           variant: "destructive",
         });
         return;
@@ -530,7 +595,6 @@ export const KnowledgeBase = () => {
           })
         };
 
-        // Check if a Q&A source with the same title already exists
         const shouldOverwrite = duplicateQATitleWarning;
         const endpoint = `https://api.voiceflow.com/v1/knowledge-base/docs/upload/table?overwrite=${shouldOverwrite}`;
         
@@ -554,7 +618,9 @@ export const KnowledgeBase = () => {
       });
 
       setUrl("");
+      setUrlTitle("");
       setFile(null);
+      setFileTitle("");
       setRawText("");
       setTextFileName("custom-text.txt");
       setQaTitle("");
@@ -709,13 +775,19 @@ export const KnowledgeBase = () => {
                       placeholder="Lim inn URL (https://...)"
                       value={url}
                       onChange={(e) => setUrl(e.target.value)}
-                      className={urlError ? "border-red-500" : ""}
+                      className={urlError || duplicateUrlWarning ? "border-red-500" : ""}
                     />
                     {urlError && <p className="text-red-500 text-sm mt-1">{urlError}</p>}
+                    {duplicateUrlWarning && (
+                      <div className="flex gap-2 items-center mt-1 text-yellow-600 text-sm">
+                        <AlertCircle className="h-4 w-4" />
+                        <span>Denne URL-en finnes allerede i kunnskapsbasen</span>
+                      </div>
+                    )}
                   </div>
                   <Button 
                     className="w-full" 
-                    disabled={!url || !!urlError || isLoading}
+                    disabled={!url || !!urlError || duplicateUrlWarning || isLoading}
                     onClick={handleSourceAdd}
                   >
                     {isLoading ? "Laster opp..." : "Last opp URL"}
@@ -723,28 +795,49 @@ export const KnowledgeBase = () => {
                 </div>
               ) : selectedSourceType === "file" ? (
                 <div className="space-y-4">
-                  <div 
-                    className={cn(
-                      "border-2 border-dashed rounded-lg p-6 text-center transition-colors",
-                      "hover:border-primary/50 hover:bg-primary/5 cursor-pointer"
+                  <div>
+                    {file && (
+                      <>
+                        <Label htmlFor="file-title" className="block mb-2">Filnavn (valgfritt)</Label>
+                        <Input
+                          id="file-title"
+                          placeholder="Angi et navn for filen (valgfritt)"
+                          value={fileTitle}
+                          onChange={(e) => setFileTitle(e.target.value)}
+                          className={duplicateFileWarning ? "border-red-500 mb-1" : "mb-2"}
+                        />
+                        {duplicateFileWarning && (
+                          <div className="flex gap-2 items-center mt-1 mb-2 text-yellow-600 text-sm">
+                            <AlertCircle className="h-4 w-4" />
+                            <span>En fil med dette navnet finnes allerede i kunnskapsbasen</span>
+                          </div>
+                        )}
+                      </>
                     )}
-                    onClick={() => document.getElementById("file-upload")?.click()}
-                  >
-                    <Upload className="mx-auto h-8 w-8 text-gray-400 mb-2" />
-                    <p className="text-sm text-gray-500">
-                      {file ? file.name : "Dra og slipp fil her eller klikk for å velge"}
-                    </p>
-                    <input
-                      id="file-upload"
-                      type="file"
-                      accept=".pdf,.txt,.docx"
-                      className="hidden"
-                      onChange={handleFileChange}
-                    />
+                  
+                    <div 
+                      className={cn(
+                        "border-2 border-dashed rounded-lg p-6 text-center transition-colors",
+                        "hover:border-primary/50 hover:bg-primary/5 cursor-pointer"
+                      )}
+                      onClick={() => document.getElementById("file-upload")?.click()}
+                    >
+                      <Upload className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+                      <p className="text-sm text-gray-500">
+                        {file ? file.name : "Dra og slipp fil her eller klikk for å velge"}
+                      </p>
+                      <input
+                        id="file-upload"
+                        type="file"
+                        accept=".pdf,.txt,.docx"
+                        className="hidden"
+                        onChange={handleFileChange}
+                      />
+                    </div>
                   </div>
                   <Button 
                     className="w-full" 
-                    disabled={!file || isLoading}
+                    disabled={!file || duplicateFileWarning || isLoading}
                     onClick={handleSourceAdd}
                   >
                     {isLoading ? "Laster opp..." : "Last opp fil"}
