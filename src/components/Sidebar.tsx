@@ -27,7 +27,6 @@ const Sidebar = ({ role, onTabChange, activeTab }: SidebarProps) => {
   const [collapsed, setCollapsed] = useState(false);
   const { logout, user } = useAuth();
   const [permittedTabs, setPermittedTabs] = useState<TabName[]>([]);
-  const [pressedTab, setPressedTab] = useState<string | null>(null);
 
   const adminLinks = [
     { icon: Users, label: "Organisasjoner", value: "organizations" as TabName },
@@ -69,22 +68,6 @@ const Sidebar = ({ role, onTabChange, activeTab }: SidebarProps) => {
 
   const links = allLinks.filter(link => permittedTabs.includes(link.value));
 
-  // Handle mouse events for press effect
-  const handleMouseDown = (value: string) => {
-    setPressedTab(value);
-  };
-
-  const handleMouseUp = (value: string) => {
-    setPressedTab(null);
-    if (value !== activeTab) {
-      onTabChange(value);
-    }
-  };
-
-  const handleMouseLeave = () => {
-    setPressedTab(null);
-  };
-
   return (
     <div
       className={cn(
@@ -123,18 +106,7 @@ const Sidebar = ({ role, onTabChange, activeTab }: SidebarProps) => {
               <TabsTrigger
                 key={link.value}
                 value={link.value}
-                className={cn(
-                  "w-full justify-start gap-3 text-white transition-all duration-150",
-                  "data-[state=active]:bg-secondary data-[state=active]:text-primary",
-                  "hover:bg-white/10",
-                  "active:bg-white/20 data-[state=active]:hover:bg-secondary",
-                  pressedTab === link.value && activeTab !== link.value && "scale-95 bg-white/15"
-                )}
-                onMouseDown={() => handleMouseDown(link.value)}
-                onMouseUp={() => handleMouseUp(link.value)}
-                onMouseLeave={handleMouseLeave}
-                // Prevent default tab behavior
-                onClick={(e) => e.preventDefault()}
+                className="w-full justify-start gap-3 text-white data-[state=active]:bg-secondary data-[state=active]:text-primary hover:bg-white/10 active:bg-white/20 data-[state=active]:hover:bg-secondary"
               >
                 <link.icon size={20} />
                 {!collapsed && <span>{link.label}</span>}
