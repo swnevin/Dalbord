@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -155,6 +156,7 @@ export const KnowledgeBase = () => {
     }
   }, [textFileName]);
 
+  // Check if Q&A title already exists
   useEffect(() => {
     if (selectedSourceType === 'qa' && qaTitle.trim()) {
       const formattedTitle = ensureQATitleSuffix(qaTitle.trim());
@@ -528,6 +530,7 @@ export const KnowledgeBase = () => {
           })
         };
 
+        // Check if a Q&A source with the same title already exists
         const shouldOverwrite = duplicateQATitleWarning;
         const endpoint = `https://api.voiceflow.com/v1/knowledge-base/docs/upload/table?overwrite=${shouldOverwrite}`;
         
