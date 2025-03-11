@@ -14,6 +14,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface DialogMessage {
   type: string;
@@ -51,6 +54,7 @@ export const ConversationDialog = ({
   selectedConversation, 
   dialog 
 }: ConversationDialogProps) => {
+  const { user } = useAuth();
   const dialogContainerRef = useRef<HTMLDivElement>(null);
   const [selectedMessages, setSelectedMessages] = useState<DialogMessage[]>([]);
   const [isQASheetOpen, setIsQASheetOpen] = useState(false);
@@ -59,6 +63,7 @@ export const ConversationDialog = ({
     question: "",
     answer: ""
   });
+  const [isSaving, setIsSaving] = useState(false);
 
   const toggleMessageSelection = (message: DialogMessage) => {
     // Skip "launch" and "end" message types
@@ -118,6 +123,102 @@ export const ConversationDialog = ({
     
     setQaTitle(question.length > 30 ? `${question.substring(0, 30)}...` : question);
     setIsQASheetOpen(true);
+  };
+
+  const saveQAPair = async () => {
+    if (!user?.organization_id) {
+      toast("Ingen organisasjon funnet. Kunne ikke lagre Q&A.");
+      return;
+    }
+
+    if (!qaTitle.trim() || !qaPair.question.trim() || !qaPair.answer.trim()) {
+      toast("Alle felt må fylles ut");
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const { data: org, error: orgError } = await supabase
+        .from('organizations')
+        .select('voiceflow_api_key, voiceflow_project_id')
+        .eq('id', user.organization_id)
+        .single();
+
+      if (orgError) throw orgError;
+      if (!org.voiceflow_api_key || !org.voiceflow_project_id) {
+        throw new Error('Mangler Voiceflow-legitimasjon');
+      }
+
+      // Format title to ensure it has the Q&A suffix
+      let formattedTitle = qaTitle.trim();
+      if (!formattedTitle.endsWith("- Q&A")) {
+        formattedTitle = `${formattedTitle} - Q&A`;
+      }
+
+      // Check if a QA set with this title already exists
+      const response = await fetch(
+        `https://api.voiceflow.com/v1/knowledge-base/docs`,
+        {
+          method: 'GET',
+          headers: {
+            'accept': 'application/json',
+            'Authorization': org.voiceflow_api_key
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Kunne ikke sjekke for eksisterende Q&A');
+      }
+
+      const result = await response.json();
+      const existingQA = result.data.find(
+        (doc: any) => doc.data.name === formattedTitle
+      );
+
+      // Create payload for the API request
+      const qaItems = [
+        {
+          question: qaPair.question.trim(),
+          answer: qaPair.answer.trim()
+        }
+      ];
+
+      const options = {
+        method: 'POST',
+        headers: {
+          accept: 'application/json',
+          'content-type': 'application/json',
+          Authorization: org.voiceflow_api_key
+        },
+        body: JSON.stringify({
+          data: {
+            schema: { searchableFields: ['question', 'answer'] },
+            name: formattedTitle,
+            items: qaItems
+          }
+        })
+      };
+
+      // If QA set exists, use overwrite parameter
+      const endpoint = `https://api.voiceflow.com/v1/knowledge-base/docs/upload/table?overwrite=${existingQA ? 'true' : 'false'}`;
+      
+      const saveResponse = await fetch(endpoint, options);
+
+      if (!saveResponse.ok) {
+        throw new Error('Kunne ikke lagre Q&A');
+      }
+
+      toast.success("Q&A ble lagret til kunnskapsbasen");
+      setIsQASheetOpen(false);
+      clearSelection();
+    } catch (error) {
+      console.error('Error saving Q&A:', error);
+      toast.error(error instanceof Error ? error.message : "Kunne ikke lagre Q&A");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const renderMessage = (message: DialogMessage) => {
@@ -346,15 +447,10 @@ export const ConversationDialog = ({
               </Button>
               <Button 
                 className="bg-primary text-white hover:bg-primary/90"
-                onClick={() => {
-                  // Here you would implement the save functionality
-                  // For now, we'll just close the sheet and clear selection
-                  setIsQASheetOpen(false);
-                  clearSelection();
-                }}
-                disabled={!qaTitle || !qaPair.question || !qaPair.answer}
+                onClick={saveQAPair}
+                disabled={!qaTitle || !qaPair.question || !qaPair.answer || isSaving}
               >
-                Lagre Q&A
+                {isSaving ? "Lagrer..." : "Lagre Q&A"}
               </Button>
             </div>
           </div>
@@ -363,4 +459,3 @@ export const ConversationDialog = ({
     </div>
   );
 };
-
