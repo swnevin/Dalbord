@@ -1,7 +1,8 @@
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { Bookmark, CheckCircle, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
+import { Bookmark, CheckCircle, ChevronLeft, ChevronRight, Search, Trash2 } from "lucide-react";
 import { formatDate } from "@/utils/conversation-utils";
 import { Loader } from "@/components/ui/loader";
 
@@ -28,6 +29,8 @@ interface ConversationListProps {
   onDeleteClick: (id: string) => void;
   activeFilter: "all" | "approved" | "saved";
   onFilterChange: (filter: "all" | "approved" | "saved") => void;
+  searchQuery: string;
+  onSearchChange: (query: string) => void;
 }
 
 export const ConversationList = ({
@@ -41,6 +44,8 @@ export const ConversationList = ({
   onDeleteClick,
   activeFilter,
   onFilterChange,
+  searchQuery,
+  onSearchChange,
 }: ConversationListProps) => {
   const isConversationReviewed = (conv: VoiceflowTranscript) => {
     return conv.reportTags?.includes("system.reviewed") ?? false;
@@ -52,7 +57,7 @@ export const ConversationList = ({
 
   return (
     <div className={cn(
-      "border-r border-gray-200 bg-white transition-all duration-300",
+      "border-r border-gray-200 bg-white transition-all duration-300 flex flex-col",
       collapsed ? "w-20" : "w-96"
     )}>
       <div className="p-4 border-b border-gray-200">
@@ -74,29 +79,40 @@ export const ConversationList = ({
         </div>
         
         {!collapsed && (
-          <div className="flex gap-2">
-            <Button
-              variant={activeFilter === "all" ? "secondary" : "outline"}
-              onClick={() => onFilterChange("all")}
-              className="flex-1"
-            >
-              Alle samtaler
-            </Button>
-            <Button
-              variant={activeFilter === "approved" ? "secondary" : "outline"}
-              onClick={() => onFilterChange("approved")}
-              className="flex-1"
-            >
-              Gjennomgåtte
-            </Button>
-            <Button
-              variant={activeFilter === "saved" ? "secondary" : "outline"}
-              onClick={() => onFilterChange("saved")}
-              className="flex-1"
-            >
-              Lagrede
-            </Button>
-          </div>
+          <>
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400"/>
+              <Input
+                placeholder="Søk i samtaler..."
+                value={searchQuery}
+                onChange={(e) => onSearchChange(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant={activeFilter === "all" ? "secondary" : "outline"}
+                onClick={() => onFilterChange("all")}
+                className="flex-1"
+              >
+                Alle samtaler
+              </Button>
+              <Button
+                variant={activeFilter === "approved" ? "secondary" : "outline"}
+                onClick={() => onFilterChange("approved")}
+                className="flex-1"
+              >
+                Gjennomgåtte
+              </Button>
+              <Button
+                variant={activeFilter === "saved" ? "secondary" : "outline"}
+                onClick={() => onFilterChange("saved")}
+                className="flex-1"
+              >
+                Lagrede
+              </Button>
+            </div>
+          </>
         )}
       </div>
 
@@ -104,6 +120,14 @@ export const ConversationList = ({
         {isLoading ? (
           <div className="h-full flex items-center justify-center">
             <Loader size="lg" />
+          </div>
+        ) : conversations.length === 0 ? (
+          <div className="h-full flex items-center justify-center text-center p-4 text-gray-500">
+            {searchQuery ? (
+              <p>Ingen samtaler samsvarer med søket ditt</p>
+            ) : (
+              <p>Ingen samtaler tilgjengelig</p>
+            )}
           </div>
         ) : (
           conversations.map((conv) => (
