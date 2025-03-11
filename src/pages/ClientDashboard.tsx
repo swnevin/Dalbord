@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import Sidebar from "../components/Sidebar";
 import { KnowledgeBase } from "@/components/KnowledgeBase";
@@ -22,10 +23,6 @@ interface VoiceflowTranscript {
   };
 }
 
-interface DialogCache {
-  [key: string]: any[];
-}
-
 type FilterType = "all" | "approved" | "saved";
 
 const ClientDashboard = () => {
@@ -40,9 +37,6 @@ const ClientDashboard = () => {
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
-  const [dialogCache, setDialogCache] = useState<DialogCache>({});
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filteredConversations, setFilteredConversations] = useState<VoiceflowTranscript[]>([]);
 
   const toggleTag = async (conversationId: string, tag: "system.saved" | "system.reviewed") => {
     if (!user?.organization_id) return;
@@ -142,95 +136,6 @@ const ClientDashboard = () => {
     }
   };
 
-  const fetchSingleDialog = async (conversationId: string, orgCredentials: any) => {
-    try {
-      const response = await fetch(
-        `https://api.voiceflow.com/v2/transcripts/${orgCredentials.voiceflow_project_id}/${conversationId}`,
-        {
-          headers: {
-            accept: 'application/json',
-            Authorization: orgCredentials.voiceflow_api_key,
-          },
-        }
-      );
-
-      if (!response.ok) throw new Error(`Failed to fetch dialog for ${conversationId}`);
-      return await response.json();
-    } catch (error) {
-      console.error(`Error fetching dialog for ${conversationId}:`, error);
-      return [];
-    }
-  };
-
-  const fetchAllDialogs = async (ids: string[], orgCredentials: any) => {
-    const fetchPromises = ids.map(id => fetchSingleDialog(id, orgCredentials));
-    try {
-      const results = await Promise.allSettled(fetchPromises);
-      
-      const cache: DialogCache = {};
-      results.forEach((result, index) => {
-        if (result.status === 'fulfilled') {
-          cache[ids[index]] = result.value;
-        }
-      });
-      
-      return cache;
-    } catch (error) {
-      console.error('Error fetching all dialogs:', error);
-      return {};
-    }
-  };
-
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-    
-    if (!query.trim()) {
-      applyFilters(conversations);
-      return;
-    }
-
-    const lowerQuery = query.toLowerCase();
-    const dateQuery = query.match(/\d{1,2}[./]\d{1,2}([./]\d{2,4})?/);
-
-    let results = conversations.filter(conv => {
-      if (conv.name?.toLowerCase().includes(lowerQuery)) return true;
-      
-      if (dateQuery) {
-        const convDate = new Date(conv.updatedAt).toLocaleDateString("no");
-        if (convDate.includes(dateQuery[0])) return true;
-      }
-      
-      if (dialogCache[conv._id]) {
-        return dialogCache[conv._id].some(msg => {
-          if (msg.payload?.message?.toLowerCase().includes(lowerQuery)) return true;
-          if (msg.payload?.text?.toLowerCase().includes(lowerQuery)) return true;
-          return false;
-        });
-      }
-      
-      return false;
-    });
-
-    applyFilters(results);
-  };
-
-  const applyFilters = (conversationsToFilter: VoiceflowTranscript[]) => {
-    let filtered = [...conversationsToFilter];
-    
-    switch (activeFilter) {
-      case "saved":
-        filtered = filtered.filter(conv => conv.reportTags?.includes("system.saved") ?? false);
-        break;
-      case "approved":
-        filtered = filtered.filter(conv => conv.reportTags?.includes("system.reviewed") ?? false);
-        break;
-      default:
-        break;
-    }
-    
-    setFilteredConversations(filtered);
-  };
-
   useEffect(() => {
     const fetchConversations = async () => {
       if (!user?.organization_id) return;
@@ -262,11 +167,6 @@ const ClientDashboard = () => {
 
         const data = await response.json();
         setConversations(data);
-        applyFilters(data);
-
-        const conversationIds = data.map((conv: VoiceflowTranscript) => conv._id);
-        const cache = await fetchAllDialogs(conversationIds, org);
-        setDialogCache(cache);
       } catch (error) {
         console.error('Error fetching conversations:', error);
       } finally {
@@ -278,16 +178,6 @@ const ClientDashboard = () => {
   }, [user?.organization_id]);
 
   useEffect(() => {
-    if (!selectedConversation) {
-      setDialog([]);
-      return;
-    }
-
-    if (dialogCache[selectedConversation]) {
-      setDialog(dialogCache[selectedConversation]);
-      return;
-    }
-
     const fetchDialog = async () => {
       if (!selectedConversation || !user?.organization_id) return;
 
@@ -319,11 +209,6 @@ const ClientDashboard = () => {
 
         const data = await response.json();
         setDialog(data);
-        
-        setDialogCache(prev => ({
-          ...prev,
-          [selectedConversation]: data
-        }));
       } catch (error) {
         console.error('Error fetching dialog:', error);
       } finally {
@@ -332,18 +217,21 @@ const ClientDashboard = () => {
     };
 
     fetchDialog();
-  }, [selectedConversation, user?.organization_id, dialogCache]);
-
-  useEffect(() => {
-    applyFilters(conversations);
-  }, [activeFilter, conversations]);
-
-  useEffect(() => {
-    handleSearch(searchQuery);
-  }, [searchQuery, dialogCache]);
+  }, [selectedConversation, user?.organization_id]);
 
   const showLoader = useMinimumLoading(isLoading);
   const showDialogLoader = useMinimumLoading(isLoadingDialog);
+
+  const filteredConversations = conversations.filter(conv => {
+    switch (activeFilter) {
+      case "saved":
+        return conv.reportTags?.includes("system.saved") ?? false;
+      case "approved":
+        return conv.reportTags?.includes("system.reviewed") ?? false;
+      default:
+        return true;
+    }
+  });
 
   return (
     <div className="flex h-screen bg-cream">
@@ -366,8 +254,6 @@ const ClientDashboard = () => {
               onDeleteClick={handleDeleteClick}
               activeFilter={activeFilter}
               onFilterChange={setActiveFilter}
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
             />
             <ConversationDialog
               isLoading={showDialogLoader}

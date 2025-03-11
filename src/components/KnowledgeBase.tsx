@@ -275,7 +275,11 @@ export const KnowledgeBase = () => {
 
   const handleDelete = async (documentId: string) => {
     if (!user?.organization_id) {
-      toast.error("Ingen organisasjon funnet. Kunne ikke slette kilden.");
+      toast({
+        title: "Feil",
+        description: "Ingen organisasjon funnet.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -312,7 +316,11 @@ export const KnowledgeBase = () => {
       });
     } catch (error) {
       console.error('Error deleting source:', error);
-      toast.error(error instanceof Error ? error.message : "Kunne ikke slette kilden");
+      toast({
+        title: "Feil",
+        description: error instanceof Error ? error.message : "Kunne ikke slette kilden",
+        variant: "destructive",
+      });
     }
   };
 
