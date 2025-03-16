@@ -7,14 +7,22 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
+  Tooltip as RechartsTooltip,
   ResponsiveContainer,
 } from "recharts";
 import { TimeSeriesData } from "./types";
+import { InfoIcon } from "lucide-react";
+import { 
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TooltipProvider
+} from "@/components/ui/tooltip";
 
 interface TimeSeriesChartProps {
   data: TimeSeriesData[] | undefined;
   title: string;
+  description?: string;
   color?: string;
   isLoading: boolean;
 }
@@ -22,13 +30,29 @@ interface TimeSeriesChartProps {
 export const TimeSeriesChart = ({
   data,
   title,
+  description,
   color = "#28483F",
   isLoading
 }: TimeSeriesChartProps) => {
   return (
     <Card className="w-full h-[400px]">
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
+        {description && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <InfoIcon className="h-4 w-4 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <div className="space-y-2 max-w-xs">
+                  <p className="font-medium">{title}</p>
+                  <p>{description}</p>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
       </CardHeader>
       <CardContent>
         {isLoading ? (
@@ -51,7 +75,7 @@ export const TimeSeriesChart = ({
                 tickLine={false}
                 axisLine={false}
               />
-              <Tooltip
+              <RechartsTooltip
                 contentStyle={{
                   backgroundColor: "#FFF",
                   border: "1px solid #E2E8F0",

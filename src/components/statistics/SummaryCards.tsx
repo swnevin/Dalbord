@@ -1,7 +1,13 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MessagesSquare, UserRound } from "lucide-react";
+import { MessagesSquare, UserRound, InfoIcon } from "lucide-react";
 import { Loader } from "@/components/ui/loader";
+import { 
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TooltipProvider
+} from "@/components/ui/tooltip";
 
 interface SummaryCardsProps {
   totalMessages: number;
@@ -17,7 +23,19 @@ export const SummaryCards = ({ totalMessages, totalConversations, isLoading }: S
           <CardTitle className="text-sm font-medium">
             Antall meldinger
           </CardTitle>
-          <MessagesSquare className="h-4 w-4 text-muted-foreground" />
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <InfoIcon className="h-4 w-4 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <div className="space-y-2 max-w-xs">
+                  <p className="font-medium">Antall meldinger</p>
+                  <p>Det totale antallet meldinger som er sendt gjennom systemet i den valgte tidsperioden.</p>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -25,14 +43,9 @@ export const SummaryCards = ({ totalMessages, totalConversations, isLoading }: S
               <Loader size="sm" />
             </div>
           ) : (
-            <>
-              <div className="text-2xl font-bold">
-                {totalMessages?.toLocaleString('no') ?? 0}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Antall meldinger sendt
-              </p>
-            </>
+            <div className="text-2xl font-bold">
+              {totalMessages?.toLocaleString('no') ?? 0}
+            </div>
           )}
         </CardContent>
       </Card>
@@ -42,7 +55,19 @@ export const SummaryCards = ({ totalMessages, totalConversations, isLoading }: S
           <CardTitle className="text-sm font-medium">
             Antall Brukere
           </CardTitle>
-          <UserRound className="h-4 w-4 text-muted-foreground" />
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <InfoIcon className="h-4 w-4 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <div className="space-y-2 max-w-xs">
+                  <p className="font-medium">Antall brukere</p>
+                  <p>Det totale antallet unike brukere som har interagert med systemet i den valgte tidsperioden.</p>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -50,14 +75,9 @@ export const SummaryCards = ({ totalMessages, totalConversations, isLoading }: S
               <Loader size="sm" />
             </div>
           ) : (
-            <>
-              <div className="text-2xl font-bold">
-                {totalConversations?.toLocaleString('no') ?? 0}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Totalt antall forskjellige brukere
-              </p>
-            </>
+            <div className="text-2xl font-bold">
+              {totalConversations?.toLocaleString('no') ?? 0}
+            </div>
           )}
         </CardContent>
       </Card>

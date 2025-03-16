@@ -406,12 +406,14 @@ export const Statistics = () => {
         <TimeSeriesChart
           data={data.userTimeSeries}
           title="Brukere over tid"
+          description="Antall unike brukere som har interagert med systemet over tid."
           color="#E2B808"
           isLoading={loading.userChart}
         />
         <TimeSeriesChart
           data={data.messageTimeSeries}
           title="Meldinger over tid"
+          description="Totalt antall meldinger sendt i systemet over tid."
           color="#28483F"
           isLoading={loading.messageChart}
         />
