@@ -343,7 +343,7 @@ export const ConversationDialog = ({
       >
         {isLoading ? (
           <div className="h-full flex items-center justify-center">
-            <Loader size="lg" showProgress={true} duration={5000} />
+            <Loader size="lg" />
           </div>
         ) : !selectedConversation ? (
           <div className="h-full flex items-center justify-center text-gray-500">

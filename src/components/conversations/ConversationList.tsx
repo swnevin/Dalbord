@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Bookmark, CheckCircle, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
@@ -102,7 +103,7 @@ export const ConversationList = ({
       <div className="overflow-auto h-[calc(100vh-144px)]">
         {isLoading ? (
           <div className="h-full flex items-center justify-center">
-            <Loader size="lg" showProgress={true} />
+            <Loader size="lg" />
           </div>
         ) : (
           conversations.map((conv) => (

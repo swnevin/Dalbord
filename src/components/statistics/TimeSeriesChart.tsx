@@ -57,7 +57,7 @@ export const TimeSeriesChart = ({
       <CardContent>
         {isLoading ? (
           <div className="h-[300px] flex items-center justify-center">
-            <Loader size="md" showProgress={true} />
+            <Loader size="md" />
           </div>
         ) : data && data.length > 0 ? (
           <ResponsiveContainer width="100%" height={300}>

@@ -120,7 +120,7 @@ export const SavingsCharts = ({
         <CardContent>
           {isLoading ? (
             <div className="flex items-center justify-center py-4">
-              <Loader size="sm" showProgress={true} />
+              <Loader size="sm" />
             </div>
           ) : (
             <>
@@ -161,7 +161,7 @@ export const SavingsCharts = ({
         <CardContent>
           {isLoading ? (
             <div className="flex items-center justify-center py-4">
-              <Loader size="sm" showProgress={true} />
+              <Loader size="sm" />
             </div>
           ) : (
             <>

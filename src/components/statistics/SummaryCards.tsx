@@ -40,7 +40,7 @@ export const SummaryCards = ({ totalMessages, totalConversations, isLoading }: S
         <CardContent>
           {isLoading ? (
             <div className="flex items-center justify-center py-4">
-              <Loader size="sm" showProgress={true} />
+              <Loader size="sm" />
             </div>
           ) : (
             <div className="text-2xl font-bold">
@@ -72,7 +72,7 @@ export const SummaryCards = ({ totalMessages, totalConversations, isLoading }: S
         <CardContent>
           {isLoading ? (
             <div className="flex items-center justify-center py-4">
-              <Loader size="sm" showProgress={true} />
+              <Loader size="sm" />
             </div>
           ) : (
             <div className="text-2xl font-bold">
