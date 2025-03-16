@@ -1,15 +1,9 @@
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader } from "@/components/ui/loader";
-import { InfoIcon } from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { formatDuration } from "date-fns";
-import { nb } from "date-fns/locale";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useState, useEffect } from "react";
 
 interface SavingsChartsProps {
   timeSaved: number; // in minutes
@@ -17,6 +11,8 @@ interface SavingsChartsProps {
   isLoading: boolean;
   timePerMessage: number; // in minutes
   hourlyRate: number; // in NOK
+  onSettingsChange: (settings: { timePerMessage: number; hourlyRate: number }) => void;
+  totalMessages: number;
 }
 
 export const SavingsCharts = ({
@@ -25,7 +21,17 @@ export const SavingsCharts = ({
   isLoading,
   timePerMessage,
   hourlyRate,
+  onSettingsChange,
+  totalMessages,
 }: SavingsChartsProps) => {
+  const [localTimePerMessage, setLocalTimePerMessage] = useState(timePerMessage.toString());
+  const [localHourlyRate, setLocalHourlyRate] = useState(hourlyRate.toString());
+
+  useEffect(() => {
+    setLocalTimePerMessage(timePerMessage.toString());
+    setLocalHourlyRate(hourlyRate.toString());
+  }, [timePerMessage, hourlyRate]);
+
   // Format time saved
   const formatTime = (minutes: number) => {
     const hours = Math.floor(minutes / 60);
@@ -49,24 +55,61 @@ export const SavingsCharts = ({
     }).format(amount);
   };
 
+  const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setLocalTimePerMessage(value);
+    const numValue = parseFloat(value) || 0;
+    if (numValue > 0) {
+      onSettingsChange({ timePerMessage: numValue, hourlyRate });
+    }
+  };
+
+  const handleRateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setLocalHourlyRate(value);
+    const numValue = parseFloat(value) || 0;
+    if (numValue > 0) {
+      onSettingsChange({ timePerMessage, hourlyRate: numValue });
+    }
+  };
+
   const renderTimeFormula = () => (
-    <div className="text-sm text-muted-foreground mt-2">
-      <div className="font-semibold">Formel:</div>
-      <div>Timer spart = Antall meldinger × Tid per melding</div>
-      <div className="mt-1">
-        = {timeSaved / timePerMessage} meldinger × {timePerMessage} minutter
-        = {formatTime(timeSaved)}
+    <div className="text-xs text-muted-foreground mt-2">
+      <div className="font-medium">Formel:</div>
+      <div className="flex items-center gap-2 mt-1">
+        <span>Timer spart = {totalMessages} meldinger ×</span>
+        <div className="flex items-center gap-1">
+          <Input
+            type="number" 
+            value={localTimePerMessage}
+            onChange={handleTimeChange}
+            className="h-6 w-16 text-xs"
+            min="0.1"
+            step="0.1"
+          />
+          <span>minutter</span>
+        </div>
       </div>
     </div>
   );
 
   const renderMoneyFormula = () => (
-    <div className="text-sm text-muted-foreground mt-2">
-      <div className="font-semibold">Formel:</div>
-      <div>Penger spart = Timer spart × Timelønn</div>
-      <div className="mt-1">
-        = {(timeSaved / 60).toFixed(2)} timer × {hourlyRate} kr/time
-        = {formatMoney(moneySaved)}
+    <div className="text-xs text-muted-foreground mt-2">
+      <div className="font-medium">Formel:</div>
+      <div className="mt-1">Penger spart = Timer spart × Timelønn</div>
+      <div className="flex items-center gap-2 mt-1">
+        <span>= {(timeSaved / 60).toFixed(2)} timer ×</span>
+        <div className="flex items-center gap-1">
+          <Input
+            type="number"
+            value={localHourlyRate}
+            onChange={handleRateChange}
+            className="h-6 w-16 text-xs"
+            min="1"
+            step="1"
+          />
+          <span>kr/time</span>
+        </div>
       </div>
     </div>
   );
@@ -75,30 +118,18 @@ export const SavingsCharts = ({
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-medium flex items-center">
-              Timer spart
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <InfoIcon size={16} className="ml-2 text-muted-foreground" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Beregnet basert på {timePerMessage} minutter per melding</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </CardTitle>
-          </div>
+          <CardTitle className="text-sm font-medium">
+            Timer spart
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="h-[200px] flex items-center justify-center">
+            <div className="h-[100px] flex items-center justify-center">
               <Loader size="md" />
             </div>
           ) : (
             <div>
-              <div className="text-4xl font-bold text-primary">
+              <div className="text-2xl font-bold text-primary">
                 {formatTime(timeSaved)}
               </div>
               {renderTimeFormula()}
@@ -109,30 +140,18 @@ export const SavingsCharts = ({
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-medium flex items-center">
-              Penger spart
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <InfoIcon size={16} className="ml-2 text-muted-foreground" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Beregnet basert på {hourlyRate} kr/time</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </CardTitle>
-          </div>
+          <CardTitle className="text-sm font-medium">
+            Penger spart
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="h-[200px] flex items-center justify-center">
+            <div className="h-[100px] flex items-center justify-center">
               <Loader size="md" />
             </div>
           ) : (
             <div>
-              <div className="text-4xl font-bold text-accent-foreground">
+              <div className="text-2xl font-bold text-accent-foreground">
                 {formatMoney(moneySaved)}
               </div>
               {renderMoneyFormula()}

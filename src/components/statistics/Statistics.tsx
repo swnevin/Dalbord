@@ -9,7 +9,6 @@ import { StatisticsHeader } from "./StatisticsHeader";
 import { SummaryCards } from "./SummaryCards";
 import { TimeSeriesChart } from "./TimeSeriesChart";
 import { SavingsCharts } from "./SavingsCharts";
-import { SavingsSettingsDialog } from "./SavingsSettings";
 import { StatisticsData, LoadingState, TimeSeriesData, DateRange, TimeRange, SavingsSettings } from "./types";
 
 export const Statistics = () => {
@@ -120,6 +119,13 @@ export const Statistics = () => {
     } else {
       return dateFnsFormat(date, 'LLLL', { locale: nb });
     }
+  };
+
+  const handleSavingsSettingsChange = (settings: Partial<SavingsSettings>) => {
+    setSavingsSettings(prev => ({
+      ...prev,
+      ...settings
+    }));
   };
 
   useEffect(() => {
@@ -373,18 +379,12 @@ export const Statistics = () => {
 
   return (
     <div className="p-8 space-y-8">
-      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
-        <StatisticsHeader
-          timeRange={timeRange}
-          dateRange={dateRange}
-          onTimeRangeChange={setTimeRange}
-          onDateRangeChange={setDateRange}
-        />
-        <SavingsSettingsDialog 
-          settings={savingsSettings}
-          onSettingsChange={setSavingsSettings}
-        />
-      </div>
+      <StatisticsHeader
+        timeRange={timeRange}
+        dateRange={dateRange}
+        onTimeRangeChange={setTimeRange}
+        onDateRangeChange={setDateRange}
+      />
       
       <SummaryCards
         totalMessages={data.totalMessages ?? 0}
@@ -398,6 +398,8 @@ export const Statistics = () => {
         isLoading={loading.summaryCards}
         timePerMessage={savingsSettings.timePerMessage}
         hourlyRate={savingsSettings.hourlyRate}
+        onSettingsChange={handleSavingsSettingsChange}
+        totalMessages={data.totalMessages ?? 0}
       />
 
       <div className="grid gap-8 mt-8">
@@ -417,4 +419,3 @@ export const Statistics = () => {
     </div>
   );
 };
-
