@@ -23,7 +23,7 @@ export const SummaryCards = ({ totalMessages, totalConversations, isLoading }: S
           <CardTitle className="text-sm font-medium">
             Antall meldinger
           </CardTitle>
-          <TooltipProvider>
+          <TooltipProvider delayDuration={100}>
             <Tooltip>
               <TooltipTrigger asChild>
                 <InfoIcon className="h-4 w-4 text-muted-foreground cursor-help" />
@@ -55,7 +55,7 @@ export const SummaryCards = ({ totalMessages, totalConversations, isLoading }: S
           <CardTitle className="text-sm font-medium">
             Antall Brukere
           </CardTitle>
-          <TooltipProvider>
+          <TooltipProvider delayDuration={100}>
             <Tooltip>
               <TooltipTrigger asChild>
                 <InfoIcon className="h-4 w-4 text-muted-foreground cursor-help" />

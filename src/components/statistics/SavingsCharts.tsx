@@ -108,7 +108,7 @@ export const SavingsCharts = ({
           <CardTitle className="text-sm font-medium">
             Timer spart
           </CardTitle>
-          <TooltipProvider>
+          <TooltipProvider delayDuration={100}>
             <Tooltip>
               <TooltipTrigger asChild>
                 <InfoIcon className="h-4 w-4 text-muted-foreground cursor-help" />
@@ -149,7 +149,7 @@ export const SavingsCharts = ({
           <CardTitle className="text-sm font-medium">
             Penger spart
           </CardTitle>
-          <TooltipProvider>
+          <TooltipProvider delayDuration={100}>
             <Tooltip>
               <TooltipTrigger asChild>
                 <InfoIcon className="h-4 w-4 text-muted-foreground cursor-help" />
@@ -165,7 +165,7 @@ export const SavingsCharts = ({
             </div>
           ) : (
             <>
-              <div className="text-2xl font-bold text-secondary">
+              <div className="text-2xl font-bold">
                 {formatMoney(moneySaved)}
               </div>
               <div className="text-xs text-muted-foreground flex items-center gap-2 mt-1">
