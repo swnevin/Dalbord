@@ -8,7 +8,9 @@ import { nb } from "date-fns/locale";
 import { StatisticsHeader } from "./StatisticsHeader";
 import { SummaryCards } from "./SummaryCards";
 import { TimeSeriesChart } from "./TimeSeriesChart";
-import { StatisticsData, LoadingState, TimeSeriesData, DateRange, TimeRange } from "./types";
+import { SavingsCharts } from "./SavingsCharts";
+import { SavingsSettingsDialog } from "./SavingsSettings";
+import { StatisticsData, LoadingState, TimeSeriesData, DateRange, TimeRange, SavingsSettings } from "./types";
 
 export const Statistics = () => {
   const { user } = useAuth();
@@ -16,7 +18,9 @@ export const Statistics = () => {
     totalMessages: 0,
     totalConversations: 0,
     messageTimeSeries: [],
-    userTimeSeries: []
+    userTimeSeries: [],
+    timeSaved: 0,
+    moneySaved: 0
   });
   const [loading, setLoading] = useState<LoadingState>({
     summaryCards: true,
@@ -27,6 +31,10 @@ export const Statistics = () => {
   const [dateRange, setDateRange] = useState<DateRange>({
     from: subDays(new Date(), 7),
     to: new Date()
+  });
+  const [savingsSettings, setSavingsSettings] = useState<SavingsSettings>({
+    timePerMessage: 5, // default: 5 minutes per message
+    hourlyRate: 300    // default: 300 NOK per hour
   });
 
   const updateDateRange = (range: TimeRange) => {
@@ -67,7 +75,6 @@ export const Statistics = () => {
     const timeFrames: { start: Date; end: Date }[] = [];
     let currentDate = from;
 
-    // Daily data for ≤30 days
     if (daysDifference <= 30) {
       while (currentDate <= to) {
         timeFrames.push({
@@ -76,9 +83,7 @@ export const Statistics = () => {
         });
         currentDate = addDays(currentDate, 1);
       }
-    }
-    // Weekly data for 30-365 days
-    else if (daysDifference < 365) {
+    } else if (daysDifference < 365) {
       while (currentDate <= to) {
         const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 }); // Monday
         const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 }); // Sunday
@@ -90,9 +95,7 @@ export const Statistics = () => {
         
         currentDate = addDays(weekEnd, 1);
       }
-    }
-    // Monthly data for >365 days
-    else {
+    } else {
       while (currentDate <= to) {
         const monthStart = startOfMonth(currentDate);
         const monthEnd = endOfMonth(currentDate);
@@ -111,16 +114,26 @@ export const Statistics = () => {
 
   const formatDateLabel = (date: Date, daysDiff: number) => {
     if (daysDiff <= 30) {
-      // Daily format: "01.02"
       return dateFnsFormat(date, 'dd.MM');
     } else if (daysDiff < 365) {
-      // Weekly format: "Uke X"
       return `Uke ${getWeek(date, { locale: nb })}`;
     } else {
-      // Monthly format: "Januar"
       return dateFnsFormat(date, 'LLLL', { locale: nb });
     }
   };
+
+  useEffect(() => {
+    if (data.totalMessages) {
+      const timeSaved = data.totalMessages * savingsSettings.timePerMessage;
+      const moneySaved = (timeSaved / 60) * savingsSettings.hourlyRate;
+      
+      setData(prev => ({
+        ...prev,
+        timeSaved,
+        moneySaved
+      }));
+    }
+  }, [data.totalMessages, savingsSettings]);
 
   useEffect(() => {
     let isMounted = true;
@@ -360,17 +373,31 @@ export const Statistics = () => {
 
   return (
     <div className="p-8 space-y-8">
-      <StatisticsHeader
-        timeRange={timeRange}
-        dateRange={dateRange}
-        onTimeRangeChange={setTimeRange}
-        onDateRangeChange={setDateRange}
-      />
+      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+        <StatisticsHeader
+          timeRange={timeRange}
+          dateRange={dateRange}
+          onTimeRangeChange={setTimeRange}
+          onDateRangeChange={setDateRange}
+        />
+        <SavingsSettingsDialog 
+          settings={savingsSettings}
+          onSettingsChange={setSavingsSettings}
+        />
+      </div>
       
       <SummaryCards
         totalMessages={data.totalMessages ?? 0}
         totalConversations={data.totalConversations ?? 0}
         isLoading={loading.summaryCards}
+      />
+
+      <SavingsCharts
+        timeSaved={data.timeSaved ?? 0}
+        moneySaved={data.moneySaved ?? 0}
+        isLoading={loading.summaryCards}
+        timePerMessage={savingsSettings.timePerMessage}
+        hourlyRate={savingsSettings.hourlyRate}
       />
 
       <div className="grid gap-8 mt-8">
@@ -390,3 +417,4 @@ export const Statistics = () => {
     </div>
   );
 };
+

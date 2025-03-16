@@ -4,6 +4,8 @@ export interface StatisticsData {
   totalConversations?: number;
   messageTimeSeries?: TimeSeriesData[];
   userTimeSeries?: TimeSeriesData[];
+  timeSaved?: number;
+  moneySaved?: number;
 }
 
 export interface LoadingState {
@@ -23,3 +25,8 @@ export type DateRange = {
 };
 
 export type TimeRange = '7d' | '30d' | '90d' | '365d' | 'all' | 'custom';
+
+export interface SavingsSettings {
+  timePerMessage: number; // minutes
+  hourlyRate: number; // NOK
+}

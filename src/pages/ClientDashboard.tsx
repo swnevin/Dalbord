@@ -262,7 +262,9 @@ const ClientDashboard = () => {
             />
           </div>
         )}
-        {activeTab === "knowledge" && <KnowledgeBase />}
+        {activeTab === "knowledge" && (
+          <KnowledgeBase />
+        )}
         {activeTab === "statistics" && <Statistics />}
       </div>
 
