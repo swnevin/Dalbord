@@ -10,6 +10,7 @@ import { ConversationList } from "@/components/conversations/ConversationList";
 import { ConversationDialog } from "@/components/conversations/ConversationDialog";
 import { DeleteDialog } from "@/components/conversations/DeleteDialog";
 import { Statistics } from "@/components/statistics/Statistics";
+import { Home } from "@/components/home/Home";
 
 interface VoiceflowTranscript {
   _id: string;
@@ -26,7 +27,7 @@ interface VoiceflowTranscript {
 type FilterType = "all" | "approved" | "saved";
 
 const ClientDashboard = () => {
-  const [activeTab, setActiveTab] = useState("conversations");
+  const [activeTab, setActiveTab] = useState("home");
   const { user } = useAuth();
   const [conversations, setConversations] = useState<VoiceflowTranscript[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
@@ -241,6 +242,7 @@ const ClientDashboard = () => {
         onTabChange={setActiveTab} 
       />
       <div className="flex-1 overflow-auto">
+        {activeTab === "home" && <Home />}
         {activeTab === "conversations" && (
           <div className="flex flex-1">
             <ConversationList

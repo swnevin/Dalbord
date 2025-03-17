@@ -8,7 +8,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 
-type TabName = "organizations" | "conversations" | "knowledge";
+type TabName = "organizations" | "conversations" | "knowledge" | "statistics" | "home";
 
 interface AddMemberFormProps {
   organizationName: string;

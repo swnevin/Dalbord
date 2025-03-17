@@ -9,6 +9,44 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      fallback_requests: {
+        Row: {
+          created_at: string
+          id: string
+          is_resolved: boolean
+          organization_id: string
+          query: string
+          response: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_resolved?: boolean
+          organization_id: string
+          query: string
+          response: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_resolved?: boolean
+          organization_id?: string
+          query?: string
+          response?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fallback_requests_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizations: {
         Row: {
           created_at: string | null
@@ -123,7 +161,12 @@ export type Database = {
     }
     Enums: {
       custom_tab_icon: "default"
-      tab_type: "organizations" | "conversations" | "knowledge" | "statistics"
+      tab_type:
+        | "organizations"
+        | "conversations"
+        | "knowledge"
+        | "statistics"
+        | "home"
     }
     CompositeTypes: {
       [_ in never]: never
