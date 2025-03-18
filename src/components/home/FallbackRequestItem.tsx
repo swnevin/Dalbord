@@ -1,6 +1,7 @@
 
 import { formatDistanceToNow } from "date-fns";
 import { nb } from "date-fns/locale";
+import { CheckCircle } from "lucide-react";
 
 interface FallbackRequest {
   id: string;
@@ -13,9 +14,10 @@ interface FallbackRequest {
 interface FallbackRequestItemProps {
   request: FallbackRequest;
   onClick: () => void;
+  isResolved?: boolean;
 }
 
-export const FallbackRequestItem = ({ request, onClick }: FallbackRequestItemProps) => {
+export const FallbackRequestItem = ({ request, onClick, isResolved = false }: FallbackRequestItemProps) => {
   const formattedDate = formatDistanceToNow(new Date(request.created_at), {
     addSuffix: true,
     locale: nb
@@ -23,12 +25,15 @@ export const FallbackRequestItem = ({ request, onClick }: FallbackRequestItemPro
   
   return (
     <div 
-      className="py-4 px-2 hover:bg-muted/50 transition-colors cursor-pointer rounded-md" 
-      onClick={onClick}
+      className={`py-4 px-2 ${isResolved ? "" : "hover:bg-muted/50 transition-colors cursor-pointer"} rounded-md`}
+      onClick={isResolved ? undefined : onClick}
     >
       <div className="space-y-1">
         <div className="flex items-center justify-between">
-          <h3 className="font-medium truncate">{request.query}</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="font-medium truncate">{request.query}</h3>
+            {isResolved && <CheckCircle className="h-4 w-4 text-green-600" />}
+          </div>
           <span className="text-xs text-muted-foreground">{formattedDate}</span>
         </div>
         <p className="text-sm text-muted-foreground line-clamp-2">

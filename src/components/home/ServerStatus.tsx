@@ -10,7 +10,10 @@ export const ServerStatus = () => {
       </CardHeader>
       <CardContent>
         <div className="flex items-center gap-2 text-green-600">
-          <CheckCircle className="h-5 w-5" />
+          <div className="relative flex items-center">
+            <CheckCircle className="h-5 w-5" />
+            <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full border border-white"></span>
+          </div>
           <span className="font-medium">Alle systemer er operative</span>
         </div>
       </CardContent>

@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -35,40 +35,116 @@ export const CreateFAQDialog = ({
   const [faqQuestion, setFaqQuestion] = useState(question);
   const [faqAnswer, setFaqAnswer] = useState(answer);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [qaTitle, setQaTitle] = useState("");
+  const [voiceflowApiKey, setVoiceflowApiKey] = useState<string | null>(null);
+  
+  // Fetch Voiceflow API key
+  useEffect(() => {
+    const fetchApiKey = async () => {
+      if (!user?.organization_id) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('organizations')
+          .select('voiceflow_api_key')
+          .eq('id', user.organization_id)
+          .single();
+          
+        if (error) throw error;
+        
+        setVoiceflowApiKey(data.voiceflow_api_key);
+      } catch (error) {
+        console.error("Error fetching Voiceflow API key:", error);
+      }
+    };
+    
+    fetchApiKey();
+  }, [user?.organization_id]);
   
   const handleSubmit = async () => {
-    if (!user?.organization_id) return;
+    if (!user?.organization_id || !voiceflowApiKey) {
+      toast.error("Kunne ikke hente nødvendig informasjon for å opprette Q&A");
+      return;
+    }
     
     try {
       setIsSubmitting(true);
       
-      // In a real implementation, this would create an entry in the knowledge base
-      // This is a placeholder for actual knowledge base creation logic
-      // For now, we'll just simulate success
+      // Format the Q&A title
+      const title = qaTitle.trim() || "Automatisk opprettet Q&A";
+      const formattedTitle = ensureQATitleSuffix(title);
       
-      await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API call
+      // Create a Q&A pair in the knowledge base
+      const qaItems = [
+        {
+          question: faqQuestion.trim(),
+          answer: faqAnswer.trim()
+        }
+      ];
+
+      const options = {
+        method: 'POST',
+        headers: {
+          accept: 'application/json',
+          'content-type': 'application/json',
+          Authorization: voiceflowApiKey
+        },
+        body: JSON.stringify({
+          data: {
+            schema: { searchableFields: ['question', 'answer'] },
+            name: formattedTitle,
+            items: qaItems
+          }
+        })
+      };
+
+      const response = await fetch('https://api.voiceflow.com/v1/knowledge-base/docs/upload/table', options);
       
-      toast.success('FAQ opprettet i kunnskapsbasen');
+      if (!response.ok) {
+        throw new Error('Feil ved opplasting til Voiceflow');
+      }
+      
+      toast.success('Q&A opprettet i kunnskapsbasen');
       onCreated();
     } catch (error) {
-      console.error('Error creating FAQ:', error);
-      toast.error('Kunne ikke opprette FAQ');
+      console.error('Error creating Q&A:', error);
+      toast.error('Kunne ikke opprette Q&A');
     } finally {
       setIsSubmitting(false);
     }
+  };
+  
+  const ensureQATitleSuffix = (title: string): string => {
+    if (!title.endsWith("- Q&A")) {
+      return `${title} - Q&A`;
+    }
+    return title;
   };
   
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Opprett ny FAQ</DialogTitle>
+          <DialogTitle>Opprett ny Q&A</DialogTitle>
           <DialogDescription>
-            Opprett en ny FAQ-oppføring basert på denne henvendelsen.
+            Opprett en ny Q&A-oppføring basert på denne henvendelsen.
           </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="qa-title">Tittel (valgfritt)</Label>
+            <Input
+              id="qa-title"
+              placeholder="Tittel på Q&A-oppføringen"
+              value={qaTitle}
+              onChange={(e) => setQaTitle(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              "- Q&A" vil automatisk legges til på slutten av tittelen.
+            </p>
+          </div>
+          
           <div className="space-y-2">
             <Label htmlFor="question">Spørsmål</Label>
             <Input
@@ -99,9 +175,9 @@ export const CreateFAQDialog = ({
           </Button>
           <Button 
             onClick={handleSubmit} 
-            disabled={isSubmitting || !faqQuestion.trim() || !faqAnswer.trim()}
+            disabled={isSubmitting || !faqQuestion.trim() || !faqAnswer.trim() || !voiceflowApiKey}
           >
-            {isSubmitting ? 'Oppretter...' : 'Opprett FAQ'}
+            {isSubmitting ? 'Oppretter...' : 'Opprett Q&A'}
           </Button>
         </DialogFooter>
       </DialogContent>

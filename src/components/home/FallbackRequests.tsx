@@ -7,15 +7,17 @@ import {
   CardContent, 
   CardHeader, 
   CardTitle,
-  CardDescription
+  CardDescription,
+  CardFooter
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PlusCircle } from "lucide-react";
+import { PlusCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import { FallbackRequestItem } from "./FallbackRequestItem";
 import { CreateFAQDialog } from "./CreateFAQDialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface FallbackRequest {
   id: string;
@@ -28,24 +30,40 @@ interface FallbackRequest {
 export const FallbackRequests = () => {
   const { user } = useAuth();
   const [fallbackRequests, setFallbackRequests] = useState<FallbackRequest[]>([]);
+  const [resolvedRequests, setResolvedRequests] = useState<FallbackRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedRequest, setSelectedRequest] = useState<FallbackRequest | null>(null);
   const [createFAQOpen, setCreateFAQOpen] = useState(false);
+  const [showAllResolved, setShowAllResolved] = useState(false);
   
   const fetchFallbackRequests = async () => {
     if (!user?.organization_id) return;
     
     try {
-      const { data, error } = await supabase
+      setIsLoading(true);
+      
+      // Fetch unresolved requests
+      const { data: unresolvedData, error: unresolvedError } = await supabase
         .from('fallback_requests')
         .select('*')
         .eq('organization_id', user.organization_id)
         .eq('is_resolved', false)
         .order('created_at', { ascending: false });
         
-      if (error) throw error;
+      if (unresolvedError) throw unresolvedError;
       
-      setFallbackRequests(data || []);
+      // Fetch resolved requests
+      const { data: resolvedData, error: resolvedError } = await supabase
+        .from('fallback_requests')
+        .select('*')
+        .eq('organization_id', user.organization_id)
+        .eq('is_resolved', true)
+        .order('created_at', { ascending: false });
+        
+      if (resolvedError) throw resolvedError;
+      
+      setFallbackRequests(unresolvedData || []);
+      setResolvedRequests(resolvedData || []);
     } catch (error) {
       console.error('Error fetching fallback requests:', error);
       toast.error('Kunne ikke hente henvendelser til fallback');
@@ -76,7 +94,7 @@ export const FallbackRequests = () => {
       
       // Refresh the list after marking as resolved
       fetchFallbackRequests();
-      toast.success('FAQ opprettet og henvendelse markert som løst');
+      toast.success('Q&A opprettet og henvendelse markert som løst');
     } catch (error) {
       console.error('Error updating fallback request:', error);
       toast.error('Kunne ikke oppdatere henvendelsen');
@@ -85,6 +103,10 @@ export const FallbackRequests = () => {
       setSelectedRequest(null);
     }
   };
+
+  const displayedResolvedRequests = showAllResolved 
+    ? resolvedRequests 
+    : resolvedRequests.slice(0, 3);
   
   return (
     <>
@@ -92,34 +114,87 @@ export const FallbackRequests = () => {
         <CardHeader className="pb-2">
           <CardTitle className="text-xl font-montserrat">Henvendelser sendt til fallback</CardTitle>
           <CardDescription>
-            Henvendelser som er videresendt til menneskelig hjelp. Klikk på en henvendelse for å opprette en FAQ-oppføring.
+            Henvendelser som er videresendt til menneskelig hjelp. Klikk på en henvendelse for å opprette en Q&A-oppføring.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
-            <div className="space-y-2">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="flex flex-col gap-2 p-4">
-                  <Skeleton className="h-4 w-2/3" />
-                  <Skeleton className="h-4 w-full" />
+          <Tabs defaultValue="unresolved" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-4">
+              <TabsTrigger value="unresolved">Uløste henvendelser</TabsTrigger>
+              <TabsTrigger value="resolved">Løste henvendelser</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="unresolved">
+              {isLoading ? (
+                <div className="space-y-2">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="flex flex-col gap-2 p-4">
+                      <Skeleton className="h-4 w-2/3" />
+                      <Skeleton className="h-4 w-full" />
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          ) : fallbackRequests.length > 0 ? (
-            <div className="divide-y">
-              {fallbackRequests.map((request) => (
-                <FallbackRequestItem 
-                  key={request.id} 
-                  request={request} 
-                  onClick={() => handleRequestClick(request)} 
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              <p>Ingen uløste henvendelser til fallback</p>
-            </div>
-          )}
+              ) : fallbackRequests.length > 0 ? (
+                <div className="divide-y">
+                  {fallbackRequests.map((request) => (
+                    <FallbackRequestItem 
+                      key={request.id} 
+                      request={request} 
+                      onClick={() => handleRequestClick(request)} 
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>Ingen uløste henvendelser til fallback</p>
+                </div>
+              )}
+            </TabsContent>
+            
+            <TabsContent value="resolved">
+              {isLoading ? (
+                <div className="space-y-2">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="flex flex-col gap-2 p-4">
+                      <Skeleton className="h-4 w-2/3" />
+                      <Skeleton className="h-4 w-full" />
+                    </div>
+                  ))}
+                </div>
+              ) : resolvedRequests.length > 0 ? (
+                <>
+                  <div className="divide-y">
+                    {displayedResolvedRequests.map((request) => (
+                      <FallbackRequestItem 
+                        key={request.id} 
+                        request={request} 
+                        onClick={() => {}} // Resolved requests don't need to be clicked
+                        isResolved={true}
+                      />
+                    ))}
+                  </div>
+                  
+                  {resolvedRequests.length > 3 && (
+                    <Button 
+                      variant="ghost" 
+                      className="w-full mt-2 flex items-center justify-center gap-1" 
+                      onClick={() => setShowAllResolved(!showAllResolved)}
+                    >
+                      {showAllResolved ? (
+                        <>Vis færre <ChevronUp className="h-4 w-4" /></>
+                      ) : (
+                        <>Vis alle ({resolvedRequests.length}) <ChevronDown className="h-4 w-4" /></>
+                      )}
+                    </Button>
+                  )}
+                </>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>Ingen løste henvendelser til fallback</p>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
       
