@@ -48,7 +48,8 @@ const tabLabels: Record<TabName, string> = {
   organizations: "Organisasjoner",
   conversations: "Samtaler",
   knowledge: "Kunnskapsbase",
-  statistics: "Statistikk"
+  statistics: "Statistikk",
+  home: "Hjem"
 };
 
 export const MemberList = ({ members, onDeleteMember, organizationType }: MemberListProps) => {
@@ -164,6 +165,23 @@ export const MemberList = ({ members, onDeleteMember, organizationType }: Member
                           </div>
                         ) : (
                           <>
+                            <div className="flex items-center space-x-2">
+                              <Checkbox 
+                                id="home"
+                                checked={editingMember.tabs.includes("home")}
+                                onCheckedChange={(checked) => {
+                                  setEditingMember({
+                                    ...editingMember,
+                                    tabs: checked 
+                                      ? [...editingMember.tabs, "home"]
+                                      : editingMember.tabs.filter(t => t !== "home")
+                                  });
+                                }}
+                              />
+                              <Label htmlFor="home" className="font-medium">
+                                Hjem
+                              </Label>
+                            </div>
                             <div className="flex items-center space-x-2">
                               <Checkbox 
                                 id="conversations"
