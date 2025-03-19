@@ -1,7 +1,6 @@
-
 import { Loader } from "@/components/ui/loader";
 import { formatTime, filterDialog, formatText, containsIframe, extractIframeAndCleanText } from "@/utils/conversation-utils";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { MessageSquarePlus } from "lucide-react";
 import {
@@ -17,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface DialogMessage {
   type: string;
@@ -56,6 +56,7 @@ export const ConversationDialog = ({
 }: ConversationDialogProps) => {
   const { user } = useAuth();
   const dialogContainerRef = useRef<HTMLDivElement>(null);
+  const newestSessionRef = useRef<HTMLDivElement | null>(null);
   const [selectedMessages, setSelectedMessages] = useState<DialogMessage[]>([]);
   const [isQASheetOpen, setIsQASheetOpen] = useState(false);
   const [qaTitle, setQaTitle] = useState("");
@@ -65,8 +66,15 @@ export const ConversationDialog = ({
   });
   const [isSaving, setIsSaving] = useState(false);
 
+  useEffect(() => {
+    if (!isLoading && dialog.length > 0 && newestSessionRef.current) {
+      setTimeout(() => {
+        newestSessionRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+  }, [dialog, isLoading]);
+
   const toggleMessageSelection = (message: DialogMessage) => {
-    // Skip "launch" and "end" message types
     if (message.type === 'launch' || message.type === 'end') return;
 
     const alreadySelected = selectedMessages.some(
@@ -74,14 +82,11 @@ export const ConversationDialog = ({
     );
 
     if (alreadySelected) {
-      // Remove message from selection
       setSelectedMessages(selectedMessages.filter((msg) => msg !== message));
     } else {
-      // If we already have 2 messages selected, remove the first one
       if (selectedMessages.length >= 2) {
         setSelectedMessages([...selectedMessages.slice(1), message]);
       } else {
-        // Add message to selection
         setSelectedMessages([...selectedMessages, message]);
       }
     }
@@ -98,11 +103,9 @@ export const ConversationDialog = ({
   const openQASheet = () => {
     if (selectedMessages.length !== 2) return;
     
-    // Get the message text for both messages
     const questionMessage = selectedMessages[0].type === 'request' ? selectedMessages[0] : selectedMessages[1];
     const answerMessage = selectedMessages[0].type === 'text' ? selectedMessages[0] : selectedMessages[1];
     
-    // Extract the actual text
     const question = questionMessage.type === 'request' 
       ? (questionMessage.payload?.payload?.query || questionMessage.payload?.payload?.label || "")
       : "";
@@ -111,7 +114,6 @@ export const ConversationDialog = ({
       ? (answerMessage.payload?.payload?.message || "")
       : "";
     
-    // Clean the answer text to remove HTML
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = answer;
     const cleanedAnswer = tempDiv.textContent || tempDiv.innerText || "";
@@ -150,13 +152,11 @@ export const ConversationDialog = ({
         throw new Error('Mangler Voiceflow-legitimasjon');
       }
 
-      // Format title to ensure it has the Q&A suffix
       let formattedTitle = qaTitle.trim();
       if (!formattedTitle.endsWith("- Q&A")) {
         formattedTitle = `${formattedTitle} - Q&A`;
       }
 
-      // Check if a QA set with this title already exists
       const response = await fetch(
         `https://api.voiceflow.com/v1/knowledge-base/docs`,
         {
@@ -177,7 +177,6 @@ export const ConversationDialog = ({
         (doc: any) => doc.data.name === formattedTitle
       );
 
-      // Create payload for the API request
       const qaItems = [
         {
           question: qaPair.question.trim(),
@@ -201,7 +200,6 @@ export const ConversationDialog = ({
         })
       };
 
-      // If QA set exists, use overwrite parameter
       const endpoint = `https://api.voiceflow.com/v1/knowledge-base/docs/upload/table?overwrite=${existingQA ? 'true' : 'false'}`;
       
       const saveResponse = await fetch(endpoint, options);
@@ -221,12 +219,22 @@ export const ConversationDialog = ({
     }
   };
 
-  const renderMessage = (message: DialogMessage) => {
+  const filteredDialog = filterDialog(dialog);
+  const newestSessionIndex = filteredDialog
+    .map((msg, index) => msg.type === 'launch' ? index : -1)
+    .filter(index => index !== -1)
+    .pop();
+
+  const renderMessage = (message: DialogMessage, index: number) => {
     switch (message.type) {
       case 'launch':
+        const isNewestSession = index === newestSessionIndex;
         return (
-          <div className="flex justify-center my-4">
-            <div className="bg-gray-100 rounded-full px-4 py-1 text-xs text-gray-500">
+          <div 
+            className="flex justify-center my-4"
+            ref={isNewestSession ? newestSessionRef : null}
+          >
+            <div className={`bg-gray-100 rounded-full px-4 py-1 text-xs text-gray-500 ${isNewestSession ? 'bg-primary/10 font-medium' : ''}`}>
               Samtale startet - {message.startTime && formatTime(message.startTime)}
             </div>
           </div>
@@ -337,30 +345,31 @@ export const ConversationDialog = ({
 
   return (
     <div className="flex-1 bg-white flex flex-col h-screen relative">
-      <div 
-        ref={dialogContainerRef} 
-        className="flex-1 overflow-y-auto p-4"
+      <ScrollArea 
+        className="flex-1"
+        ref={dialogContainerRef}
       >
-        {isLoading ? (
-          <div className="h-full flex items-center justify-center">
-            <Loader size="lg" />
-          </div>
-        ) : !selectedConversation ? (
-          <div className="h-full flex items-center justify-center text-gray-500">
-            Velg en samtale for å se meldinger
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {filterDialog(dialog).map((message, index) => (
-              <div key={index}>
-                {renderMessage(message)}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+        <div className="p-4">
+          {isLoading ? (
+            <div className="h-full flex items-center justify-center">
+              <Loader size="lg" />
+            </div>
+          ) : !selectedConversation ? (
+            <div className="h-full flex items-center justify-center text-gray-500">
+              Velg en samtale for å se meldinger
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {filteredDialog.map((message, index) => (
+                <div key={index}>
+                  {renderMessage(message, index)}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </ScrollArea>
 
-      {/* Floating action button that appears when messages are selected */}
       {selectedMessages.length > 0 && (
         <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 bg-white shadow-lg rounded-full px-4 py-2 flex items-center gap-2">
           <span className="text-sm font-medium">
@@ -391,7 +400,6 @@ export const ConversationDialog = ({
         </div>
       )}
 
-      {/* Q&A Sheet */}
       <Sheet open={isQASheetOpen} onOpenChange={setIsQASheetOpen}>
         <SheetContent className="bg-cream w-[400px] sm:w-[540px] overflow-y-auto">
           <SheetHeader>
