@@ -61,6 +61,7 @@ export const Home = () => {
       
       <ServerStatus />
       
+      {/* Render FallbackRequests regardless of loading state */}
       <FallbackRequests />
     </div>
   );

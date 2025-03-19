@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Loader } from "@/components/ui/loader";
 import { PlusCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import { FallbackRequestItem } from "./FallbackRequestItem";
@@ -126,13 +127,9 @@ export const FallbackRequests = () => {
             
             <TabsContent value="unresolved">
               {isLoading ? (
-                <div className="space-y-2">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="flex flex-col gap-2 p-4">
-                      <Skeleton className="h-4 w-2/3" />
-                      <Skeleton className="h-4 w-full" />
-                    </div>
-                  ))}
+                <div className="flex flex-col items-center justify-center p-8">
+                  <Loader size="md" />
+                  <p className="text-muted-foreground mt-4">Laster henvendelser...</p>
                 </div>
               ) : fallbackRequests.length > 0 ? (
                 <div className="divide-y">
@@ -153,13 +150,9 @@ export const FallbackRequests = () => {
             
             <TabsContent value="resolved">
               {isLoading ? (
-                <div className="space-y-2">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="flex flex-col gap-2 p-4">
-                      <Skeleton className="h-4 w-2/3" />
-                      <Skeleton className="h-4 w-full" />
-                    </div>
-                  ))}
+                <div className="flex flex-col items-center justify-center p-8">
+                  <Loader size="md" />
+                  <p className="text-muted-foreground mt-4">Laster henvendelser...</p>
                 </div>
               ) : resolvedRequests.length > 0 ? (
                 <>
