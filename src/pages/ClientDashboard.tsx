@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from "react";
 import Sidebar from "../components/Sidebar";
 import { KnowledgeBase } from "@/components/KnowledgeBase";
@@ -39,6 +38,7 @@ const ClientDashboard = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
   const [loadedDialogs, setLoadedDialogs] = useState<Record<string, boolean>>({});
+  const [dialogCache, setDialogCache] = useState<Record<string, any[]>>({});
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
   const [preloadQueue, setPreloadQueue] = useState<string[]>([]);
@@ -97,16 +97,15 @@ const ClientDashboard = () => {
   const handleSelectConversation = useCallback((conversationId: string) => {
     setSelectedConversation(conversationId);
 
-    // If dialog is already loaded, we don't need to fetch it again
-    if (!loadedDialogs[conversationId]) {
-      setDialog([]);
-      setIsLoadingDialog(true);
-      fetchDialogById(conversationId);
-    } else {
-      // Get the cached dialog
-      fetchDialogById(conversationId, false);
+    if (dialogCache[conversationId]) {
+      setDialog(dialogCache[conversationId]);
+      return;
     }
-  }, [loadedDialogs]);
+
+    setDialog([]);
+    setIsLoadingDialog(true);
+    fetchDialogById(conversationId);
+  }, [dialogCache]);
 
   const fetchDialogById = async (conversationId: string, setLoading = true) => {
     if (!user?.organization_id) return;
@@ -138,12 +137,15 @@ const ClientDashboard = () => {
 
       const data = await response.json();
       
-      // If this is the currently selected conversation, update the dialog
+      setDialogCache(prev => ({
+        ...prev,
+        [conversationId]: data
+      }));
+      
       if (selectedConversation === conversationId) {
         setDialog(data);
       }
       
-      // Mark this dialog as loaded
       setLoadedDialogs(prev => ({
         ...prev,
         [conversationId]: true
@@ -168,21 +170,18 @@ const ClientDashboard = () => {
     try {
       const conversationId = preloadQueue[0];
       
-      // Skip if already loaded
-      if (!loadedDialogs[conversationId]) {
+      if (!dialogCache[conversationId]) {
         await fetchDialogById(conversationId, false);
       }
       
-      // Remove this conversation from the queue
       setPreloadQueue(prev => prev.slice(1));
     } catch (error) {
       console.error('Error in preload queue processing:', error);
     } finally {
       isPreloadingRef.current = false;
     }
-  }, [preloadQueue, loadedDialogs, fetchDialogById]);
+  }, [preloadQueue, dialogCache, fetchDialogById]);
 
-  // Process the preload queue whenever it changes
   useEffect(() => {
     processPreloadQueue();
   }, [preloadQueue, processPreloadQueue]);
@@ -276,20 +275,17 @@ const ClientDashboard = () => {
     fetchConversations();
   }, [user?.organization_id]);
 
-  // Update preload queue when visible conversations change
   useEffect(() => {
     if (activeTab !== "conversations" || conversations.length === 0) return;
     
-    // Get the current page of conversations
     const startIndex = (currentPage - 1) * itemsPerPage;
     const visibleConversations = conversations
       .slice(startIndex, startIndex + itemsPerPage)
       .map(conv => conv._id)
-      .filter(id => !loadedDialogs[id]);
+      .filter(id => !dialogCache[id]);
     
-    // Set the preload queue
     setPreloadQueue(visibleConversations);
-  }, [conversations, activeTab, currentPage, itemsPerPage, loadedDialogs]);
+  }, [conversations, activeTab, currentPage, itemsPerPage, dialogCache]);
 
   const showLoader = useMinimumLoading(isLoading);
   const showDialogLoader = useMinimumLoading(isLoadingDialog);

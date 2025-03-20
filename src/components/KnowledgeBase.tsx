@@ -732,6 +732,105 @@ export const KnowledgeBase = () => {
     }
   };
 
+  const saveQAPair = async () => {
+    if (!user?.organization_id) {
+      toast({
+        title: "Feil",
+        description: "Ingen organisasjon funnet. Kunne ikke lagre Q&A.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!qaTitle.trim() || !qaPair.question.trim() || !qaPair.answer.trim()) {
+      toast({
+        title: "Feil",
+        description: "Alle felt må fylles ut",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const { data: org, error: orgError } = await supabase
+        .from('organizations')
+        .select('voiceflow_api_key, voiceflow_project_id')
+        .eq('id', user.organization_id)
+        .single();
+
+      if (orgError) throw orgError;
+      if (!org.voiceflow_api_key || !org.voiceflow_project_id) {
+        throw new Error('Mangler Voiceflow-legitimasjon');
+      }
+
+      let formattedTitle = qaTitle.trim();
+      if (!formattedTitle.endsWith("- Q&A")) {
+        formattedTitle = `${formattedTitle} - Q&A`;
+      }
+
+      const response = await fetch(
+        `https://api.voiceflow.com/v1/knowledge-base/docs`,
+        {
+          method: 'GET',
+          headers: {
+            'accept': 'application/json',
+            'Authorization': org.voiceflow_api_key
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Kunne ikke sjekke for eksisterende Q&A');
+      }
+
+      const result = await response.json();
+      const existingQA = result.data.find(
+        (doc: any) => doc.data.name === formattedTitle
+      );
+
+      const qaItems = [
+        {
+          question: qaPair.question.trim(),
+          answer: qaPair.answer.trim()
+        }
+      ];
+
+      const options = {
+        method: 'POST',
+        headers: {
+          accept: 'application/json',
+          'content-type': 'application/json',
+          Authorization: org.voiceflow_api_key
+        },
+        body: JSON.stringify({
+          data: {
+            schema: { searchableFields: ['question', 'answer'] },
+            name: formattedTitle,
+            items: qaItems
+          }
+        })
+      };
+
+      const endpoint = `https://api.voiceflow.com/v1/knowledge-base/docs/upload/table?overwrite=${existingQA ? 'true' : 'false'}`;
+      
+      const saveResponse = await fetch(endpoint, options);
+
+      if (!saveResponse.ok) {
+        throw new Error('Kunne ikke lagre Q&A');
+      }
+
+      toast.success("Q&A ble lagret til kunnskapsbasen");
+      setIsQASheetOpen(false);
+    } catch (error) {
+      console.error('Error saving Q&A:', error);
+      toast.error(error instanceof Error ? error.message : "Kunne ikke lagre Q&A");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <div className="flex justify-between items-center mb-6">
@@ -875,253 +974,4 @@ export const KnowledgeBase = () => {
                     <Input
                       id="qa-title"
                       placeholder="Tittel på Q&A kilden (vil få '- Q&A' lagt til)"
-                      value={qaTitle}
-                      onChange={(e) => handleQATitleChange(e.target.value)}
-                      className={duplicateQATitleWarning ? "border-yellow-500" : ""}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      "- Q&A" vil automatisk legges til på slutten av tittelen for å identifisere kilden som en Q&A.
-                    </p>
-                    {duplicateQATitleWarning && (
-                      <p className="text-yellow-600 text-xs mt-1">
-                        NB! Det finnes allerede en FAQ-kilde med dette navnet. Hvis du fortsetter vil denne kilden bli overskrevet.
-                      </p>
-                    )}
-                  </div>
-                  
-                  <div className="overflow-y-auto max-h-[400px] pr-2">
-                    {qaPairs.map((pair, index) => (
-                      <div key={pair.id} className="space-y-3 p-4 border rounded-lg bg-gray-50 mb-4">
-                        <div className="flex justify-between items-center">
-                          <h4 className="font-medium">Spørsmål og svar #{index + 1}</h4>
-                          {qaPairs.length > 1 && (
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              onClick={() => removeQAPair(pair.id)}
-                              className="h-8 w-8 text-gray-500"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <Label htmlFor={`question-${pair.id}`}>Spørsmål:</Label>
-                          <Input
-                            id={`question-${pair.id}`}
-                            placeholder="Skriv inn spørsmål"
-                            value={pair.question}
-                            onChange={(e) => updateQAPair(pair.id, "question", e.target.value)}
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <Label htmlFor={`answer-${pair.id}`}>Svar:</Label>
-                          <Textarea
-                            id={`answer-${pair.id}`}
-                            placeholder="Skriv inn svar"
-                            value={pair.answer}
-                            onChange={(e) => updateQAPair(pair.id, "answer", e.target.value)}
-                            className="min-h-20 resize-y"
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  
-                  <div className="space-y-3">
-                    <Button 
-                      variant="outline" 
-                      className="w-full flex items-center gap-2" 
-                      onClick={addQAPair}
-                    >
-                      <Plus className="h-4 w-4" /> Legg til spørsmål og svar
-                    </Button>
-                    
-                    <Button 
-                      variant="outline"
-                      className="w-full flex items-center gap-2"
-                      onClick={() => setShowQABulkUpload(!showQABulkUpload)}
-                    >
-                      <Upload className="h-4 w-4" /> Last opp Q&A set
-                    </Button>
-                  </div>
-                  
-                  {showQABulkUpload && (
-                    <div className="space-y-3 p-4 border rounded-lg bg-gray-50">
-                      <div className="space-y-2">
-                        <Label htmlFor="bulk-qa-text">
-                          Legg inn Q&A i format:
-                          <code className="ml-2 p-1 bg-gray-200 rounded text-xs">
-                            question: Ditt spørsmål her; answer: Ditt svar her
-                          </code>
-                        </Label>
-                        <Textarea
-                          id="bulk-qa-text"
-                          placeholder="question: Hvordan endrer jeg språk på meldinger?; answer: Språket på e-poster kan ikke endres, de sendes kun på engelsk."
-                          value={bulkQAText}
-                          onChange={(e) => setBulkQAText(e.target.value)}
-                          className="min-h-32 resize-y font-mono text-sm"
-                        />
-                      </div>
-                      <Button 
-                        variant="outline"
-                        className="w-full"
-                        onClick={processBulkQAText}
-                        disabled={!bulkQAText.trim()}
-                      >
-                        Legg til
-                      </Button>
-                    </div>
-                  )}
-                  
-                  <Button 
-                    className="w-full bg-primary text-white" 
-                    disabled={!isQAFormValid || isLoading}
-                    onClick={handleSourceAdd}
-                  >
-                    {isLoading ? "Lagrer..." : "Lagre Q&A"}
-                  </Button>
-                </div>
-              )}
-            </div>
-          </SheetContent>
-        </Sheet>
-      </div>
-
-      <div className="flex gap-3 mb-6">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-          <Input
-            placeholder="Søk i kilder..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        
-        <div className="w-40">
-          <Select 
-            value={sourceTypeFilter} 
-            onValueChange={(value) => setSourceTypeFilter(value as SourceType)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Alle typer" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Alle typer</SelectItem>
-              <SelectItem value="url">URL</SelectItem>
-              <SelectItem value="file">Fil</SelectItem>
-              <SelectItem value="qa">Spørsmål & Svar</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {showLoader ? (
-        <div className="mt-8 flex justify-center">
-          <Loader size="lg" />
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {filteredSources.length > 0 ? (
-            filteredSources.map((source) => (
-              <div 
-                key={source.documentID}
-                className="bg-white rounded-lg border hover:border-primary/20 transition-colors"
-              >
-                <div className="flex items-center justify-between p-4">
-                  <div className="flex items-center gap-3">
-                    {getSourceIcon(source)}
-                    <div>
-                      <h3 className="font-medium text-gray-900">{source.data.name}</h3>
-                      <p className="text-sm text-gray-500">
-                        Oppdatert: {new Date(source.updatedAt).toLocaleDateString('no')}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleExpandSource(source.documentID)}
-                      className={cn(
-                        "transition-transform",
-                        expandedSourceId === source.documentID && "rotate-180"
-                      )}
-                    >
-                      <ChevronDown className="h-5 w-5 text-gray-400" />
-                    </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Er du sikker?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Dette vil permanent slette kilden fra kunnskapsbasen. Denne handlingen kan ikke angres.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Avbryt</AlertDialogCancel>
-                          <AlertDialogAction 
-                            onClick={async () => {
-                              try {
-                                await handleDelete(source.documentID);
-                              } catch (error) {
-                                console.error('Error in delete action:', error);
-                              }
-                            }}
-                            className="bg-red-500 hover:bg-red-600"
-                          >
-                            Slett
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                </div>
-
-                {expandedSourceId === source.documentID && (
-                  <div className="border-t px-4 py-3">
-                    {showChunksLoader ? (
-                      <div className="flex justify-center py-4">
-                        <Loader size="md" />
-                      </div>
-                    ) : chunks.length > 0 ? (
-                      <div className="space-y-4">
-                        {chunks.map((chunk) => (
-                          <div 
-                            key={chunk.chunkID}
-                            className="p-3 bg-gray-50 rounded-md"
-                          >
-                            <p className="text-sm text-gray-700 whitespace-pre-wrap">{chunk.content}</p>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-center text-gray-500 py-2">Ingen chunks funnet</p>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))
-          ) : (
-            <div className="text-center py-10 text-gray-500">
-              <p>Ingen kilder funnet</p>
-              <p className="text-sm mt-2">Legg til din første kilde ved å klikke på "Legg til kilde" knappen</p>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-};
+                      value
