@@ -1,7 +1,7 @@
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Bookmark, CheckCircle, ChevronLeft, ChevronRight, Clock, Search, Trash2 } from "lucide-react";
+import { Bookmark, CheckCircle, ChevronLeft, ChevronRight, Search, Trash2 } from "lucide-react";
 import { formatDate } from "@/utils/conversation-utils";
 import { Loader } from "@/components/ui/loader";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,13 @@ import {
   PaginationNext, 
   PaginationPrevious 
 } from "@/components/ui/pagination";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface VoiceflowTranscript {
   _id: string;
@@ -53,12 +60,12 @@ export const ConversationList = ({
 }: ConversationListProps) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
-  const itemsPerPage = 20;
+  const [itemsPerPage, setItemsPerPage] = useState(20);
 
   // Reset to page 1 when filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeFilter]);
+  }, [activeFilter, searchTerm, itemsPerPage]);
 
   const isConversationReviewed = (conv: VoiceflowTranscript) => {
     return conv.reportTags?.includes("system.reviewed") ?? false;
@@ -75,20 +82,17 @@ export const ConversationList = ({
   // Filter conversations based on search term
   const filteredConversations = useMemo(() => {
     return conversations.filter(conv => {
-      // First apply the active filter
-      const passesFilter = activeFilter === "all" ? true :
-        activeFilter === "approved" ? (conv.reportTags?.includes("system.reviewed") ?? false) :
-        (conv.reportTags?.includes("system.saved") ?? false);
-
-      if (!passesFilter) return false;
-
+      // Apply the active filter first
+      if (activeFilter === "approved" && !isConversationReviewed(conv)) return false;
+      if (activeFilter === "saved" && !isConversationSaved(conv)) return false;
+      
       // Then apply the search filter if there is a search term
       if (!searchTerm) return true;
       
       const searchLower = searchTerm.toLowerCase();
       const nameMatch = (conv.name || "Ukjent bruker").toLowerCase().includes(searchLower);
       const dateMatch = formatDate(conv.updatedAt).date.toLowerCase().includes(searchLower);
-      const deviceMatch = conv.device?.toLowerCase().includes(searchLower);
+      const deviceMatch = (conv.device || "").toLowerCase().includes(searchLower);
 
       return nameMatch || dateMatch || deviceMatch;
     });
@@ -279,31 +283,51 @@ export const ConversationList = ({
         )}
       </div>
 
-      {!collapsed && totalPages > 1 && (
-        <div className="p-2 border-t border-gray-200">
-          <Pagination>
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious 
-                  onClick={handlePrevPage} 
-                  className={currentPage === 1 ? "opacity-50 cursor-not-allowed" : ""}
-                  aria-disabled={currentPage === 1}
-                />
-              </PaginationItem>
-              <PaginationItem>
-                <span className="text-sm">
-                  Side {currentPage} av {totalPages}
-                </span>
-              </PaginationItem>
-              <PaginationItem>
-                <PaginationNext 
-                  onClick={handleNextPage} 
-                  className={currentPage === totalPages ? "opacity-50 cursor-not-allowed" : ""}
-                  aria-disabled={currentPage === totalPages}
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
+      {!collapsed && (
+        <div className="p-4 border-t border-gray-200">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm text-gray-500">Resultater per side:</span>
+            <Select 
+              value={String(itemsPerPage)} 
+              onValueChange={(value) => setItemsPerPage(Number(value))}
+            >
+              <SelectTrigger className="w-[100px]">
+                <SelectValue placeholder="20" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="20">20</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+                <SelectItem value="100">100</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          {totalPages > 1 && (
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious 
+                    onClick={handlePrevPage} 
+                    className={currentPage === 1 ? "opacity-50 cursor-not-allowed" : ""}
+                    aria-disabled={currentPage === 1}
+                  />
+                </PaginationItem>
+                <PaginationItem>
+                  <span className="text-sm">
+                    Side {currentPage} av {totalPages}
+                  </span>
+                </PaginationItem>
+                <PaginationItem>
+                  <PaginationNext 
+                    onClick={handleNextPage} 
+                    className={currentPage === totalPages ? "opacity-50 cursor-not-allowed" : ""}
+                    aria-disabled={currentPage === totalPages}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          )}
         </div>
       )}
     </div>
