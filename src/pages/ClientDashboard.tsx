@@ -43,6 +43,7 @@ const ClientDashboard = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
   const [preloadingTimerRef, setPreloadingTimerRef] = useState<NodeJS.Timeout | null>(null);
+  const [knowledgeBaseId, setKnowledgeBaseId] = useState<string>("");
 
   const {
     dialogCache,
@@ -53,6 +54,30 @@ const ClientDashboard = () => {
   } = useDialogPreloader({
     organizationId: user?.organization_id
   });
+
+  useEffect(() => {
+    const fetchKnowledgeBaseId = async () => {
+      if (!user?.organization_id) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('organizations')
+          .select('knowledge_base_id')
+          .eq('id', user.organization_id)
+          .single();
+
+        if (error) throw error;
+        
+        if (data && data.knowledge_base_id) {
+          setKnowledgeBaseId(data.knowledge_base_id);
+        }
+      } catch (error) {
+        console.error('Error fetching knowledge base ID:', error);
+      }
+    };
+
+    fetchKnowledgeBaseId();
+  }, [user?.organization_id]);
 
   const toggleTag = async (conversationId: string, tag: "system.saved" | "system.reviewed") => {
     if (!user?.organization_id) return;
@@ -381,7 +406,7 @@ const ClientDashboard = () => {
           </div>
         )}
         {activeTab === "knowledge" && (
-          <KnowledgeBase />
+          <KnowledgeBase knowledgeBaseId={knowledgeBaseId} />
         )}
         {activeTab === "statistics" && <Statistics />}
       </div>

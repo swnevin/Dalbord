@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -54,19 +53,24 @@ const Sidebar = ({ role, onTabChange, activeTab }: SidebarProps) => {
 
         if (error) throw error;
 
-        const tabs = data.map(item => item.tab_name as TabName);
-        setPermittedTabs(tabs);
+        if (data && data.length > 0) {
+          const tabs = data.map(item => item.tab_name as TabName);
+          setPermittedTabs(tabs);
 
-        if (tabs.length > 0 && !tabs.includes(activeTab as TabName)) {
-          onTabChange(tabs[0]);
+          if (tabs.length > 0 && !tabs.includes(activeTab as TabName)) {
+            onTabChange(tabs[0]);
+          }
+        } else {
+          setPermittedTabs(allLinks.map(link => link.value));
         }
       } catch (error) {
         console.error('Error fetching tab permissions:', error);
+        setPermittedTabs(allLinks.map(link => link.value));
       }
     };
 
     fetchPermittedTabs();
-  }, [user, activeTab, onTabChange]);
+  }, [user, activeTab, onTabChange, allLinks]);
 
   const links = allLinks.filter(link => permittedTabs.includes(link.value));
 
