@@ -19,9 +19,14 @@ interface VoiceflowTranscript {
   device: string;
   sessionID: string;
   reportTags: string[];
+  isDialogPreloaded?: boolean;
   user?: {
     name: string;
   };
+}
+
+interface DialogCache {
+  [key: string]: any[];
 }
 
 type FilterType = "all" | "approved" | "saved";
@@ -34,6 +39,7 @@ const ClientDashboard = () => {
   const [conversationsCollapsed, setConversationsCollapsed] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [dialog, setDialog] = useState<any[]>([]);
+  const [dialogCache, setDialogCache] = useState<DialogCache>({});
   const [isLoadingDialog, setIsLoadingDialog] = useState(false);
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -127,6 +133,15 @@ const ClientDashboard = () => {
         prevConversations.filter(conv => conv._id !== conversationToDelete)
       );
       
+      // Also remove from dialog cache if it exists
+      if (dialogCache[conversationToDelete]) {
+        setDialogCache(prev => {
+          const newCache = { ...prev };
+          delete newCache[conversationToDelete];
+          return newCache;
+        });
+      }
+      
       toast.success('Samtalen ble slettet');
     } catch (error: any) {
       console.error('Error deleting conversation:', error);
@@ -137,22 +152,10 @@ const ClientDashboard = () => {
     }
   };
 
-  // Handle conversation selection and immediately trigger loading state
-  const handleConversationSelect = (id: string) => {
-    // Set the selected conversation immediately
-    setSelectedConversation(id);
-    // Reset dialog data to ensure loading state shows up
-    setDialog([]);
-    // Set loading state to true immediately
-    setIsLoadingDialog(true);
-    // Then fetch the dialog data
-    fetchDialog(id);
-  };
-
-  // Separate function to fetch dialog data
-  const fetchDialog = async (conversationId: string) => {
-    if (!conversationId || !user?.organization_id) return;
-
+  // Preload dialogs for the 10 most recent conversations
+  const preloadRecentConversations = async (recentConversations: VoiceflowTranscript[]) => {
+    if (!user?.organization_id) return;
+    
     try {
       const { data: org, error: orgError } = await supabase
         .from('organizations')
@@ -166,25 +169,67 @@ const ClientDashboard = () => {
         return;
       }
 
-      const response = await fetch(
-        `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}/${conversationId}`,
-        {
-          headers: {
-            accept: 'application/json',
-            Authorization: org.voiceflow_api_key,
-          },
+      // Take the 10 most recent conversations to preload
+      const conversationsToPreload = recentConversations
+        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+        .slice(0, 10);
+      
+      // Create a new cache object
+      const newCache: DialogCache = { ...dialogCache };
+      const updatedConversations = [...conversations];
+      
+      // Fetch each conversation's dialog and add to cache
+      for (const conv of conversationsToPreload) {
+        try {
+          // Skip if already in cache
+          if (dialogCache[conv._id]) {
+            // Mark as preloaded in conversations list
+            const convIndex = updatedConversations.findIndex(c => c._id === conv._id);
+            if (convIndex >= 0) {
+              updatedConversations[convIndex] = {
+                ...updatedConversations[convIndex],
+                isDialogPreloaded: true
+              };
+            }
+            continue;
+          }
+          
+          const response = await fetch(
+            `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}/${conv._id}`,
+            {
+              headers: {
+                accept: 'application/json',
+                Authorization: org.voiceflow_api_key,
+              },
+            }
+          );
+
+          if (response.ok) {
+            const data = await response.json();
+            newCache[conv._id] = data;
+            
+            // Mark as preloaded in conversations list
+            const convIndex = updatedConversations.findIndex(c => c._id === conv._id);
+            if (convIndex >= 0) {
+              updatedConversations[convIndex] = {
+                ...updatedConversations[convIndex],
+                isDialogPreloaded: true
+              };
+            }
+          }
+        } catch (error) {
+          console.error(`Error preloading dialog for conversation ${conv._id}:`, error);
         }
-      );
-
-      if (!response.ok) throw new Error('Failed to fetch dialog');
-
-      const data = await response.json();
-      setDialog(data);
+      }
+      
+      // Update the dialog cache with all new dialogs
+      setDialogCache(newCache);
+      
+      // Update conversations with preloaded flags
+      setConversations(updatedConversations);
+      
     } catch (error) {
-      console.error('Error fetching dialog:', error);
-      toast.error('Kunne ikke laste inn samtalen');
-    } finally {
-      setIsLoadingDialog(false);
+      console.error('Error preloading dialogs:', error);
     }
   };
 
@@ -219,6 +264,11 @@ const ClientDashboard = () => {
 
         const data = await response.json();
         setConversations(data);
+        
+        // Preload recent conversations
+        if (data.length > 0) {
+          preloadRecentConversations(data);
+        }
       } catch (error) {
         console.error('Error fetching conversations:', error);
       } finally {
@@ -230,11 +280,59 @@ const ClientDashboard = () => {
   }, [user?.organization_id]);
 
   useEffect(() => {
-    // Load dialog when selected conversation changes
-    if (selectedConversation) {
-      fetchDialog(selectedConversation);
-    }
-  }, []); // intentionally empty to avoid refetching when component remounts
+    const fetchDialog = async () => {
+      if (!selectedConversation || !user?.organization_id) return;
+
+      setIsLoadingDialog(true);
+      try {
+        // Check if dialog is already in cache
+        if (dialogCache[selectedConversation]) {
+          setDialog(dialogCache[selectedConversation]);
+          setIsLoadingDialog(false);
+          return;
+        }
+        
+        const { data: org, error: orgError } = await supabase
+          .from('organizations')
+          .select('voiceflow_api_key, voiceflow_project_id')
+          .eq('id', user.organization_id)
+          .single();
+
+        if (orgError) throw orgError;
+        if (!org.voiceflow_api_key || !org.voiceflow_project_id) {
+          console.error('Missing Voiceflow credentials');
+          return;
+        }
+
+        const response = await fetch(
+          `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}/${selectedConversation}`,
+          {
+            headers: {
+              accept: 'application/json',
+              Authorization: org.voiceflow_api_key,
+            },
+          }
+        );
+
+        if (!response.ok) throw new Error('Failed to fetch dialog');
+
+        const data = await response.json();
+        setDialog(data);
+        
+        // Update the dialog cache
+        setDialogCache(prev => ({
+          ...prev,
+          [selectedConversation]: data
+        }));
+      } catch (error) {
+        console.error('Error fetching dialog:', error);
+      } finally {
+        setIsLoadingDialog(false);
+      }
+    };
+
+    fetchDialog();
+  }, [selectedConversation, user?.organization_id, dialogCache]);
 
   const showLoader = useMinimumLoading(isLoading);
   const showDialogLoader = useMinimumLoading(isLoadingDialog);
@@ -267,7 +365,7 @@ const ClientDashboard = () => {
               selectedId={selectedConversation}
               isLoading={showLoader}
               onCollapsedChange={setConversationsCollapsed}
-              onConversationSelect={handleConversationSelect}
+              onConversationSelect={setSelectedConversation}
               onToggleTag={toggleTag}
               onDeleteClick={handleDeleteClick}
               activeFilter={activeFilter}

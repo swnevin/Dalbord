@@ -15,6 +15,7 @@ interface VoiceflowTranscript {
   user?: {
     name: string;
   };
+  isDialogPreloaded?: boolean;
 }
 
 interface ConversationListProps {
@@ -48,12 +49,6 @@ export const ConversationList = ({
 
   const isConversationSaved = (conv: VoiceflowTranscript) => {
     return conv.reportTags?.includes("system.saved") ?? false;
-  };
-
-  // Handle immediate selection with visual feedback
-  const handleConversationSelect = (id: string) => {
-    // Call the parent handler immediately to update state and trigger loading
-    onConversationSelect(id);
   };
 
   return (
@@ -126,7 +121,7 @@ export const ConversationList = ({
               <div className="flex justify-between items-start">
                 <div 
                   className="flex-1"
-                  onClick={() => handleConversationSelect(conv._id)}
+                  onClick={() => onConversationSelect(conv._id)}
                 >
                   {collapsed ? (
                     <div className="text-center">
@@ -136,12 +131,19 @@ export const ConversationList = ({
                     </div>
                   ) : (
                     <>
-                      <h3 className={cn(
-                        "font-medium",
-                        selectedId === conv._id ? "text-primary" : "text-gray-700"
-                      )}>
-                        {conv.name || "Ukjent bruker"}
-                      </h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className={cn(
+                          "font-medium",
+                          selectedId === conv._id ? "text-primary" : "text-gray-700"
+                        )}>
+                          {conv.name || "Ukjent bruker"}
+                        </h3>
+                        {conv.isDialogPreloaded && (
+                          <span className="text-green-500" title="Dialog forhåndslastet">
+                            <Clock className="h-3.5 w-3.5" />
+                          </span>
+                        )}
+                      </div>
                       <div className="mt-1 flex justify-between items-center">
                         <span className="text-xs text-gray-500 capitalize">
                           {conv.device}
