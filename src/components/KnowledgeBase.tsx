@@ -732,53 +732,6 @@ export const KnowledgeBase = () => {
     }
   };
 
-  const handleCreateQAPairs = async () => {
-    if (qaPairs.length === 0 || !user?.organization_id) {
-      toast.error("Vennligst legg til minst ett spørsmål og svar-par.");
-      return;
-    }
-    setIsCreating(true);
-    try {
-      const { data: org, error: orgError } = await supabase
-        .from('organizations')
-        .select('voiceflow_api_key, voiceflow_project_id')
-        .eq('id', user.organization_id)
-        .single();
-
-      if (orgError) throw orgError;
-      if (!org.voiceflow_api_key || !org.voiceflow_project_id) {
-        throw new Error('Mangler Voiceflow-legitimasjon');
-      }
-
-      const jsonBlob = new Blob([JSON.stringify({ items: qaPairs })], { 
-        type: 'application/json' 
-      });
-      
-      const formData = new FormData();
-      formData.append("file", jsonBlob, "qa_pairs.json");
-
-      const response = await fetch(`https://api.voiceflow.com/v1/knowledge-base/docs/upload/table`, {
-        method: 'POST',
-        headers: {
-          Authorization: org.voiceflow_api_key
-        },
-        body: formData
-      });
-
-      if (!response.ok) {
-        throw new Error('Kunne ikke opprette Q&A-par');
-      }
-
-      toast.success("Q&A-par ble opprettet i kunnskapsbasen");
-      setQaPairs([]);
-    } catch (error) {
-      console.error('Error creating Q&A pairs:', error);
-      toast.error(error.message || 'Kunne ikke opprette Q&A-par');
-    } finally {
-      setIsCreating(false);
-    }
-  };
-
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <div className="flex justify-between items-center mb-6">
@@ -1026,7 +979,7 @@ export const KnowledgeBase = () => {
                   <Button 
                     className="w-full bg-primary text-white" 
                     disabled={!isQAFormValid || isLoading}
-                    onClick={handleCreateQAPairs}
+                    onClick={handleSourceAdd}
                   >
                     {isLoading ? "Lagrer..." : "Lagre Q&A"}
                   </Button>
