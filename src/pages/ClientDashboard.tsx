@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
+
+import { useState, useEffect, useCallback, useRef } from "react";
 import Sidebar from "../components/Sidebar";
 import { KnowledgeBase } from "@/components/KnowledgeBase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -37,6 +38,11 @@ const ClientDashboard = () => {
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
+  const [loadedDialogs, setLoadedDialogs] = useState<Record<string, boolean>>({});
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [preloadQueue, setPreloadQueue] = useState<string[]>([]);
+  const isPreloadingRef = useRef(false);
 
   const toggleTag = async (conversationId: string, tag: "system.saved" | "system.reviewed") => {
     if (!user?.organization_id) return;
@@ -90,9 +96,96 @@ const ClientDashboard = () => {
 
   const handleSelectConversation = useCallback((conversationId: string) => {
     setSelectedConversation(conversationId);
-    setDialog([]);
-    setIsLoadingDialog(true);
-  }, []);
+
+    // If dialog is already loaded, we don't need to fetch it again
+    if (!loadedDialogs[conversationId]) {
+      setDialog([]);
+      setIsLoadingDialog(true);
+      fetchDialogById(conversationId);
+    } else {
+      // Get the cached dialog
+      fetchDialogById(conversationId, false);
+    }
+  }, [loadedDialogs]);
+
+  const fetchDialogById = async (conversationId: string, setLoading = true) => {
+    if (!user?.organization_id) return;
+    
+    try {
+      const { data: org, error: orgError } = await supabase
+        .from('organizations')
+        .select('voiceflow_api_key, voiceflow_project_id')
+        .eq('id', user.organization_id)
+        .single();
+
+      if (orgError) throw orgError;
+      if (!org.voiceflow_api_key || !org.voiceflow_project_id) {
+        console.error('Missing Voiceflow credentials');
+        return;
+      }
+
+      const response = await fetch(
+        `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}/${conversationId}`,
+        {
+          headers: {
+            accept: 'application/json',
+            Authorization: org.voiceflow_api_key,
+          },
+        }
+      );
+
+      if (!response.ok) throw new Error('Failed to fetch dialog');
+
+      const data = await response.json();
+      
+      // If this is the currently selected conversation, update the dialog
+      if (selectedConversation === conversationId) {
+        setDialog(data);
+      }
+      
+      // Mark this dialog as loaded
+      setLoadedDialogs(prev => ({
+        ...prev,
+        [conversationId]: true
+      }));
+    } catch (error) {
+      console.error('Error fetching dialog:', error);
+      if (selectedConversation === conversationId) {
+        toast.error('Kunne ikke laste inn samtale');
+      }
+    } finally {
+      if (setLoading && selectedConversation === conversationId) {
+        setIsLoadingDialog(false);
+      }
+    }
+  };
+
+  const processPreloadQueue = useCallback(async () => {
+    if (isPreloadingRef.current || preloadQueue.length === 0) return;
+    
+    isPreloadingRef.current = true;
+    
+    try {
+      const conversationId = preloadQueue[0];
+      
+      // Skip if already loaded
+      if (!loadedDialogs[conversationId]) {
+        await fetchDialogById(conversationId, false);
+      }
+      
+      // Remove this conversation from the queue
+      setPreloadQueue(prev => prev.slice(1));
+    } catch (error) {
+      console.error('Error in preload queue processing:', error);
+    } finally {
+      isPreloadingRef.current = false;
+    }
+  }, [preloadQueue, loadedDialogs, fetchDialogById]);
+
+  // Process the preload queue whenever it changes
+  useEffect(() => {
+    processPreloadQueue();
+  }, [preloadQueue, processPreloadQueue]);
 
   const handleDeleteClick = (conversationId: string) => {
     setConversationToDelete(conversationId);
@@ -183,47 +276,20 @@ const ClientDashboard = () => {
     fetchConversations();
   }, [user?.organization_id]);
 
+  // Update preload queue when visible conversations change
   useEffect(() => {
-    const fetchDialog = async () => {
-      if (!selectedConversation || !user?.organization_id) return;
-      
-      try {
-        const { data: org, error: orgError } = await supabase
-          .from('organizations')
-          .select('voiceflow_api_key, voiceflow_project_id')
-          .eq('id', user.organization_id)
-          .single();
-
-        if (orgError) throw orgError;
-        if (!org.voiceflow_api_key || !org.voiceflow_project_id) {
-          console.error('Missing Voiceflow credentials');
-          return;
-        }
-
-        const response = await fetch(
-          `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}/${selectedConversation}`,
-          {
-            headers: {
-              accept: 'application/json',
-              Authorization: org.voiceflow_api_key,
-            },
-          }
-        );
-
-        if (!response.ok) throw new Error('Failed to fetch dialog');
-
-        const data = await response.json();
-        setDialog(data);
-      } catch (error) {
-        console.error('Error fetching dialog:', error);
-        toast.error('Kunne ikke laste inn samtale');
-      } finally {
-        setIsLoadingDialog(false);
-      }
-    };
-
-    fetchDialog();
-  }, [selectedConversation, user?.organization_id]);
+    if (activeTab !== "conversations" || conversations.length === 0) return;
+    
+    // Get the current page of conversations
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const visibleConversations = conversations
+      .slice(startIndex, startIndex + itemsPerPage)
+      .map(conv => conv._id)
+      .filter(id => !loadedDialogs[id]);
+    
+    // Set the preload queue
+    setPreloadQueue(visibleConversations);
+  }, [conversations, activeTab, currentPage, itemsPerPage, loadedDialogs]);
 
   const showLoader = useMinimumLoading(isLoading);
   const showDialogLoader = useMinimumLoading(isLoadingDialog);
@@ -255,6 +321,7 @@ const ClientDashboard = () => {
               collapsed={conversationsCollapsed}
               selectedId={selectedConversation}
               isLoading={showLoader}
+              loadedDialogs={loadedDialogs}
               onCollapsedChange={setConversationsCollapsed}
               onConversationSelect={handleSelectConversation}
               onToggleTag={toggleTag}

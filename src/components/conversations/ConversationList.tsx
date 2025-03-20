@@ -1,7 +1,7 @@
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Bookmark, CheckCircle, ChevronLeft, ChevronRight, Search, Trash2 } from "lucide-react";
+import { Bookmark, CheckCircle, ChevronLeft, ChevronRight, Search, Trash2, CheckSquare } from "lucide-react";
 import { formatDate } from "@/utils/conversation-utils";
 import { Loader } from "@/components/ui/loader";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 
 interface VoiceflowTranscript {
   _id: string;
@@ -39,6 +40,7 @@ interface ConversationListProps {
   collapsed: boolean;
   selectedId: string | null;
   isLoading: boolean;
+  loadedDialogs: Record<string, boolean>;
   onCollapsedChange: (collapsed: boolean) => void;
   onConversationSelect: (id: string) => void;
   onToggleTag: (id: string, tag: "system.saved" | "system.reviewed") => void;
@@ -52,6 +54,7 @@ export const ConversationList = ({
   collapsed,
   selectedId,
   isLoading,
+  loadedDialogs,
   onCollapsedChange,
   onConversationSelect,
   onToggleTag,
@@ -208,12 +211,26 @@ export const ConversationList = ({
               onClick={() => handleConversationClick(conv._id)}
             >
               <div className="flex justify-between items-start">
-                <div className="flex-1">
+                <div className="flex-1 relative">
+                  {loadedDialogs[conv._id] && !collapsed && (
+                    <Badge 
+                      variant="outline" 
+                      className="absolute -left-2 -top-2 bg-green-100 border-green-200 text-green-700 p-0.5"
+                    >
+                      <CheckSquare className="h-3 w-3" />
+                    </Badge>
+                  )}
+                  
                   {collapsed ? (
                     <div className="text-center">
                       <span className="font-medium">
                         {conv.name ? conv.name.charAt(0) : "U"}
                       </span>
+                      {loadedDialogs[conv._id] && (
+                        <div className="absolute -right-1 -top-1">
+                          <CheckSquare className="h-3 w-3 text-green-500" />
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <>
@@ -312,7 +329,9 @@ export const ConversationList = ({
                     onClick={handlePrevPage} 
                     className={currentPage === 1 ? "opacity-50 cursor-not-allowed" : ""}
                     aria-disabled={currentPage === 1}
-                  />
+                  >
+                    Forrige
+                  </PaginationPrevious>
                 </PaginationItem>
                 <PaginationItem>
                   <span className="text-sm">
@@ -324,7 +343,9 @@ export const ConversationList = ({
                     onClick={handleNextPage} 
                     className={currentPage === totalPages ? "opacity-50 cursor-not-allowed" : ""}
                     aria-disabled={currentPage === totalPages}
-                  />
+                  >
+                    Neste
+                  </PaginationNext>
                 </PaginationItem>
               </PaginationContent>
             </Pagination>
