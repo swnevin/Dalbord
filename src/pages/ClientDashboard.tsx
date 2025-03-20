@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import Sidebar from "../components/Sidebar";
 import KnowledgeBase from "@/components/KnowledgeBase";
@@ -39,7 +38,7 @@ const ClientDashboard = () => {
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
-  const [searchInContent, setSearchInContent] = useState(true); // Default to true now
+  const [searchInContent, setSearchInContent] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
@@ -117,7 +116,6 @@ const ClientDashboard = () => {
       setIsLoadingDialog(true);
     }
     
-    // Set up a timer to continue preloading after a short delay
     if (preloadingTimerRef) {
       clearTimeout(preloadingTimerRef);
     }
@@ -201,7 +199,6 @@ const ClientDashboard = () => {
     setSearchTerm(term);
   }, []);
 
-  // Filter conversations based on filter type and search term
   const filteredConversations = useCallback(() => {
     return conversations.filter(conv => {
       if (activeFilter === "saved" && !conv.reportTags?.includes("system.saved")) return false;
@@ -224,14 +221,12 @@ const ClientDashboard = () => {
     });
   }, [conversations, searchTerm, activeFilter, searchInContent, isConversationPreloaded, searchInDialogContent]);
 
-  // Get paginated conversations for the current page
   const getPaginatedConversations = useCallback((page: number, itemsPerPage: number) => {
     const filtered = filteredConversations();
     const startIndex = (page - 1) * itemsPerPage;
     return filtered.slice(startIndex, startIndex + itemsPerPage);
   }, [filteredConversations]);
 
-  // Effect for preloading conversations on tab/page change
   useEffect(() => {
     if (activeTab === "conversations") {
       const visibleConversations = getPaginatedConversations(currentPage, itemsPerPage);
@@ -241,7 +236,6 @@ const ClientDashboard = () => {
       }
     }
     
-    // Cleanup timer when changing tabs
     return () => {
       if (preloadingTimerRef) {
         clearTimeout(preloadingTimerRef);
@@ -339,7 +333,6 @@ const ClientDashboard = () => {
     fetchDialog();
   }, [selectedConversation, user?.organization_id, getCachedDialog, preloadConversations]);
 
-  // Clean up timer on unmount
   useEffect(() => {
     return () => {
       if (preloadingTimerRef) {

@@ -1,13 +1,14 @@
+
 import React, { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Button } from "@/components/ui/button"
-import { toast } from "@/components/ui/use-toast"
+import { toast } from "sonner"
 
 interface Props {
-    knowledgeBaseId: string;
+    knowledgeBaseId?: string; // Make this prop optional by adding the ? mark
 }
  
-const KnowledgeBase = ({ knowledgeBaseId }: Props) => {
+const KnowledgeBase = ({ knowledgeBaseId = "" }: Props) => {
     const [isCreating, setIsCreating] = useState(false);
     const onDrop = useCallback(acceptedFiles => {
         acceptedFiles.forEach(async (file) => {
@@ -18,7 +19,7 @@ const KnowledgeBase = ({ knowledgeBaseId }: Props) => {
                     const base64String = reader.result?.toString();
 
                     if (!base64String) {
-                        toast({ variant: "destructive", title: "Error", description: "Failed to convert file to base64" });
+                        toast.error("Feil: Kunne ikke konvertere filen til base64");
                         return;
                     }
 
@@ -49,19 +50,19 @@ const KnowledgeBase = ({ knowledgeBaseId }: Props) => {
                     });
 
                     if (response.ok) {
-                        toast({ title: "Success", description: "File uploaded successfully!" });
+                        toast.success("Filen ble lastet opp!");
                     } else {
-                        toast({ variant: "destructive", title: "Error", description: "Failed to upload file." });
+                        toast.error("Kunne ikke laste opp filen.");
                     }
                 };
                 reader.onerror = () => {
-                    toast({ variant: "destructive", title: "Error", description: "Failed to read the file." });
+                    toast.error("Kunne ikke lese filen.");
                 };
 
                 reader.readAsDataURL(file);
             } catch (error) {
                 console.error("Upload error:", error);
-                toast({ variant: "destructive", title: "Error", description: "An unexpected error occurred." });
+                toast.error("En uventet feil oppstod.");
             }
         })
 
@@ -69,16 +70,19 @@ const KnowledgeBase = ({ knowledgeBaseId }: Props) => {
     const {getRootProps, getInputProps, isDragActive} = useDropzone({onDrop})
 
     return (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 p-6 max-w-4xl mx-auto">
+            <h1 className="text-2xl font-bold mb-4">Kunnskapsbase</h1>
+            <p className="mb-6 text-gray-600">Last opp dokumenter til din kunnskapsbase for å forbedre chatbotens svar.</p>
+            
             <div {...getRootProps()} className="w-full h-48 p-4 border-2 border-dashed rounded-md flex items-center justify-center bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900 cursor-pointer">
                 <input {...getInputProps()} />
                 {
                     isDragActive ?
-                        <p>Drop the files here ...</p> :
-                        <p>Drag 'n' drop some files here, or click to select files</p>
+                        <p>Slipp filene her ...</p> :
+                        <p>Dra filer hit, eller klikk for å velge filer</p>
                 }
             </div>
-            <Button onClick={() => setIsCreating(true)}>Create</Button>
+            <Button onClick={() => setIsCreating(true)}>Opprett</Button>
         </div>
     )
 }
