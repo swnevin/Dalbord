@@ -10,7 +10,6 @@ import { ConversationDialog } from "@/components/conversations/ConversationDialo
 import { DeleteDialog } from "@/components/conversations/DeleteDialog";
 import { Statistics } from "@/components/statistics/Statistics";
 import { Home } from "@/components/home/Home";
-import { useDialogPreloader } from "@/hooks/use-dialog-preloader";
 
 interface VoiceflowTranscript {
   _id: string;
@@ -38,16 +37,6 @@ const ClientDashboard = () => {
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
-  const [itemsPerPage, setItemsPerPage] = useState(20);
-  const [searchInDialogs, setSearchInDialogs] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-
-  const { 
-    dialogCache, 
-    fetchDialog, 
-    clearCache, 
-    currentlyLoading 
-  } = useDialogPreloader(conversations, user?.organization_id, itemsPerPage);
 
   const toggleTag = async (conversationId: string, tag: "system.saved" | "system.reviewed") => {
     if (!user?.organization_id) return;
@@ -99,28 +88,11 @@ const ClientDashboard = () => {
     }
   };
 
-  const handleSelectConversation = useCallback(async (conversationId: string) => {
+  const handleSelectConversation = useCallback((conversationId: string) => {
     setSelectedConversation(conversationId);
     setDialog([]);
     setIsLoadingDialog(true);
-    
-    try {
-      if (dialogCache[conversationId]?.status === "loaded") {
-        setDialog(dialogCache[conversationId].dialog);
-        setIsLoadingDialog(false);
-      } else {
-        const dialogData = await fetchDialog(conversationId, true);
-        if (dialogData) {
-          setDialog(dialogData);
-        }
-        setIsLoadingDialog(false);
-      }
-    } catch (error) {
-      console.error("Error selecting conversation:", error);
-      setIsLoadingDialog(false);
-      toast.error("Kunne ikke laste samtalen");
-    }
-  }, [dialogCache, fetchDialog]);
+  }, []);
 
   const handleDeleteClick = (conversationId: string) => {
     setConversationToDelete(conversationId);
@@ -203,7 +175,6 @@ const ClientDashboard = () => {
         setConversations(data);
       } catch (error) {
         console.error('Error fetching conversations:', error);
-        toast.error("Kunne ikke laste samtaler");
       } finally {
         setIsLoading(false);
       }
@@ -213,10 +184,46 @@ const ClientDashboard = () => {
   }, [user?.organization_id]);
 
   useEffect(() => {
-    if (activeTab !== "conversations") {
-      clearCache();
-    }
-  }, [activeTab, clearCache]);
+    const fetchDialog = async () => {
+      if (!selectedConversation || !user?.organization_id) return;
+      
+      try {
+        const { data: org, error: orgError } = await supabase
+          .from('organizations')
+          .select('voiceflow_api_key, voiceflow_project_id')
+          .eq('id', user.organization_id)
+          .single();
+
+        if (orgError) throw orgError;
+        if (!org.voiceflow_api_key || !org.voiceflow_project_id) {
+          console.error('Missing Voiceflow credentials');
+          return;
+        }
+
+        const response = await fetch(
+          `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}/${selectedConversation}`,
+          {
+            headers: {
+              accept: 'application/json',
+              Authorization: org.voiceflow_api_key,
+            },
+          }
+        );
+
+        if (!response.ok) throw new Error('Failed to fetch dialog');
+
+        const data = await response.json();
+        setDialog(data);
+      } catch (error) {
+        console.error('Error fetching dialog:', error);
+        toast.error('Kunne ikke laste inn samtale');
+      } finally {
+        setIsLoadingDialog(false);
+      }
+    };
+
+    fetchDialog();
+  }, [selectedConversation, user?.organization_id]);
 
   const showLoader = useMinimumLoading(isLoading);
   const showDialogLoader = useMinimumLoading(isLoadingDialog);
@@ -254,17 +261,11 @@ const ClientDashboard = () => {
               onDeleteClick={handleDeleteClick}
               activeFilter={activeFilter}
               onFilterChange={setActiveFilter}
-              dialogCache={dialogCache}
-              currentlyLoading={currentlyLoading}
-              searchInDialogs={searchInDialogs}
-              onSearchInDialogsChange={setSearchInDialogs}
             />
             <ConversationDialog
               isLoading={showDialogLoader}
               selectedConversation={selectedConversation}
               dialog={dialog}
-              dialogCache={dialogCache}
-              searchTerm={searchTerm}
             />
           </div>
         )}

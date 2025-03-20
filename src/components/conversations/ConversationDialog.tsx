@@ -1,7 +1,7 @@
 
 import { Loader } from "@/components/ui/loader";
 import { formatTime, filterDialog, formatText, containsIframe, extractIframeAndCleanText } from "@/utils/conversation-utils";
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { MessageSquarePlus } from "lucide-react";
 import {
@@ -44,30 +44,16 @@ interface DialogMessage {
   startTime?: string;
 }
 
-interface DialogCacheEntry {
-  dialog: DialogMessage[];
-  loadedAt: number;
-  status: "loading" | "loaded" | "error";
-}
-
-interface DialogCache {
-  [conversationId: string]: DialogCacheEntry;
-}
-
 interface ConversationDialogProps {
   isLoading: boolean;
   selectedConversation: string | null;
   dialog: DialogMessage[];
-  dialogCache?: DialogCache;
-  searchTerm?: string;
 }
 
 export const ConversationDialog = ({ 
   isLoading, 
   selectedConversation, 
-  dialog,
-  dialogCache = {},
-  searchTerm = ""
+  dialog 
 }: ConversationDialogProps) => {
   const { user } = useAuth();
   const dialogContainerRef = useRef<HTMLDivElement>(null);
@@ -81,25 +67,13 @@ export const ConversationDialog = ({
   });
   const [isSaving, setIsSaving] = useState(false);
 
-  // Use cached dialog data if available
-  const effectiveDialog = useMemo(() => {
-    if (selectedConversation && dialogCache[selectedConversation]?.status === "loaded") {
-      return dialogCache[selectedConversation].dialog;
-    }
-    return dialog;
-  }, [selectedConversation, dialog, dialogCache]);
-
-  // Determine if we should show loading state
-  const showLoading = isLoading || 
-    (selectedConversation && dialogCache[selectedConversation]?.status === "loading");
-
   useEffect(() => {
-    if (!showLoading && effectiveDialog.length > 0 && newestSessionRef.current) {
+    if (!isLoading && dialog.length > 0 && newestSessionRef.current) {
       setTimeout(() => {
         newestSessionRef.current?.scrollIntoView({ behavior: 'smooth' });
       }, 100);
     }
-  }, [effectiveDialog, showLoading]);
+  }, [dialog, isLoading]);
 
   const toggleMessageSelection = (message: DialogMessage) => {
     if (message.type === 'launch' || message.type === 'end') return;
@@ -246,15 +220,7 @@ export const ConversationDialog = ({
     }
   };
 
-  // Helper to highlight search matches in text
-  const highlightMatches = (text: string) => {
-    if (!searchTerm || !text) return text;
-    
-    const regex = new RegExp(`(${searchTerm})`, 'gi');
-    return text.replace(regex, '<mark class="bg-yellow-200">$1</mark>');
-  };
-
-  const filteredDialog = filterDialog(effectiveDialog);
+  const filteredDialog = filterDialog(dialog);
   const newestSessionIndex = filteredDialog
     .map((msg, index) => msg.type === 'launch' ? index : -1)
     .filter(index => index !== -1)
@@ -291,12 +257,7 @@ export const ConversationDialog = ({
           ? extractIframeAndCleanText(messageText)
           : { cleanText: messageText, iframeSrc: null };
         
-        let formattedText = formatText(cleanText);
-        
-        // Apply highlighting if there's a search term
-        if (searchTerm) {
-          formattedText = highlightMatches(formattedText);
-        }
+        const formattedText = formatText(cleanText);
 
         return (
           <div 
@@ -360,26 +321,18 @@ export const ConversationDialog = ({
       case 'request':
         const query = message.payload?.payload?.query;
         const label = message.payload?.payload?.label;
-        let userText = query || label;
-        
+        const userText = query || label;
         if (!userText) return null;
-        
-        // Apply highlighting if there's a search term
-        if (searchTerm) {
-          userText = highlightMatches(userText);
-        }
-        
         return (
           <div 
             className={`flex flex-col items-end gap-1 my-2 ${isMessageSelected(message) ? 'message-selected' : ''}`}
             onClick={() => toggleMessageSelection(message)}
           >
             <div className="flex items-end gap-2 max-w-[80%]">
-              <div 
-                className={`bg-secondary text-secondary-foreground p-3 rounded-2xl rounded-br-none transition-all 
-                  ${isMessageSelected(message) ? 'ring-2 ring-primary ring-offset-2' : 'hover:ring-1 hover:ring-primary/50 hover:ring-offset-1'}`}
-                dangerouslySetInnerHTML={{ __html: userText }}
-              />
+              <div className={`bg-secondary text-secondary-foreground p-3 rounded-2xl rounded-br-none transition-all 
+                ${isMessageSelected(message) ? 'ring-2 ring-primary ring-offset-2' : 'hover:ring-1 hover:ring-primary/50 hover:ring-offset-1'}`}>
+                {userText}
+              </div>
             </div>
             <span className="text-xs text-gray-500 mr-2">
               {message.startTime && formatTime(message.startTime)}
@@ -398,7 +351,7 @@ export const ConversationDialog = ({
         ref={dialogContainerRef}
       >
         <div className="p-4">
-          {showLoading ? (
+          {isLoading ? (
             <div className="h-full flex flex-col items-center justify-center">
               <Loader size="lg" />
               <p className="mt-4 text-gray-500 text-sm">Laster samtale...</p>
