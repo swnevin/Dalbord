@@ -1,7 +1,7 @@
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Bookmark, CheckCircle, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
+import { Bookmark, CheckCircle, ChevronLeft, ChevronRight, Clock, Trash2 } from "lucide-react";
 import { formatDate } from "@/utils/conversation-utils";
 import { Loader } from "@/components/ui/loader";
 
@@ -48,6 +48,12 @@ export const ConversationList = ({
 
   const isConversationSaved = (conv: VoiceflowTranscript) => {
     return conv.reportTags?.includes("system.saved") ?? false;
+  };
+
+  // Handle immediate selection with visual feedback
+  const handleConversationSelect = (id: string) => {
+    // Call the parent handler immediately to update state and trigger loading
+    onConversationSelect(id);
   };
 
   return (
@@ -120,7 +126,7 @@ export const ConversationList = ({
               <div className="flex justify-between items-start">
                 <div 
                   className="flex-1"
-                  onClick={() => onConversationSelect(conv._id)}
+                  onClick={() => handleConversationSelect(conv._id)}
                 >
                   {collapsed ? (
                     <div className="text-center">

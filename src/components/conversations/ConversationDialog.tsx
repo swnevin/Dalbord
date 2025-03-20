@@ -1,3 +1,4 @@
+
 import { Loader } from "@/components/ui/loader";
 import { formatTime, filterDialog, formatText, containsIframe, extractIframeAndCleanText } from "@/utils/conversation-utils";
 import { useEffect, useRef, useState } from "react";
@@ -351,12 +352,17 @@ export const ConversationDialog = ({
       >
         <div className="p-4">
           {isLoading ? (
-            <div className="h-full flex items-center justify-center">
+            <div className="flex flex-col items-center justify-center h-[calc(100vh-100px)]">
               <Loader size="lg" />
+              <p className="mt-4 text-gray-500 animate-pulse">Laster samtale...</p>
             </div>
           ) : !selectedConversation ? (
             <div className="h-full flex items-center justify-center text-gray-500">
               Velg en samtale for å se meldinger
+            </div>
+          ) : dialog.length === 0 ? (
+            <div className="h-full flex items-center justify-center text-gray-500">
+              Ingen meldinger funnet i denne samtalen
             </div>
           ) : (
             <div className="space-y-4">

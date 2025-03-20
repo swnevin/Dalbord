@@ -137,6 +137,57 @@ const ClientDashboard = () => {
     }
   };
 
+  // Handle conversation selection and immediately trigger loading state
+  const handleConversationSelect = (id: string) => {
+    // Set the selected conversation immediately
+    setSelectedConversation(id);
+    // Reset dialog data to ensure loading state shows up
+    setDialog([]);
+    // Set loading state to true immediately
+    setIsLoadingDialog(true);
+    // Then fetch the dialog data
+    fetchDialog(id);
+  };
+
+  // Separate function to fetch dialog data
+  const fetchDialog = async (conversationId: string) => {
+    if (!conversationId || !user?.organization_id) return;
+
+    try {
+      const { data: org, error: orgError } = await supabase
+        .from('organizations')
+        .select('voiceflow_api_key, voiceflow_project_id')
+        .eq('id', user.organization_id)
+        .single();
+
+      if (orgError) throw orgError;
+      if (!org.voiceflow_api_key || !org.voiceflow_project_id) {
+        console.error('Missing Voiceflow credentials');
+        return;
+      }
+
+      const response = await fetch(
+        `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}/${conversationId}`,
+        {
+          headers: {
+            accept: 'application/json',
+            Authorization: org.voiceflow_api_key,
+          },
+        }
+      );
+
+      if (!response.ok) throw new Error('Failed to fetch dialog');
+
+      const data = await response.json();
+      setDialog(data);
+    } catch (error) {
+      console.error('Error fetching dialog:', error);
+      toast.error('Kunne ikke laste inn samtalen');
+    } finally {
+      setIsLoadingDialog(false);
+    }
+  };
+
   useEffect(() => {
     const fetchConversations = async () => {
       if (!user?.organization_id) return;
@@ -179,46 +230,11 @@ const ClientDashboard = () => {
   }, [user?.organization_id]);
 
   useEffect(() => {
-    const fetchDialog = async () => {
-      if (!selectedConversation || !user?.organization_id) return;
-
-      setIsLoadingDialog(true);
-      try {
-        const { data: org, error: orgError } = await supabase
-          .from('organizations')
-          .select('voiceflow_api_key, voiceflow_project_id')
-          .eq('id', user.organization_id)
-          .single();
-
-        if (orgError) throw orgError;
-        if (!org.voiceflow_api_key || !org.voiceflow_project_id) {
-          console.error('Missing Voiceflow credentials');
-          return;
-        }
-
-        const response = await fetch(
-          `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}/${selectedConversation}`,
-          {
-            headers: {
-              accept: 'application/json',
-              Authorization: org.voiceflow_api_key,
-            },
-          }
-        );
-
-        if (!response.ok) throw new Error('Failed to fetch dialog');
-
-        const data = await response.json();
-        setDialog(data);
-      } catch (error) {
-        console.error('Error fetching dialog:', error);
-      } finally {
-        setIsLoadingDialog(false);
-      }
-    };
-
-    fetchDialog();
-  }, [selectedConversation, user?.organization_id]);
+    // Load dialog when selected conversation changes
+    if (selectedConversation) {
+      fetchDialog(selectedConversation);
+    }
+  }, []); // intentionally empty to avoid refetching when component remounts
 
   const showLoader = useMinimumLoading(isLoading);
   const showDialogLoader = useMinimumLoading(isLoadingDialog);
@@ -251,7 +267,7 @@ const ClientDashboard = () => {
               selectedId={selectedConversation}
               isLoading={showLoader}
               onCollapsedChange={setConversationsCollapsed}
-              onConversationSelect={setSelectedConversation}
+              onConversationSelect={handleConversationSelect}
               onToggleTag={toggleTag}
               onDeleteClick={handleDeleteClick}
               activeFilter={activeFilter}
