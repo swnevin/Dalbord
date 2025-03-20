@@ -36,6 +36,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader } from "@/components/ui/loader";
 import { useMinimumLoading } from "@/hooks/use-minimum-loading";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 type SourceType = "url" | "file" | "qa" | "all";
 
@@ -95,6 +96,9 @@ export const KnowledgeBase = () => {
   const [chunks, setChunks] = useState<Chunk[]>([]);
   const [isLoadingChunks, setIsLoadingChunks] = useState(false);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [isQASheetOpen, setIsQASheetOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [qaPair, setQaPair] = useState({ question: "", answer: "", id: crypto.randomUUID() });
   
   const [selectedSourceType, setSelectedSourceType] = useState<"url" | "file" | "text" | "qa">("url");
   
@@ -207,6 +211,10 @@ export const KnowledgeBase = () => {
     }
   }, [fileTitle, file, sources, selectedSourceType]);
 
+  useEffect(() => {
+    fetchSources();
+  }, [user?.organization_id]);
+
   const fetchSources = async () => {
     if (!user?.organization_id) return;
 
@@ -268,10 +276,6 @@ export const KnowledgeBase = () => {
       setIsLoading(false);
     }
   };
-
-  useEffect(() => {
-    fetchSources();
-  }, [user?.organization_id]);
 
   const handleDelete = async (documentId: string) => {
     if (!user?.organization_id) {
@@ -821,11 +825,18 @@ export const KnowledgeBase = () => {
         throw new Error('Kunne ikke lagre Q&A');
       }
 
-      toast.success("Q&A ble lagret til kunnskapsbasen");
+      toast({
+        title: "Suksess",
+        description: "Q&A ble lagret til kunnskapsbasen"
+      });
       setIsQASheetOpen(false);
     } catch (error) {
       console.error('Error saving Q&A:', error);
-      toast.error(error instanceof Error ? error.message : "Kunne ikke lagre Q&A");
+      toast({
+        title: "Feil",
+        description: error instanceof Error ? error.message : "Kunne ikke lagre Q&A",
+        variant: "destructive"
+      });
     } finally {
       setIsSaving(false);
     }
@@ -961,17 +972,4 @@ export const KnowledgeBase = () => {
                   />
                   <Button 
                     className="w-full" 
-                    disabled={!rawText || !!textFileNameError || isLoading}
-                    onClick={handleSourceAdd}
-                  >
-                    {isLoading ? "Laster opp..." : "Last opp tekst"}
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="qa-title">Tittel</Label>
-                    <Input
-                      id="qa-title"
-                      placeholder="Tittel på Q&A kilden (vil få '- Q&A' lagt til)"
-                      value
+                    disabled={!rawText || !!textFileNameError || isLoading
