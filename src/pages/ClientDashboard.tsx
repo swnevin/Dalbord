@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Sidebar from "../components/Sidebar";
-import { KnowledgeBase } from "@/components/KnowledgeBase";
+import KnowledgeBase from "@/components/KnowledgeBase";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useMinimumLoading } from "@/hooks/use-minimum-loading";
