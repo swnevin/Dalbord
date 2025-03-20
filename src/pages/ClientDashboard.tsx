@@ -19,9 +19,14 @@ interface VoiceflowTranscript {
   device: string;
   sessionID: string;
   reportTags: string[];
+  isDialogPreloaded?: boolean;
   user?: {
     name: string;
   };
+}
+
+interface DialogCache {
+  [key: string]: any[];
 }
 
 type FilterType = "all" | "approved" | "saved";
@@ -34,6 +39,7 @@ const ClientDashboard = () => {
   const [conversationsCollapsed, setConversationsCollapsed] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [dialog, setDialog] = useState<any[]>([]);
+  const [dialogCache, setDialogCache] = useState<DialogCache>({});
   const [isLoadingDialog, setIsLoadingDialog] = useState(false);
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -127,6 +133,15 @@ const ClientDashboard = () => {
         prevConversations.filter(conv => conv._id !== conversationToDelete)
       );
       
+      // Also remove from dialog cache if it exists
+      if (dialogCache[conversationToDelete]) {
+        setDialogCache(prev => {
+          const newCache = { ...prev };
+          delete newCache[conversationToDelete];
+          return newCache;
+        });
+      }
+      
       toast.success('Samtalen ble slettet');
     } catch (error: any) {
       console.error('Error deleting conversation:', error);
@@ -134,6 +149,87 @@ const ClientDashboard = () => {
     } finally {
       setDeleteDialogOpen(false);
       setConversationToDelete(null);
+    }
+  };
+
+  // Preload dialogs for the 10 most recent conversations
+  const preloadRecentConversations = async (recentConversations: VoiceflowTranscript[]) => {
+    if (!user?.organization_id) return;
+    
+    try {
+      const { data: org, error: orgError } = await supabase
+        .from('organizations')
+        .select('voiceflow_api_key, voiceflow_project_id')
+        .eq('id', user.organization_id)
+        .single();
+
+      if (orgError) throw orgError;
+      if (!org.voiceflow_api_key || !org.voiceflow_project_id) {
+        console.error('Missing Voiceflow credentials');
+        return;
+      }
+
+      // Take the 10 most recent conversations to preload
+      const conversationsToPreload = recentConversations
+        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+        .slice(0, 10);
+      
+      // Create a new cache object
+      const newCache: DialogCache = { ...dialogCache };
+      const updatedConversations = [...conversations];
+      
+      // Fetch each conversation's dialog and add to cache
+      for (const conv of conversationsToPreload) {
+        try {
+          // Skip if already in cache
+          if (dialogCache[conv._id]) {
+            // Mark as preloaded in conversations list
+            const convIndex = updatedConversations.findIndex(c => c._id === conv._id);
+            if (convIndex >= 0) {
+              updatedConversations[convIndex] = {
+                ...updatedConversations[convIndex],
+                isDialogPreloaded: true
+              };
+            }
+            continue;
+          }
+          
+          const response = await fetch(
+            `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}/${conv._id}`,
+            {
+              headers: {
+                accept: 'application/json',
+                Authorization: org.voiceflow_api_key,
+              },
+            }
+          );
+
+          if (response.ok) {
+            const data = await response.json();
+            newCache[conv._id] = data;
+            
+            // Mark as preloaded in conversations list
+            const convIndex = updatedConversations.findIndex(c => c._id === conv._id);
+            if (convIndex >= 0) {
+              updatedConversations[convIndex] = {
+                ...updatedConversations[convIndex],
+                isDialogPreloaded: true
+              };
+            }
+          }
+        } catch (error) {
+          console.error(`Error preloading dialog for conversation ${conv._id}:`, error);
+        }
+      }
+      
+      // Update the dialog cache with all new dialogs
+      setDialogCache(newCache);
+      
+      // Update conversations with preloaded flags
+      setConversations(updatedConversations);
+      
+    } catch (error) {
+      console.error('Error preloading dialogs:', error);
     }
   };
 
@@ -168,6 +264,11 @@ const ClientDashboard = () => {
 
         const data = await response.json();
         setConversations(data);
+        
+        // Preload recent conversations
+        if (data.length > 0) {
+          preloadRecentConversations(data);
+        }
       } catch (error) {
         console.error('Error fetching conversations:', error);
       } finally {
@@ -184,6 +285,13 @@ const ClientDashboard = () => {
 
       setIsLoadingDialog(true);
       try {
+        // Check if dialog is already in cache
+        if (dialogCache[selectedConversation]) {
+          setDialog(dialogCache[selectedConversation]);
+          setIsLoadingDialog(false);
+          return;
+        }
+        
         const { data: org, error: orgError } = await supabase
           .from('organizations')
           .select('voiceflow_api_key, voiceflow_project_id')
@@ -210,6 +318,12 @@ const ClientDashboard = () => {
 
         const data = await response.json();
         setDialog(data);
+        
+        // Update the dialog cache
+        setDialogCache(prev => ({
+          ...prev,
+          [selectedConversation]: data
+        }));
       } catch (error) {
         console.error('Error fetching dialog:', error);
       } finally {
@@ -218,7 +332,7 @@ const ClientDashboard = () => {
     };
 
     fetchDialog();
-  }, [selectedConversation, user?.organization_id]);
+  }, [selectedConversation, user?.organization_id, dialogCache]);
 
   const showLoader = useMinimumLoading(isLoading);
   const showDialogLoader = useMinimumLoading(isLoadingDialog);

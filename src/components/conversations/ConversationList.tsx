@@ -1,7 +1,7 @@
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Bookmark, CheckCircle, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
+import { Bookmark, CheckCircle, ChevronLeft, ChevronRight, Clock, Trash2 } from "lucide-react";
 import { formatDate } from "@/utils/conversation-utils";
 import { Loader } from "@/components/ui/loader";
 
@@ -15,6 +15,7 @@ interface VoiceflowTranscript {
   user?: {
     name: string;
   };
+  isDialogPreloaded?: boolean;
 }
 
 interface ConversationListProps {
@@ -130,12 +131,19 @@ export const ConversationList = ({
                     </div>
                   ) : (
                     <>
-                      <h3 className={cn(
-                        "font-medium",
-                        selectedId === conv._id ? "text-primary" : "text-gray-700"
-                      )}>
-                        {conv.name || "Ukjent bruker"}
-                      </h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className={cn(
+                          "font-medium",
+                          selectedId === conv._id ? "text-primary" : "text-gray-700"
+                        )}>
+                          {conv.name || "Ukjent bruker"}
+                        </h3>
+                        {conv.isDialogPreloaded && (
+                          <span className="text-green-500" title="Dialog forhåndslastet">
+                            <Clock className="h-3.5 w-3.5" />
+                          </span>
+                        )}
+                      </div>
                       <div className="mt-1 flex justify-between items-center">
                         <span className="text-xs text-gray-500 capitalize">
                           {conv.device}
