@@ -1,9 +1,18 @@
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Bookmark, CheckCircle, ChevronLeft, ChevronRight, Clock, Trash2 } from "lucide-react";
+import { Bookmark, CheckCircle, ChevronLeft, ChevronRight, Clock, Search, Trash2 } from "lucide-react";
 import { formatDate } from "@/utils/conversation-utils";
 import { Loader } from "@/components/ui/loader";
+import { Input } from "@/components/ui/input";
+import { useState, useEffect, useMemo } from "react";
+import { 
+  Pagination, 
+  PaginationContent, 
+  PaginationItem, 
+  PaginationNext, 
+  PaginationPrevious 
+} from "@/components/ui/pagination";
 
 interface VoiceflowTranscript {
   _id: string;
@@ -42,6 +51,15 @@ export const ConversationList = ({
   activeFilter,
   onFilterChange,
 }: ConversationListProps) => {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState("");
+  const itemsPerPage = 20;
+
+  // Reset to page 1 when filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeFilter]);
+
   const isConversationReviewed = (conv: VoiceflowTranscript) => {
     return conv.reportTags?.includes("system.reviewed") ?? false;
   };
@@ -54,18 +72,60 @@ export const ConversationList = ({
     onConversationSelect(id);
   };
 
+  // Filter conversations based on search term
+  const filteredConversations = useMemo(() => {
+    return conversations.filter(conv => {
+      // First apply the active filter
+      const passesFilter = activeFilter === "all" ? true :
+        activeFilter === "approved" ? (conv.reportTags?.includes("system.reviewed") ?? false) :
+        (conv.reportTags?.includes("system.saved") ?? false);
+
+      if (!passesFilter) return false;
+
+      // Then apply the search filter if there is a search term
+      if (!searchTerm) return true;
+      
+      const searchLower = searchTerm.toLowerCase();
+      const nameMatch = (conv.name || "Ukjent bruker").toLowerCase().includes(searchLower);
+      const dateMatch = formatDate(conv.updatedAt).date.toLowerCase().includes(searchLower);
+      const deviceMatch = conv.device?.toLowerCase().includes(searchLower);
+
+      return nameMatch || dateMatch || deviceMatch;
+    });
+  }, [conversations, searchTerm, activeFilter]);
+
+  // Paginate conversations
+  const paginatedConversations = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredConversations.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredConversations, currentPage, itemsPerPage]);
+
+  const totalPages = Math.ceil(filteredConversations.length / itemsPerPage);
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(prev => prev + 1);
+    }
+  };
+
+  const handlePrevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(prev => prev - 1);
+    }
+  };
+
   return (
     <div className={cn(
-      "border-r border-gray-200 bg-white transition-all duration-300",
+      "border-r border-gray-200 bg-white transition-all duration-300 flex flex-col",
       collapsed ? "w-20" : "w-96"
     )}>
-      <div className="p-4 border-b border-gray-200">
-        <div className="flex items-center justify-between mb-4">
+      <div className="p-4 border-b border-gray-200 flex flex-col gap-4">
+        <div className="flex items-center justify-between">
           <h2 className={cn(
             "text-xl font-semibold text-primary",
             collapsed ? "hidden" : "text-primary"
           )}>
-            Samtaler ({conversations.length})
+            Samtaler ({filteredConversations.length})
           </h2>
           <Button
             variant="ghost"
@@ -78,40 +138,59 @@ export const ConversationList = ({
         </div>
         
         {!collapsed && (
-          <div className="flex gap-2">
-            <Button
-              variant={activeFilter === "all" ? "secondary" : "outline"}
-              onClick={() => onFilterChange("all")}
-              className="flex-1"
-            >
-              Alle samtaler
-            </Button>
-            <Button
-              variant={activeFilter === "approved" ? "secondary" : "outline"}
-              onClick={() => onFilterChange("approved")}
-              className="flex-1"
-            >
-              Gjennomgåtte
-            </Button>
-            <Button
-              variant={activeFilter === "saved" ? "secondary" : "outline"}
-              onClick={() => onFilterChange("saved")}
-              className="flex-1"
-            >
-              Lagrede
-            </Button>
-          </div>
+          <>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+              <Input
+                type="text"
+                placeholder="Søk etter navn, dato..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant={activeFilter === "all" ? "secondary" : "outline"}
+                onClick={() => onFilterChange("all")}
+                className="flex-1"
+              >
+                Alle samtaler
+              </Button>
+              <Button
+                variant={activeFilter === "approved" ? "secondary" : "outline"}
+                onClick={() => onFilterChange("approved")}
+                className="flex-1"
+              >
+                Gjennomgåtte
+              </Button>
+              <Button
+                variant={activeFilter === "saved" ? "secondary" : "outline"}
+                onClick={() => onFilterChange("saved")}
+                className="flex-1"
+              >
+                Lagrede
+              </Button>
+            </div>
+          </>
         )}
       </div>
 
-      <div className="overflow-auto h-[calc(100vh-144px)]">
+      <div className="overflow-auto flex-1">
         {isLoading ? (
           <div className="h-full flex flex-col items-center justify-center">
-            <Loader size="lg" />
-            <p className="mt-4 text-gray-500 text-sm">Laster samtaler...</p>
+            <Loader size="lg" text="Laster samtaler..." />
+          </div>
+        ) : paginatedConversations.length === 0 ? (
+          <div className="h-full flex flex-col items-center justify-center p-4 text-center text-gray-500">
+            {searchTerm ? (
+              <p>Ingen samtaler matchet søket ditt.</p>
+            ) : (
+              <p>Ingen samtaler funnet for gjeldende filter.</p>
+            )}
           </div>
         ) : (
-          conversations.map((conv) => (
+          paginatedConversations.map((conv) => (
             <div
               key={conv._id}
               className={cn(
@@ -199,6 +278,34 @@ export const ConversationList = ({
           ))
         )}
       </div>
+
+      {!collapsed && totalPages > 1 && (
+        <div className="p-2 border-t border-gray-200">
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious 
+                  onClick={handlePrevPage} 
+                  className={currentPage === 1 ? "opacity-50 cursor-not-allowed" : ""}
+                  aria-disabled={currentPage === 1}
+                />
+              </PaginationItem>
+              <PaginationItem>
+                <span className="text-sm">
+                  Side {currentPage} av {totalPages}
+                </span>
+              </PaginationItem>
+              <PaginationItem>
+                <PaginationNext 
+                  onClick={handleNextPage} 
+                  className={currentPage === totalPages ? "opacity-50 cursor-not-allowed" : ""}
+                  aria-disabled={currentPage === totalPages}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      )}
     </div>
   );
 };
