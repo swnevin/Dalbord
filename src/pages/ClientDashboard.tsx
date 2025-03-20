@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import Sidebar from "../components/Sidebar";
 import { KnowledgeBase } from "@/components/KnowledgeBase";
@@ -40,6 +41,8 @@ const ClientDashboard = () => {
   const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
   const [searchInContent, setSearchInContent] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
 
   const {
     dialogCache,
@@ -170,12 +173,45 @@ const ClientDashboard = () => {
     setSearchTerm(term);
   }, []);
 
+  // Filter conversations based on filter type and search term
+  const filteredConversations = useCallback(() => {
+    return conversations.filter(conv => {
+      if (activeFilter === "saved" && !conv.reportTags?.includes("system.saved")) return false;
+      if (activeFilter === "approved" && !conv.reportTags?.includes("system.reviewed")) return false;
+      
+      if (!searchTerm) return true;
+      
+      const searchLower = searchTerm.toLowerCase();
+      
+      const nameMatch = (conv.name || "Ukjent bruker").toLowerCase().includes(searchLower);
+      const dateMatch = conv.updatedAt.toLowerCase().includes(searchLower);
+      const deviceMatch = (conv.device || "").toLowerCase().includes(searchLower);
+      
+      if (searchInContent && isConversationPreloaded(conv._id)) {
+        return nameMatch || dateMatch || deviceMatch || 
+               searchInDialogContent(searchTerm, conv._id);
+      }
+      
+      return nameMatch || dateMatch || deviceMatch;
+    });
+  }, [conversations, searchTerm, activeFilter, searchInContent, isConversationPreloaded, searchInDialogContent]);
+
+  // Get paginated conversations for the current page
+  const getPaginatedConversations = useCallback((page: number, itemsPerPage: number) => {
+    const filtered = filteredConversations();
+    const startIndex = (page - 1) * itemsPerPage;
+    return filtered.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredConversations]);
+
   useEffect(() => {
-    if (activeTab === "conversations" && paginatedConversations && paginatedConversations.length > 0) {
-      const conversationIds = paginatedConversations.map(conv => conv._id);
-      preloadConversations(conversationIds);
+    if (activeTab === "conversations") {
+      const visibleConversations = getPaginatedConversations(currentPage, itemsPerPage);
+      if (visibleConversations.length > 0) {
+        const conversationIds = visibleConversations.map(conv => conv._id);
+        preloadConversations(conversationIds);
+      }
     }
-  }, [activeTab, paginatedConversations, preloadConversations]);
+  }, [activeTab, currentPage, itemsPerPage, getPaginatedConversations, preloadConversations]);
 
   useEffect(() => {
     const fetchConversations = async () => {
@@ -269,34 +305,6 @@ const ClientDashboard = () => {
   const showLoader = useMinimumLoading(isLoading);
   const showDialogLoader = useMinimumLoading(isLoadingDialog);
 
-  const filteredConversations = useCallback(() => {
-    return conversations.filter(conv => {
-      if (activeFilter === "saved" && !conv.reportTags?.includes("system.saved")) return false;
-      if (activeFilter === "approved" && !conv.reportTags?.includes("system.reviewed")) return false;
-      
-      if (!searchTerm) return true;
-      
-      const searchLower = searchTerm.toLowerCase();
-      
-      const nameMatch = (conv.name || "Ukjent bruker").toLowerCase().includes(searchLower);
-      const dateMatch = conv.updatedAt.toLowerCase().includes(searchLower);
-      const deviceMatch = (conv.device || "").toLowerCase().includes(searchLower);
-      
-      if (searchInContent && isConversationPreloaded(conv._id)) {
-        return nameMatch || dateMatch || deviceMatch || 
-               searchInDialogContent(searchTerm, conv._id);
-      }
-      
-      return nameMatch || dateMatch || deviceMatch;
-    });
-  }, [conversations, searchTerm, activeFilter, searchInContent, isConversationPreloaded, searchInDialogContent]);
-
-  const paginatedConversations = useCallback((page: number, itemsPerPage: number) => {
-    const filtered = filteredConversations();
-    const startIndex = (page - 1) * itemsPerPage;
-    return filtered.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredConversations]);
-
   return (
     <div className="flex h-screen bg-cream">
       <Sidebar 
@@ -324,7 +332,7 @@ const ClientDashboard = () => {
               onToggleSearchInContent={handleToggleSearchInContent}
               searchTerm={searchTerm}
               onSearchTermChange={handleSearchTermChange}
-              getPaginatedConversations={paginatedConversations}
+              getPaginatedConversations={getPaginatedConversations}
             />
             <ConversationDialog
               isLoading={showDialogLoader}
