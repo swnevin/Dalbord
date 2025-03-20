@@ -39,10 +39,11 @@ const ClientDashboard = () => {
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
-  const [searchInContent, setSearchInContent] = useState(false);
+  const [searchInContent, setSearchInContent] = useState(true); // Default to true now
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [preloadingTimerRef, setPreloadingTimerRef] = useState<NodeJS.Timeout | null>(null);
 
   const {
     dialogCache,
@@ -115,7 +116,34 @@ const ClientDashboard = () => {
       setDialog([]);
       setIsLoadingDialog(true);
     }
-  }, [getCachedDialog]);
+    
+    // Set up a timer to continue preloading after a short delay
+    if (preloadingTimerRef) {
+      clearTimeout(preloadingTimerRef);
+    }
+    
+    const timer = setTimeout(() => {
+      const visibleConversations = getPaginatedConversations(currentPage, itemsPerPage);
+      if (visibleConversations.length > 0) {
+        const conversationIds = visibleConversations
+          .map(conv => conv._id)
+          .filter(id => id !== conversationId && !isConversationPreloaded(id));
+          
+        if (conversationIds.length > 0) {
+          preloadConversations(conversationIds);
+        }
+      }
+    }, 1000);
+    
+    setPreloadingTimerRef(timer);
+  }, [
+    getCachedDialog, 
+    preloadConversations, 
+    isConversationPreloaded,
+    currentPage,
+    itemsPerPage,
+    preloadingTimerRef
+  ]);
 
   const handleDeleteClick = (conversationId: string) => {
     setConversationToDelete(conversationId);
@@ -203,6 +231,7 @@ const ClientDashboard = () => {
     return filtered.slice(startIndex, startIndex + itemsPerPage);
   }, [filteredConversations]);
 
+  // Effect for preloading conversations on tab/page change
   useEffect(() => {
     if (activeTab === "conversations") {
       const visibleConversations = getPaginatedConversations(currentPage, itemsPerPage);
@@ -211,7 +240,15 @@ const ClientDashboard = () => {
         preloadConversations(conversationIds);
       }
     }
-  }, [activeTab, currentPage, itemsPerPage, getPaginatedConversations, preloadConversations]);
+    
+    // Cleanup timer when changing tabs
+    return () => {
+      if (preloadingTimerRef) {
+        clearTimeout(preloadingTimerRef);
+        setPreloadingTimerRef(null);
+      }
+    };
+  }, [activeTab, currentPage, itemsPerPage, getPaginatedConversations, preloadConversations, preloadingTimerRef]);
 
   useEffect(() => {
     const fetchConversations = async () => {
@@ -301,6 +338,15 @@ const ClientDashboard = () => {
 
     fetchDialog();
   }, [selectedConversation, user?.organization_id, getCachedDialog, preloadConversations]);
+
+  // Clean up timer on unmount
+  useEffect(() => {
+    return () => {
+      if (preloadingTimerRef) {
+        clearTimeout(preloadingTimerRef);
+      }
+    };
+  }, [preloadingTimerRef]);
 
   const showLoader = useMinimumLoading(isLoading);
   const showDialogLoader = useMinimumLoading(isLoadingDialog);

@@ -21,6 +21,7 @@ export const useDialogPreloader = ({
   const pendingQueue = useRef<Set<string>>(new Set());
   const processingRef = useRef<boolean>(false);
   const lastRequestTime = useRef<number>(0);
+  const queueTimer = useRef<number | null>(null);
   
   // Clean up cache when it exceeds maximum size
   const cleanupCache = useCallback(() => {
@@ -70,7 +71,7 @@ export const useDialogPreloader = ({
       // If already cached, skip
       if (dialogCache[nextId]) {
         processingRef.current = false;
-        setTimeout(processQueue, 0);
+        queueTimer.current = window.setTimeout(processQueue, 0);
         return;
       }
       
@@ -135,7 +136,7 @@ export const useDialogPreloader = ({
       processingRef.current = false;
       
       if (pendingQueue.current.size > 0) {
-        setTimeout(processQueue, 50);
+        queueTimer.current = window.setTimeout(processQueue, 50);
       } else {
         setIsPreloading(false);
       }
@@ -147,6 +148,13 @@ export const useDialogPreloader = ({
     // Cancel any ongoing requests
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    
+    // Clear existing timer if any
+    if (queueTimer.current !== null) {
+      window.clearTimeout(queueTimer.current);
+      queueTimer.current = null;
     }
     
     // Add to pending queue
@@ -157,7 +165,7 @@ export const useDialogPreloader = ({
     });
     
     // Start processing queue
-    processQueue();
+    queueTimer.current = window.setTimeout(processQueue, 0);
     
     // Clean up cache if needed
     cleanupCache();
@@ -210,6 +218,10 @@ export const useDialogPreloader = ({
     return () => {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
+      }
+      
+      if (queueTimer.current !== null) {
+        window.clearTimeout(queueTimer.current);
       }
     };
   }, []);
