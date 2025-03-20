@@ -20,6 +20,7 @@ export function useDialogPreloader(
   const [currentlyLoading, setCurrentlyLoading] = useState<string | null>(null);
   const abortControllerRef = useRef<Record<string, AbortController>>({});
   const preloadQueueRef = useRef<string[]>([]);
+  const loadingRef = useRef(false);
 
   const clearCache = useCallback(() => {
     setDialogCache({});
@@ -27,7 +28,11 @@ export function useDialogPreloader(
     
     // Abort all pending requests
     Object.values(abortControllerRef.current).forEach(controller => {
-      controller.abort();
+      try {
+        controller.abort();
+      } catch (error) {
+        console.error('Error aborting controller:', error);
+      }
     });
     abortControllerRef.current = {};
   }, []);
@@ -68,13 +73,16 @@ export function useDialogPreloader(
         throw new Error('Missing Voiceflow credentials');
       }
 
+      // Add a small delay to avoid overwhelming the API with requests
+      await new Promise(resolve => setTimeout(resolve, 300));
+
       const response = await fetch(
         `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}/${conversationId}`,
         {
           signal: controller.signal,
           headers: {
-            accept: 'application/json',
-            Authorization: org.voiceflow_api_key,
+            'accept': 'application/json',
+            'Authorization': org.voiceflow_api_key,
           },
         }
       );
@@ -97,6 +105,7 @@ export function useDialogPreloader(
     } catch (error: any) {
       if (error.name === 'AbortError') {
         // Request was aborted, do nothing
+        console.log('Request aborted for conversation:', conversationId);
         return null;
       }
       
@@ -121,29 +130,44 @@ export function useDialogPreloader(
 
   // Function to preload multiple dialogs in order
   const preloadDialogs = useCallback(async () => {
-    if (!organizationId || preloadQueueRef.current.length === 0) return;
+    if (!organizationId || preloadQueueRef.current.length === 0 || loadingRef.current) return;
     
-    // Get next conversation ID from queue
-    const nextId = preloadQueueRef.current.shift();
-    if (!nextId) return;
+    loadingRef.current = true;
     
-    // Skip if already loaded
-    if (dialogCache[nextId] && dialogCache[nextId].status === "loaded") {
-      // Continue with next in queue
-      preloadDialogs();
-      return;
+    try {
+      // Get next conversation ID from queue
+      const nextId = preloadQueueRef.current.shift();
+      if (!nextId) {
+        loadingRef.current = false;
+        return;
+      }
+      
+      // Skip if already loaded
+      if (dialogCache[nextId] && dialogCache[nextId].status === "loaded") {
+        // Continue with next in queue
+        loadingRef.current = false;
+        setTimeout(() => preloadDialogs(), 100);
+        return;
+      }
+      
+      // Fetch dialog
+      await fetchDialog(nextId);
+      
+      // Continue with next in queue after a small delay
+      loadingRef.current = false;
+      setTimeout(() => preloadDialogs(), 300);
+    } catch (error) {
+      console.error('Error in preloadDialogs:', error);
+      loadingRef.current = false;
+      
+      // Continue with next in queue after a delay in case of error
+      setTimeout(() => preloadDialogs(), 500);
     }
-    
-    // Fetch dialog
-    await fetchDialog(nextId);
-    
-    // Continue with next in queue
-    preloadDialogs();
   }, [organizationId, fetchDialog, dialogCache]);
 
   // Set up preload queue when conversations change
   useEffect(() => {
-    if (!conversations?.length) return;
+    if (!conversations?.length || !organizationId) return;
     
     // Queue up all visible conversations for preloading
     const conversationIds = conversations.slice(0, itemsPerPage).map(c => c._id);
@@ -156,17 +180,21 @@ export function useDialogPreloader(
     preloadQueueRef.current = notLoadedIds;
     
     // Start preloading if not already in progress
-    if (!currentlyLoading) {
+    if (!loadingRef.current) {
       preloadDialogs();
     }
     
     // Cleanup function to abort any pending requests when conversations change
     return () => {
       Object.values(abortControllerRef.current).forEach(controller => {
-        controller.abort();
+        try {
+          controller.abort();
+        } catch (error) {
+          console.error('Error aborting controller:', error);
+        }
       });
     };
-  }, [conversations, itemsPerPage, dialogCache, currentlyLoading, preloadDialogs]);
+  }, [conversations, itemsPerPage, dialogCache, preloadDialogs, organizationId]);
 
   return {
     dialogCache,

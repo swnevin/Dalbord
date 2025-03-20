@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import Sidebar from "../components/Sidebar";
 import { KnowledgeBase } from "@/components/KnowledgeBase";
@@ -43,7 +42,6 @@ const ClientDashboard = () => {
   const [searchInDialogs, setSearchInDialogs] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Use our new dialog preloader hook
   const { 
     dialogCache, 
     fetchDialog, 
@@ -106,17 +104,21 @@ const ClientDashboard = () => {
     setDialog([]);
     setIsLoadingDialog(true);
     
-    // If we have cached dialog, use it; otherwise fetch it
-    if (dialogCache[conversationId]?.status === "loaded") {
-      setDialog(dialogCache[conversationId].dialog);
-      setIsLoadingDialog(false);
-    } else {
-      // Fetch dialog with priority
-      const dialogData = await fetchDialog(conversationId, true);
-      if (dialogData) {
-        setDialog(dialogData);
+    try {
+      if (dialogCache[conversationId]?.status === "loaded") {
+        setDialog(dialogCache[conversationId].dialog);
+        setIsLoadingDialog(false);
+      } else {
+        const dialogData = await fetchDialog(conversationId, true);
+        if (dialogData) {
+          setDialog(dialogData);
+        }
+        setIsLoadingDialog(false);
       }
+    } catch (error) {
+      console.error("Error selecting conversation:", error);
       setIsLoadingDialog(false);
+      toast.error("Kunne ikke laste samtalen");
     }
   }, [dialogCache, fetchDialog]);
 
@@ -201,6 +203,7 @@ const ClientDashboard = () => {
         setConversations(data);
       } catch (error) {
         console.error('Error fetching conversations:', error);
+        toast.error("Kunne ikke laste samtaler");
       } finally {
         setIsLoading(false);
       }
@@ -209,7 +212,6 @@ const ClientDashboard = () => {
     fetchConversations();
   }, [user?.organization_id]);
 
-  // Clear dialog cache when tab changes
   useEffect(() => {
     if (activeTab !== "conversations") {
       clearCache();
