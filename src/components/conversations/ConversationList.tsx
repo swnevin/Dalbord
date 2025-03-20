@@ -1,7 +1,7 @@
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Bookmark, CheckCircle, ChevronLeft, ChevronRight, Search, Trash2 } from "lucide-react";
+import { Bookmark, CheckCircle, ChevronLeft, ChevronRight, Download, Filter, Search, Trash2 } from "lucide-react";
 import { formatDate } from "@/utils/conversation-utils";
 import { Loader } from "@/components/ui/loader";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 
 interface VoiceflowTranscript {
   _id: string;
@@ -34,6 +35,16 @@ interface VoiceflowTranscript {
   };
 }
 
+interface DialogCacheEntry {
+  dialog: any[];
+  loadedAt: number;
+  status: "loading" | "loaded" | "error";
+}
+
+interface DialogCache {
+  [conversationId: string]: DialogCacheEntry;
+}
+
 interface ConversationListProps {
   conversations: VoiceflowTranscript[];
   collapsed: boolean;
@@ -45,6 +56,10 @@ interface ConversationListProps {
   onDeleteClick: (id: string) => void;
   activeFilter: "all" | "approved" | "saved";
   onFilterChange: (filter: "all" | "approved" | "saved") => void;
+  dialogCache?: DialogCache;
+  currentlyLoading?: string | null;
+  searchInDialogs?: boolean;
+  onSearchInDialogsChange?: (value: boolean) => void;
 }
 
 export const ConversationList = ({
@@ -58,6 +73,10 @@ export const ConversationList = ({
   onDeleteClick,
   activeFilter,
   onFilterChange,
+  dialogCache = {},
+  currentlyLoading = null,
+  searchInDialogs = false,
+  onSearchInDialogsChange = () => {},
 }: ConversationListProps) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
@@ -76,11 +95,16 @@ export const ConversationList = ({
     return conv.reportTags?.includes("system.saved") ?? false;
   };
 
+  const getConversationStatus = (convId: string) => {
+    if (!dialogCache[convId]) return null;
+    return dialogCache[convId].status;
+  };
+
   const handleConversationClick = (id: string) => {
     onConversationSelect(id);
   };
 
-  // Filter conversations based on search term
+  // Filter conversations based on search term and optionally search in dialogs
   const filteredConversations = useMemo(() => {
     return conversations.filter(conv => {
       // Apply the active filter first
@@ -95,9 +119,34 @@ export const ConversationList = ({
       const dateMatch = formatDate(conv.updatedAt).date.toLowerCase().includes(searchLower);
       const deviceMatch = (conv.device || "").toLowerCase().includes(searchLower);
 
-      return nameMatch || dateMatch || deviceMatch;
+      // Standard search in conversation metadata
+      const metadataMatch = nameMatch || dateMatch || deviceMatch;
+      
+      // If not searching in dialogs or dialog isn't loaded yet, return based on metadata
+      if (!searchInDialogs || !dialogCache[conv._id] || dialogCache[conv._id].status !== "loaded") {
+        return metadataMatch;
+      }
+      
+      // Search in dialog content if dialog is loaded
+      const dialogContentMatch = dialogCache[conv._id].dialog.some(message => {
+        // Search in user messages
+        if (message.type === 'request' && message.payload?.payload) {
+          const query = message.payload.payload.query || message.payload.payload.label || "";
+          return query.toLowerCase().includes(searchLower);
+        }
+        
+        // Search in bot messages
+        if (message.type === 'text' && message.payload?.payload) {
+          const botMessage = message.payload.payload.message || "";
+          return botMessage.toLowerCase().includes(searchLower);
+        }
+        
+        return false;
+      });
+      
+      return metadataMatch || dialogContentMatch;
     });
-  }, [conversations, searchTerm, activeFilter]);
+  }, [conversations, searchTerm, activeFilter, searchInDialogs, dialogCache]);
 
   // Paginate conversations
   const paginatedConversations = useMemo(() => {
@@ -154,27 +203,43 @@ export const ConversationList = ({
                 className="pl-9"
               />
             </div>
-            <div className="flex gap-2">
+            
+            <div className="flex items-center justify-between">
+              <div className="flex gap-2">
+                <Button
+                  variant={activeFilter === "all" ? "secondary" : "outline"}
+                  onClick={() => onFilterChange("all")}
+                  className="flex-1"
+                >
+                  Alle
+                </Button>
+                <Button
+                  variant={activeFilter === "approved" ? "secondary" : "outline"}
+                  onClick={() => onFilterChange("approved")}
+                  className="flex-1"
+                >
+                  Gjennomgåtte
+                </Button>
+                <Button
+                  variant={activeFilter === "saved" ? "secondary" : "outline"}
+                  onClick={() => onFilterChange("saved")}
+                  className="flex-1"
+                >
+                  Lagrede
+                </Button>
+              </div>
+              
               <Button
-                variant={activeFilter === "all" ? "secondary" : "outline"}
-                onClick={() => onFilterChange("all")}
-                className="flex-1"
+                variant="outline"
+                size="sm"
+                onClick={() => onSearchInDialogsChange(!searchInDialogs)}
+                className={cn(
+                  "gap-1",
+                  searchInDialogs && "bg-secondary/20"
+                )}
               >
-                Alle samtaler
-              </Button>
-              <Button
-                variant={activeFilter === "approved" ? "secondary" : "outline"}
-                onClick={() => onFilterChange("approved")}
-                className="flex-1"
-              >
-                Gjennomgåtte
-              </Button>
-              <Button
-                variant={activeFilter === "saved" ? "secondary" : "outline"}
-                onClick={() => onFilterChange("saved")}
-                className="flex-1"
-              >
-                Lagrede
+                <Filter className="h-3.5 w-3.5" />
+                {searchInDialogs ? "Dialogs" : "Meta"}
               </Button>
             </div>
           </>
@@ -217,12 +282,30 @@ export const ConversationList = ({
                     </div>
                   ) : (
                     <>
-                      <h3 className={cn(
-                        "font-medium",
-                        selectedId === conv._id ? "text-primary" : "text-gray-700"
-                      )}>
-                        {conv.name || "Ukjent bruker"}
-                      </h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className={cn(
+                          "font-medium",
+                          selectedId === conv._id ? "text-primary" : "text-gray-700"
+                        )}>
+                          {conv.name || "Ukjent bruker"}
+                        </h3>
+                        
+                        {/* Preload status indicator */}
+                        {getConversationStatus(conv._id) === "loaded" && (
+                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 px-1.5 py-0 text-xs">
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            <span className="text-xs">Lastet</span>
+                          </Badge>
+                        )}
+                        
+                        {currentlyLoading === conv._id && (
+                          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 px-1.5 py-0 text-xs animate-pulse">
+                            <Download className="h-3 w-3 mr-1" />
+                            <span className="text-xs">Laster</span>
+                          </Badge>
+                        )}
+                      </div>
+                      
                       <div className="mt-1 flex justify-between items-center">
                         <span className="text-xs text-gray-500 capitalize">
                           {conv.device}
