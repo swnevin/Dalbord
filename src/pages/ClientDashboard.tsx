@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Sidebar from "../components/Sidebar";
 import { KnowledgeBase } from "@/components/KnowledgeBase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -88,6 +87,12 @@ const ClientDashboard = () => {
       console.error('Error updating conversation tag:', error);
     }
   };
+
+  const handleSelectConversation = useCallback((conversationId: string) => {
+    setSelectedConversation(conversationId);
+    setDialog([]);
+    setIsLoadingDialog(true);
+  }, []);
 
   const handleDeleteClick = (conversationId: string) => {
     setConversationToDelete(conversationId);
@@ -181,8 +186,7 @@ const ClientDashboard = () => {
   useEffect(() => {
     const fetchDialog = async () => {
       if (!selectedConversation || !user?.organization_id) return;
-
-      setIsLoadingDialog(true);
+      
       try {
         const { data: org, error: orgError } = await supabase
           .from('organizations')
@@ -212,6 +216,7 @@ const ClientDashboard = () => {
         setDialog(data);
       } catch (error) {
         console.error('Error fetching dialog:', error);
+        toast.error('Kunne ikke laste inn samtale');
       } finally {
         setIsLoadingDialog(false);
       }
@@ -251,7 +256,7 @@ const ClientDashboard = () => {
               selectedId={selectedConversation}
               isLoading={showLoader}
               onCollapsedChange={setConversationsCollapsed}
-              onConversationSelect={setSelectedConversation}
+              onConversationSelect={handleSelectConversation}
               onToggleTag={toggleTag}
               onDeleteClick={handleDeleteClick}
               activeFilter={activeFilter}

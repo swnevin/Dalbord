@@ -1,7 +1,7 @@
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Bookmark, CheckCircle, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
+import { Bookmark, CheckCircle, ChevronLeft, ChevronRight, Clock, Trash2 } from "lucide-react";
 import { formatDate } from "@/utils/conversation-utils";
 import { Loader } from "@/components/ui/loader";
 
@@ -48,6 +48,10 @@ export const ConversationList = ({
 
   const isConversationSaved = (conv: VoiceflowTranscript) => {
     return conv.reportTags?.includes("system.saved") ?? false;
+  };
+
+  const handleConversationClick = (id: string) => {
+    onConversationSelect(id);
   };
 
   return (
@@ -102,26 +106,25 @@ export const ConversationList = ({
 
       <div className="overflow-auto h-[calc(100vh-144px)]">
         {isLoading ? (
-          <div className="h-full flex items-center justify-center">
+          <div className="h-full flex flex-col items-center justify-center">
             <Loader size="lg" />
+            <p className="mt-4 text-gray-500 text-sm">Laster samtaler...</p>
           </div>
         ) : (
           conversations.map((conv) => (
             <div
               key={conv._id}
               className={cn(
-                "p-4 border-b border-gray-100 cursor-pointer transition-colors",
+                "p-4 border-b border-gray-100 cursor-pointer transition-all duration-100",
                 selectedId === conv._id 
                   ? "bg-secondary text-primary" 
                   : "hover:bg-gray-50 active:bg-gray-100",
                 collapsed && "px-2"
               )}
+              onClick={() => handleConversationClick(conv._id)}
             >
               <div className="flex justify-between items-start">
-                <div 
-                  className="flex-1"
-                  onClick={() => onConversationSelect(conv._id)}
-                >
+                <div className="flex-1">
                   {collapsed ? (
                     <div className="text-center">
                       <span className="font-medium">
