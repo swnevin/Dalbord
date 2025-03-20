@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface VoiceflowTranscript {
   _id: string;
@@ -120,10 +121,10 @@ export const ConversationList = ({
 
   return (
     <div className={cn(
-      "border-r border-gray-200 bg-white transition-all duration-300 flex flex-col",
+      "border-r border-gray-200 bg-white transition-all duration-300 flex flex-col h-screen",
       collapsed ? "w-20" : "w-96"
     )}>
-      <div className="p-4 border-b border-gray-200 flex flex-col gap-4">
+      <div className="p-4 border-b border-gray-200 flex flex-col gap-4 flex-shrink-0">
         <div className="flex items-center justify-between">
           <h2 className={cn(
             "text-xl font-semibold text-primary",
@@ -180,9 +181,9 @@ export const ConversationList = ({
         )}
       </div>
 
-      <div className="overflow-auto flex-1">
+      <ScrollArea className="flex-1">
         {isLoading ? (
-          <div className="h-full flex flex-col items-center justify-center">
+          <div className="h-full flex flex-col items-center justify-center py-10">
             <Loader size="lg" text="Laster samtaler..." />
           </div>
         ) : paginatedConversations.length === 0 ? (
@@ -281,10 +282,10 @@ export const ConversationList = ({
             </div>
           ))
         )}
-      </div>
+      </ScrollArea>
 
       {!collapsed && (
-        <div className="p-4 border-t border-gray-200">
+        <div className="p-4 border-t border-gray-200 flex-shrink-0">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm text-gray-500">Resultater per side:</span>
             <Select 
