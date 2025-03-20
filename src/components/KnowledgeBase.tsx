@@ -34,7 +34,6 @@ export const KnowledgeBase = () => {
   const { getRootProps, getInputProps } = useDropzone({ onDrop });
   const { user } = useAuth();
 
-  // This function handles file conversions for the knowledge base
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     
@@ -130,8 +129,6 @@ export const KnowledgeBase = () => {
         throw new Error('Mangler Voiceflow-legitimasjon');
       }
 
-      // Fix: Replace the incorrect File constructor usage
-      // Instead of creating a new File here, we'll use a Blob which is the correct approach
       const jsonBlob = new Blob([JSON.stringify({ items: qaPairs })], { type: 'application/json' });
 
       const formData = new FormData();
@@ -166,7 +163,6 @@ export const KnowledgeBase = () => {
     <div className="container mx-auto p-4">
       <h1 className="text-2xl font-semibold mb-4 text-primary">Kunnskapsbase</h1>
 
-      {/* File Upload Section */}
       <div className="mb-6">
         <h2 className="text-xl font-semibold mb-2">Last opp fil</h2>
         <div
@@ -190,7 +186,6 @@ export const KnowledgeBase = () => {
         </Button>
       </div>
 
-      {/* Create Q&A Pairs Section */}
       <div>
         <h2 className="text-xl font-semibold mb-2">Opprett Q&A-par</h2>
         <div className="mb-4">
@@ -214,7 +209,6 @@ export const KnowledgeBase = () => {
           </Button>
         </div>
 
-        {/* Display Q&A Pairs */}
         {qaPairs.length > 0 && (
           <div className="mb-4">
             <h3 className="text-lg font-semibold mb-2">Q&A-par:</h3>
