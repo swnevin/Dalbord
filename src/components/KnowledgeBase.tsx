@@ -95,8 +95,16 @@ export const KnowledgeBase = () => {
   const [chunks, setChunks] = useState<Chunk[]>([]);
   const [isLoadingChunks, setIsLoadingChunks] = useState(false);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [isQASheetOpen, setIsQASheetOpen] = useState(false);
   
   const [selectedSourceType, setSelectedSourceType] = useState<"url" | "file" | "text" | "qa">("url");
+  
+  const [qaPair, setQaPair] = useState<{question: string, answer: string}>({
+    question: "",
+    answer: ""
+  });
+  
+  const [isSaving, setIsSaving] = useState(false);
   
   const [qaTitle, setQaTitle] = useState("");
   const [qaPairs, setQaPairs] = useState<QAPair[]>([

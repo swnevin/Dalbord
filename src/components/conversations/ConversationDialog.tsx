@@ -1,7 +1,7 @@
 
 import { Loader } from "@/components/ui/loader";
 import { formatTime, filterDialog, formatText, containsIframe, extractIframeAndCleanText } from "@/utils/conversation-utils";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { MessageSquarePlus } from "lucide-react";
 import {
