@@ -18,7 +18,6 @@ import { toast } from "sonner";
 import { FallbackRequestItem } from "./FallbackRequestItem";
 import { CreateFAQDialog } from "./CreateFAQDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader } from "@/components/ui/loader";
 
 interface FallbackRequest {
   id: string;
@@ -108,17 +107,6 @@ export const FallbackRequests = () => {
   const displayedResolvedRequests = showAllResolved 
     ? resolvedRequests 
     : resolvedRequests.slice(0, 3);
-
-  const renderLoadingState = () => (
-    <div className="space-y-2">
-      {[1, 2, 3].map((i) => (
-        <div key={i} className="flex flex-col gap-2 p-4">
-          <Skeleton className="h-4 w-2/3" />
-          <Skeleton className="h-4 w-full" />
-        </div>
-      ))}
-    </div>
-  );
   
   return (
     <>
@@ -138,8 +126,13 @@ export const FallbackRequests = () => {
             
             <TabsContent value="unresolved">
               {isLoading ? (
-                <div className="flex justify-center py-6">
-                  <Loader size="sm" text="Laster henvendelser..." />
+                <div className="space-y-2">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="flex flex-col gap-2 p-4">
+                      <Skeleton className="h-4 w-2/3" />
+                      <Skeleton className="h-4 w-full" />
+                    </div>
+                  ))}
                 </div>
               ) : fallbackRequests.length > 0 ? (
                 <div className="divide-y">
@@ -153,15 +146,20 @@ export const FallbackRequests = () => {
                 </div>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
-                  <p>Hurra! Ingen uløste henvendelser til fallback</p>
+                  <p>Ingen uløste henvendelser til fallback</p>
                 </div>
               )}
             </TabsContent>
             
             <TabsContent value="resolved">
               {isLoading ? (
-                <div className="flex justify-center py-6">
-                  <Loader size="sm" text="Laster henvendelser..." />
+                <div className="space-y-2">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="flex flex-col gap-2 p-4">
+                      <Skeleton className="h-4 w-2/3" />
+                      <Skeleton className="h-4 w-full" />
+                    </div>
+                  ))}
                 </div>
               ) : resolvedRequests.length > 0 ? (
                 <>

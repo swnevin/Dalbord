@@ -52,7 +52,7 @@ export const Home = () => {
     <div className="container max-w-7xl mx-auto p-6 space-y-8">
       <header className="space-y-2">
         <h1 className="text-3xl font-bold font-montserrat text-primary">
-          Hei, {userName || "bruker"}! 👋
+          Hei, {userName || "bruker"}!
         </h1>
         <p className="text-muted-foreground">
           Velkommen til dashbordet ditt. Her kan du se viktig informasjon om systemet ditt.
