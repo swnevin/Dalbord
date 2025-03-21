@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,7 +62,7 @@ interface VoiceflowChunksResponse {
   chunks: Chunk[];
 }
 
-export const KnowledgeBase = () => {
+const KnowledgeBase = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [sources, setSources] = useState<VoiceflowDocument[]>([]);
@@ -539,3 +538,5 @@ export const KnowledgeBase = () => {
     </div>
   );
 };
+
+export default KnowledgeBase;
