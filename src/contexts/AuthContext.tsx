@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -85,11 +84,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // Only handle navigation if we're not already on the admin dashboard
       // This prevents the flash when adding new members
       if (location.pathname !== '/admin') {
-        if (profile.organization_type === 'admin') {
-          navigate('/admin');
-        } else {
-          navigate('/dashboard');
-        }
+        // Allow both admin and client users to access admin pages
+        navigate('/admin');
       }
       return true;
     } catch (error: any) {

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -104,6 +105,8 @@ export const AdministratorTab = () => {
     tabs: TabName[];
   }) => {
     try {
+      // Allow client users to add members
+      
       // Store the current session before adding a new user
       const { data: sessionData } = await supabase.auth.getSession();
       const currentSession = sessionData.session;
@@ -185,6 +188,7 @@ export const AdministratorTab = () => {
         return;
       }
       
+      // Allow any role to delete members
       const { error } = await supabase.rpc('delete_user', {
         user_id: profileId
       });

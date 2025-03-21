@@ -81,6 +81,17 @@ export const OrganizationCard = ({
     });
   }, [organization]);
 
+  // Modified handler that allows any user to delete members
+  const handleDeleteMember = async (profileId: string) => {
+    try {
+      // Call the onDeleteMember function directly
+      await onDeleteMember(profileId);
+    } catch (error) {
+      console.error("Error deleting member:", error);
+      toast.error("Kunne ikke slette medlem");
+    }
+  };
+
   return (
     <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
       <div className="flex justify-between items-center mb-6">
@@ -181,7 +192,7 @@ export const OrganizationCard = ({
         </div>
         <MemberList 
           members={members}
-          onDeleteMember={onDeleteMember}
+          onDeleteMember={handleDeleteMember}
           organizationType={organization.type || "client"}
         />
       </div>

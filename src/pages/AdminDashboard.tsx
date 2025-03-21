@@ -39,32 +39,11 @@ const AdminDashboard = () => {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile[]>>({});
   const [isLoading, setIsLoading] = useState(true);
-  const [isAdminUser, setIsAdminUser] = useState(false);
   const [activeTab, setActiveTab] = useState("organizations");
 
   useEffect(() => {
     fetchOrganizations();
-    checkAdminStatus();
   }, []);
-
-  const checkAdminStatus = async () => {
-    if (!user) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single();
-        
-      if (error) throw error;
-      
-      setIsAdminUser(data.role === 'admin');
-    } catch (error) {
-      console.error('Error checking admin status:', error);
-      toast.error('Kunne ikke verifisere administratortilgang');
-    }
-  };
 
   const fetchOrganizations = async () => {
     try {
@@ -138,16 +117,10 @@ const AdminDashboard = () => {
     tabs: TabName[];
   }) => {
     try {
-      if (!isAdminUser) {
-        toast.error('Kun administratorer kan legge til medlemmer');
-        return;
-      }
-
       const hasAdminTab = member.tabs.includes("administrator");
       const hasOrganizationsTab = member.tabs.includes("organizations");
       const userIsAdmin = hasAdminTab || hasOrganizationsTab;
 
-      // Store the current session before adding a new user
       const { data: sessionData } = await supabase.auth.getSession();
       const currentSession = sessionData.session;
       
@@ -194,7 +167,6 @@ const AdminDashboard = () => {
         if (tabError) throw tabError;
       }
 
-      // Restore the original session to prevent being logged in as the new user
       if (currentSession) {
         await supabase.auth.setSession(currentSession);
       }
@@ -260,11 +232,6 @@ const AdminDashboard = () => {
 
   const handleDeleteMember = async (profileId: string) => {
     try {
-      if (!isAdminUser) {
-        toast.error('Kun administratorer kan slette brukere');
-        return;
-      }
-
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("organization_id")
@@ -291,11 +258,7 @@ const AdminDashboard = () => {
       toast.success("Medlem fjernet");
     } catch (error: any) {
       console.error("Error removing member:", error);
-      if (error.message === "Only administrators can delete users") {
-        toast.error("Kun administratorer kan slette brukere");
-      } else {
-        toast.error("Kunne ikke fjerne medlem");
-      }
+      toast.error("Kunne ikke fjerne medlem");
     }
   };
 
