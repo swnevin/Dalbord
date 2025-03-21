@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -555,10 +554,8 @@ export const KnowledgeBase = () => {
 
         response = await fetch('https://api.voiceflow.com/v1/knowledge-base/docs/upload?maxChunkSize=1000', options);
       } else if (selectedSourceType === "text" && rawText) {
-        // Fix for the constructor error - create a proper File object
         const textBlob = new Blob([rawText], { type: 'text/plain' });
         const fileName = textFileName.endsWith('.txt') ? textFileName : `${textFileName}.txt`;
-        // Corrected File constructor usage
         const textFile = new File([textBlob], fileName);
         
         const formData = new FormData();
@@ -1128,3 +1125,4 @@ export const KnowledgeBase = () => {
     </div>
   );
 };
+
