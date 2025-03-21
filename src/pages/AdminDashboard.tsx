@@ -146,8 +146,9 @@ const AdminDashboard = () => {
       const hasAdminTab = member.tabs.includes("administrator");
       const hasOrganizationsTab = member.tabs.includes("organizations");
       const userIsAdmin = hasAdminTab || hasOrganizationsTab;
+      
+      console.log("Adding member with role:", userIsAdmin ? 'admin' : 'client');
 
-      // Store the current session before adding a new user
       const { data: sessionData } = await supabase.auth.getSession();
       const currentSession = sessionData.session;
       
@@ -194,7 +195,6 @@ const AdminDashboard = () => {
         if (tabError) throw tabError;
       }
 
-      // Restore the original session to prevent being logged in as the new user
       if (currentSession) {
         await supabase.auth.setSession(currentSession);
       }
