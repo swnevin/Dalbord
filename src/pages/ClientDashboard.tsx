@@ -170,105 +170,6 @@ const ClientDashboard = () => {
     setSearchTerm(term);
   }, []);
 
-  useEffect(() => {
-    if (activeTab === "conversations" && paginatedConversations && paginatedConversations.length > 0) {
-      const conversationIds = paginatedConversations.map(conv => conv._id);
-      preloadConversations(conversationIds);
-    }
-  }, [activeTab, paginatedConversations, preloadConversations]);
-
-  useEffect(() => {
-    const fetchConversations = async () => {
-      if (!user?.organization_id) return;
-
-      try {
-        const { data: org, error: orgError } = await supabase
-          .from('organizations')
-          .select('voiceflow_api_key, voiceflow_project_id')
-          .eq('id', user.organization_id)
-          .single();
-
-        if (orgError) throw orgError;
-        if (!org.voiceflow_api_key || !org.voiceflow_project_id) {
-          console.error('Missing Voiceflow credentials');
-          return;
-        }
-
-        const response = await fetch(
-          `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}`,
-          {
-            headers: {
-              accept: 'application/json',
-              Authorization: org.voiceflow_api_key,
-            },
-          }
-        );
-
-        if (!response.ok) throw new Error('Failed to fetch transcripts');
-
-        const data = await response.json();
-        setConversations(data);
-      } catch (error) {
-        console.error('Error fetching conversations:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchConversations();
-  }, [user?.organization_id]);
-
-  useEffect(() => {
-    const fetchDialog = async () => {
-      if (!selectedConversation || !user?.organization_id) return;
-      
-      if (getCachedDialog(selectedConversation)) {
-        return;
-      }
-      
-      try {
-        const { data: org, error: orgError } = await supabase
-          .from('organizations')
-          .select('voiceflow_api_key, voiceflow_project_id')
-          .eq('id', user.organization_id)
-          .single();
-
-        if (orgError) throw orgError;
-        if (!org.voiceflow_api_key || !org.voiceflow_project_id) {
-          console.error('Missing Voiceflow credentials');
-          return;
-        }
-
-        const response = await fetch(
-          `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}/${selectedConversation}`,
-          {
-            headers: {
-              accept: 'application/json',
-              Authorization: org.voiceflow_api_key,
-            },
-          }
-        );
-
-        if (!response.ok) throw new Error('Failed to fetch dialog');
-
-        const data = await response.json();
-        setDialog(data);
-        
-        preloadConversations([selectedConversation]);
-      } catch (error) {
-        console.error('Error fetching dialog:', error);
-        toast.error('Kunne ikke laste inn samtale');
-      } finally {
-        setIsLoadingDialog(false);
-      }
-    };
-
-    fetchDialog();
-  }, [selectedConversation, user?.organization_id, getCachedDialog, preloadConversations]);
-
-  const showLoader = useMinimumLoading(isLoading);
-  const showDialogLoader = useMinimumLoading(isLoadingDialog);
-
   const filteredConversations = useCallback(() => {
     return conversations.filter(conv => {
       if (activeFilter === "saved" && !conv.reportTags?.includes("system.saved")) return false;
@@ -296,6 +197,97 @@ const ClientDashboard = () => {
     const startIndex = (page - 1) * itemsPerPage;
     return filtered.slice(startIndex, startIndex + itemsPerPage);
   }, [filteredConversations]);
+
+  useEffect(() => {
+    if (activeTab === "conversations" && paginatedConversations && conversations.length > 0) {
+      const conversationIds = paginatedConversations(1, 20).map(conv => conv._id);
+      preloadConversations(conversationIds);
+    }
+  }, [activeTab, paginatedConversations, preloadConversations, conversations]);
+
+  useEffect(() => {
+    if (!user?.organization_id) return;
+
+    try {
+      const { data: org, error: orgError } = await supabase
+        .from('organizations')
+        .select('voiceflow_api_key, voiceflow_project_id')
+        .eq('id', user.organization_id)
+        .single();
+
+      if (orgError) throw orgError;
+      if (!org.voiceflow_api_key || !org.voiceflow_project_id) {
+        console.error('Missing Voiceflow credentials');
+        return;
+      }
+
+      const response = await fetch(
+        `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}`,
+        {
+          headers: {
+            accept: 'application/json',
+            Authorization: org.voiceflow_api_key,
+          },
+        }
+      );
+
+      if (!response.ok) throw new Error('Failed to fetch transcripts');
+
+      const data = await response.json();
+      setConversations(data);
+    } catch (error) {
+      console.error('Error fetching conversations:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user?.organization_id]);
+
+  useEffect(() => {
+    if (!selectedConversation || !user?.organization_id) return;
+    
+    if (getCachedDialog(selectedConversation)) {
+      return;
+    }
+    
+    try {
+      const { data: org, error: orgError } = await supabase
+        .from('organizations')
+        .select('voiceflow_api_key, voiceflow_project_id')
+        .eq('id', user.organization_id)
+        .single();
+
+      if (orgError) throw orgError;
+      if (!org.voiceflow_api_key || !org.voiceflow_project_id) {
+        console.error('Missing Voiceflow credentials');
+        return;
+      }
+
+      const response = await fetch(
+        `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}/${selectedConversation}`,
+        {
+          headers: {
+            accept: 'application/json',
+            Authorization: org.voiceflow_api_key,
+          },
+        }
+      );
+
+      if (!response.ok) throw new Error('Failed to fetch dialog');
+
+      const data = await response.json();
+      setDialog(data);
+      
+      preloadConversations([selectedConversation]);
+    } catch (error) {
+      console.error('Error fetching dialog:', error);
+      toast.error('Kunne ikke laste inn samtale');
+    } finally {
+      setIsLoadingDialog(false);
+    }
+  }, [selectedConversation, user?.organization_id, getCachedDialog, preloadConversations]);
+
+  const showLoader = useMinimumLoading(isLoading);
+  const showDialogLoader = useMinimumLoading(isLoadingDialog);
 
   return (
     <div className="flex h-screen bg-cream">
