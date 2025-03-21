@@ -1,29 +1,28 @@
 
 import React from "react";
-import { ChevronDown, ExternalLink, FileText, MessageCircleQuestion, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { VoiceflowDocument, Chunk } from "./types";
 import { Loader } from "@/components/ui/loader";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { VoiceflowDocument, Chunk, SourceType } from "./types";
+import { 
+  ChevronDown, 
+  Trash2, 
+  ExternalLink, 
+  File, 
+  FileText, 
+  Globe, 
+  MessageSquareText 
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { formatDate } from "./utils";
+import { cn } from "@/lib/utils";
 
 interface SourceExplorerProps {
   sources: VoiceflowDocument[];
   expandedSourceId: string | null;
   chunks: Chunk[];
   isLoadingChunks: boolean;
-  onExpandSource: (documentId: string) => void;
-  onDeleteSource: (documentId: string) => void;
+  loadingChunksText?: string;
+  onExpandSource: (id: string) => void;
+  onDeleteSource: (id: string) => void;
 }
 
 export const SourceExplorer: React.FC<SourceExplorerProps> = ({
@@ -31,47 +30,57 @@ export const SourceExplorer: React.FC<SourceExplorerProps> = ({
   expandedSourceId,
   chunks,
   isLoadingChunks,
+  loadingChunksText = "Laster innhold...",
   onExpandSource,
-  onDeleteSource,
+  onDeleteSource
 }) => {
   const getSourceIcon = (source: VoiceflowDocument) => {
-    const type = source.detectedType;
-    
-    switch (type) {
-      case "url":
-        return <ExternalLink className="text-primary h-5 w-5" />;
-      case "file":
-        return <FileText className="text-primary h-5 w-5" />;
-      case "qa":
-        return <MessageCircleQuestion className="text-primary h-5 w-5" />;
-      default:
-        return <ExternalLink className="text-primary h-5 w-5" />;
+    if (source.data.name.endsWith("- Q&A")) {
+      return <MessageSquareText className="h-5 w-5 text-yellow-500" />;
     }
+    
+    if (source.data.type === "url") {
+      return <Globe className="h-5 w-5 text-blue-500" />;
+    }
+    
+    if (source.data.type === "docx") {
+      return <FileText className="h-5 w-5 text-indigo-500" />;
+    }
+    
+    return <File className="h-5 w-5 text-gray-500" />;
   };
 
   if (sources.length === 0) {
     return (
-      <div className="text-center py-10 text-gray-500">
-        <p>Ingen kilder funnet</p>
-        <p className="text-sm mt-2">Legg til din første kilde ved å klikke på "Legg til kilde" knappen</p>
+      <div className="text-center p-8 border border-dashed rounded-lg">
+        <p className="text-gray-500">Ingen kilder funnet. Legg til din første kilde ved å klikke på "Legg til kilde" knappen.</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {sources.map((source) => (
         <div 
-          key={source.documentID}
-          className="bg-white rounded-lg border hover:border-primary/20 transition-colors"
+          key={source.documentID} 
+          className="border rounded-lg overflow-hidden bg-white shadow-sm"
         >
-          <div className="flex items-center justify-between p-4">
+          <div 
+            className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50"
+            onClick={() => onExpandSource(source.documentID)}
+          >
             <div className="flex items-center gap-3">
               {getSourceIcon(source)}
               <div>
-                <h3 className="font-medium text-gray-900">{source.data.name}</h3>
+                <h3 className="font-medium">{source.data.name}</h3>
                 <p className="text-sm text-gray-500">
-                  Oppdatert: {new Date(source.updatedAt).toLocaleDateString('no')}
+                  {source.status.type === "SUCCESS" ? (
+                    <>Sist oppdatert: {formatDate(source.updatedAt)}</>
+                  ) : source.status.type === "PENDING" ? (
+                    <span className="text-yellow-600">Behandler...</span>
+                  ) : (
+                    <span className="text-red-600">Feilet</span>
+                  )}
                 </p>
               </div>
             </div>
@@ -79,64 +88,50 @@ export const SourceExplorer: React.FC<SourceExplorerProps> = ({
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => onExpandSource(source.documentID)}
-                className={cn(
-                  "transition-transform",
-                  expandedSourceId === source.documentID && "rotate-180"
-                )}
+                className="h-8 w-8 text-red-500"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeleteSource(source.documentID);
+                }}
               >
-                <ChevronDown className="h-5 w-5 text-gray-400" />
+                <Trash2 className="h-4 w-4" />
               </Button>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Er du sikker?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Dette vil permanent slette kilden fra kunnskapsbasen. Denne handlingen kan ikke angres.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Avbryt</AlertDialogCancel>
-                    <AlertDialogAction 
-                      onClick={() => onDeleteSource(source.documentID)}
-                      className="bg-red-500 hover:bg-red-600"
-                    >
-                      Slett
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+              <ChevronDown className={cn(
+                "h-5 w-5 text-gray-400 transition-transform",
+                expandedSourceId === source.documentID && "transform rotate-180"
+              )} />
             </div>
           </div>
-
+          
           {expandedSourceId === source.documentID && (
-            <div className="border-t px-4 py-3">
+            <div className="border-t p-4 bg-gray-50">
               {isLoadingChunks ? (
-                <div className="flex justify-center py-4">
-                  <Loader size="md" />
+                <div className="flex justify-center py-8">
+                  <Loader size="md" text={loadingChunksText} />
                 </div>
               ) : chunks.length > 0 ? (
                 <div className="space-y-4">
-                  {chunks.map((chunk) => (
-                    <div 
-                      key={chunk.chunkID}
-                      className="p-3 bg-gray-50 rounded-md"
-                    >
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{chunk.content}</p>
+                  {source.data.url && (
+                    <div className="flex items-center gap-2 text-sm text-blue-600 mb-4">
+                      <ExternalLink className="h-4 w-4" />
+                      <a href={source.data.url} target="_blank" rel="noopener noreferrer">
+                        {source.data.url}
+                      </a>
                     </div>
-                  ))}
+                  )}
+                  
+                  <h4 className="font-medium text-sm text-gray-500">Innhold:</h4>
+                  
+                  <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
+                    {chunks.map((chunk) => (
+                      <div key={chunk.chunkID} className="p-3 bg-white border rounded-md">
+                        <p className="whitespace-pre-wrap text-sm">{chunk.content}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ) : (
-                <p className="text-center text-gray-500 py-2">Ingen chunks funnet</p>
+                <p className="text-center py-4 text-gray-500">Ingen innhold funnet for denne kilden.</p>
               )}
             </div>
           )}

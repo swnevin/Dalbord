@@ -246,7 +246,7 @@ const KnowledgeBase = () => {
 
       {showLoader ? (
         <div className="mt-8 flex justify-center">
-          <Loader size="lg" />
+          <Loader size="lg" text="Laster kunnskapsbase..." />
         </div>
       ) : (
         <SourceExplorer 
@@ -254,6 +254,7 @@ const KnowledgeBase = () => {
           expandedSourceId={expandedSourceId}
           chunks={chunks}
           isLoadingChunks={showChunksLoader}
+          loadingChunksText="Laster kildeinnhold..."
           onExpandSource={handleExpandSource}
           onDeleteSource={handleDelete}
         />

@@ -377,6 +377,12 @@ export const Statistics = () => {
     };
   }, [user?.organization_id, dateRange, timeRange]);
 
+  const renderLoading = (text: string) => (
+    <div className="flex justify-center py-4">
+      <Loader size="lg" text={text} />
+    </div>
+  );
+
   return (
     <div className="p-8 space-y-8">
       <StatisticsHeader
@@ -409,6 +415,7 @@ export const Statistics = () => {
           description="Antall unike brukere som har interagert med systemet over tid."
           color="#E2B808"
           isLoading={loading.userChart}
+          loadingText="Laster brukerstatistikk..."
         />
         <TimeSeriesChart
           data={data.messageTimeSeries}
@@ -416,6 +423,7 @@ export const Statistics = () => {
           description="Totalt antall meldinger sendt i systemet over tid."
           color="#28483F"
           isLoading={loading.messageChart}
+          loadingText="Laster meldingsstatistikk..."
         />
       </div>
     </div>

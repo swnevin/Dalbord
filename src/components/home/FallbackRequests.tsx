@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -43,7 +42,6 @@ export const FallbackRequests = () => {
     try {
       setIsLoading(true);
       
-      // Fetch unresolved requests
       const { data: unresolvedData, error: unresolvedError } = await supabase
         .from('fallback_requests')
         .select('*')
@@ -53,7 +51,6 @@ export const FallbackRequests = () => {
         
       if (unresolvedError) throw unresolvedError;
       
-      // Fetch resolved requests
       const { data: resolvedData, error: resolvedError } = await supabase
         .from('fallback_requests')
         .select('*')
@@ -93,7 +90,6 @@ export const FallbackRequests = () => {
         
       if (error) throw error;
       
-      // Refresh the list after marking as resolved
       fetchFallbackRequests();
       toast.success('Q&A opprettet og henvendelse markert som løst');
     } catch (error) {
@@ -111,7 +107,7 @@ export const FallbackRequests = () => {
 
   const renderLoadingState = () => (
     <div className="flex justify-center py-4">
-      <Loader size="sm" text="Laster henvendelser..." />
+      <Loader size="sm" text="Laster henvendelser til fallback..." />
     </div>
   );
   

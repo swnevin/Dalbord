@@ -25,6 +25,7 @@ interface TimeSeriesChartProps {
   description?: string;
   color?: string;
   isLoading: boolean;
+  loadingText?: string;
 }
 
 export const TimeSeriesChart = ({
@@ -32,7 +33,8 @@ export const TimeSeriesChart = ({
   title,
   description,
   color = "#28483F",
-  isLoading
+  isLoading,
+  loadingText = "Laster data..."
 }: TimeSeriesChartProps) => {
   return (
     <Card className="w-full h-[400px]">
@@ -57,7 +59,7 @@ export const TimeSeriesChart = ({
       <CardContent>
         {isLoading ? (
           <div className="h-[300px] flex items-center justify-center">
-            <Loader size="md" />
+            <Loader size="md" text={loadingText} />
           </div>
         ) : data && data.length > 0 ? (
           <ResponsiveContainer width="100%" height={300}>
