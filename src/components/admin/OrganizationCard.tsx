@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus, Bot, Trash2 } from "lucide-react";
@@ -40,7 +39,6 @@ interface Profile {
   id: string;
   name: string;
   email: string;
-  role: string;
   organization_id: string | null;
   tabs?: { tab_name: Database["public"]["Enums"]["tab_type"] }[];
 }
