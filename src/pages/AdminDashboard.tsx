@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import Sidebar from "../components/Sidebar";
@@ -39,7 +40,7 @@ const AdminDashboard = () => {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile[]>>({});
   const [isLoading, setIsLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [isAdminUser, setIsAdminUser] = useState(false);
   const [activeTab, setActiveTab] = useState("organizations");
 
   useEffect(() => {
@@ -59,7 +60,7 @@ const AdminDashboard = () => {
         
       if (error) throw error;
       
-      setIsAdmin(data.role === 'admin');
+      setIsAdminUser(data.role === 'admin');
     } catch (error) {
       console.error('Error checking admin status:', error);
       toast.error('Kunne ikke verifisere administratortilgang');
@@ -138,14 +139,14 @@ const AdminDashboard = () => {
     tabs: TabName[];
   }) => {
     try {
-      if (!isAdmin) {
+      if (!isAdminUser) {
         toast.error('Kun administratorer kan legge til medlemmer');
         return;
       }
 
       const hasAdminTab = member.tabs.includes("administrator");
       const hasOrganizationsTab = member.tabs.includes("organizations");
-      const isAdmin = hasAdminTab || hasOrganizationsTab;
+      const userIsAdmin = hasAdminTab || hasOrganizationsTab;
 
       const currentSession = await supabase.auth.getSession();
       
@@ -155,7 +156,7 @@ const AdminDashboard = () => {
         options: {
           data: {
             name: member.name,
-            role: isAdmin ? 'admin' : 'client'
+            role: userIsAdmin ? 'admin' : 'client'
           },
           emailRedirectTo: `${window.location.origin}/login`
         }
@@ -171,7 +172,7 @@ const AdminDashboard = () => {
         .from("profiles")
         .update({ 
           organization_id: orgId,
-          role: isAdmin ? 'admin' : 'client',
+          role: userIsAdmin ? 'admin' : 'client',
           name: member.name,
           email: member.email
         })
@@ -257,7 +258,7 @@ const AdminDashboard = () => {
 
   const handleDeleteMember = async (profileId: string) => {
     try {
-      if (!isAdmin) {
+      if (!isAdminUser) {
         toast.error('Kun administratorer kan slette brukere');
         return;
       }
