@@ -1,6 +1,7 @@
+
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Bookmark, CheckCircle, ChevronLeft, ChevronRight, Search, Trash2, FileText, Info } from "lucide-react";
+import { Bookmark, CheckCircle, ChevronLeft, ChevronRight, Search, Trash2, FileText, RefreshCw } from "lucide-react";
 import { formatDate } from "@/utils/conversation-utils";
 import { Loader } from "@/components/ui/loader";
 import { Input } from "@/components/ui/input";
@@ -20,7 +21,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { PreloadedIndicator } from "./PreloadedIndicator";
 
 interface VoiceflowTranscript {
@@ -79,13 +81,6 @@ export const ConversationList = ({
   useEffect(() => {
     setCurrentPage(1);
   }, [activeFilter, searchTerm, itemsPerPage]);
-
-  // Always set search in content to true
-  useEffect(() => {
-    if (!searchInContent) {
-      onToggleSearchInContent(true);
-    }
-  }, [searchInContent, onToggleSearchInContent]);
 
   const isConversationReviewed = (conv: VoiceflowTranscript) => {
     return conv.reportTags?.includes("system.reviewed") ?? false;
@@ -156,19 +151,20 @@ export const ConversationList = ({
                 />
               </div>
               
-              <div className="flex items-center text-xs text-gray-600">
-                <FileText size={14} className="mr-1" />
-                <span>Søker i innhold</span>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 ml-1 p-0">
-                      <Info size={14} className="text-gray-500" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    <p className="max-w-xs">Søk i innhold fungerer kun for samtaler som er forhåndslastet (indikert med blått ikon).</p>
-                  </TooltipContent>
-                </Tooltip>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="search-content"
+                    checked={searchInContent}
+                    onCheckedChange={onToggleSearchInContent}
+                  />
+                  <Label htmlFor="search-content" className="text-sm text-gray-600 cursor-pointer">
+                    <div className="flex items-center gap-1">
+                      <FileText size={14} />
+                      <span>Søk i innhold</span>
+                    </div>
+                  </Label>
+                </div>
               </div>
             </div>
             
