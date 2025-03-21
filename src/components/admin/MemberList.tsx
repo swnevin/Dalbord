@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Trash2, Pencil } from "lucide-react";
@@ -75,21 +74,13 @@ export const MemberList = ({ members, onDeleteMember, organizationType }: Member
       const hasOrganizationsTab = editingMember.tabs.includes("organizations");
       const isAdmin = hasAdminTab || hasOrganizationsTab;
       
-      console.log(`Updating member ${editingMember.id} role to: ${isAdmin ? 'admin' : 'client'}`);
-      
-      // Update user role based on admin tabs - CRITICAL UPDATE
-      const { data: roleData, error: roleError } = await supabase
+      // Update user role if they have admin tabs or if admin privileges are removed
+      const { error: roleError } = await supabase
         .from('profiles')
         .update({ role: isAdmin ? 'admin' : 'client' })
-        .eq('id', editingMember.id)
-        .select();
+        .eq('id', editingMember.id);
         
-      if (roleError) {
-        console.error('Error updating role:', roleError);
-        throw roleError;
-      }
-
-      console.log(`Role update successful for member ${editingMember.id}:`, roleData);
+      if (roleError) throw roleError;
 
       // Delete existing permissions
       const { error: deleteError } = await supabase
@@ -97,47 +88,20 @@ export const MemberList = ({ members, onDeleteMember, organizationType }: Member
         .delete()
         .eq('user_id', editingMember.id);
 
-      if (deleteError) {
-        console.error('Error deleting permissions:', deleteError);
-        throw deleteError;
-      }
+      if (deleteError) throw deleteError;
 
       // Insert new permissions
       if (editingMember.tabs.length > 0) {
-        const tabPermissions = editingMember.tabs.map(tab_name => ({
-          user_id: editingMember.id,
-          tab_name: tab_name
-        }));
-        
-        console.log('Inserting tab permissions:', tabPermissions);
-        
-        const { data: insertData, error: insertError } = await supabase
+        const { error: insertError } = await supabase
           .from('user_tab_permissions')
-          .insert(tabPermissions)
-          .select();
+          .insert(
+            editingMember.tabs.map(tab_name => ({
+              user_id: editingMember.id,
+              tab_name: tab_name
+            }))
+          );
 
-        if (insertError) {
-          console.error('Error inserting permissions:', insertError);
-          throw insertError;
-        }
-        
-        console.log('Permissions insert successful:', insertData);
-      }
-
-      // Verify the role was updated
-      const { data: checkData, error: checkError } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', editingMember.id)
-        .single();
-        
-      if (checkError) {
-        console.error('Error checking updated role:', checkError);
-      } else {
-        console.log(`Verified role after update: ${checkData.role}`);
-        if (checkData.role !== (isAdmin ? 'admin' : 'client')) {
-          console.warn('Role verification failed! Expected:', isAdmin ? 'admin' : 'client', 'Got:', checkData.role);
-        }
+        if (insertError) throw insertError;
       }
 
       toast.success('Medlem oppdatert');
@@ -155,7 +119,6 @@ export const MemberList = ({ members, onDeleteMember, organizationType }: Member
           <div className="space-y-1">
             <p className="font-medium text-primary">{profile.name}</p>
             <p className="text-sm text-gray-500">{profile.email}</p>
-            <p className="text-xs text-gray-400">Rolle: {profile.role || 'Ikke satt'}</p>
             {profile.tabs && profile.tabs.length > 0 ? (
               <div className="flex flex-wrap gap-2 mt-2">
                 {profile.tabs.map((tab) => (

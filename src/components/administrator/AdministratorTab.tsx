@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,7 +27,7 @@ interface Profile {
 }
 
 export const AdministratorTab = () => {
-  const { user, refreshUserData } = useAuth();
+  const { user } = useAuth();
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [isActuallyLoading, setIsActuallyLoading] = useState(true);
@@ -61,8 +60,7 @@ export const AdministratorTab = () => {
         type: org.type as "admin" | "client"
       });
 
-      // Fetch organization members with detailed logging
-      console.log(`Fetching profiles for organization: ${user.organization_id}`);
+      // Fetch organization members
       const { data: orgProfiles, error: profilesError } = await supabase
         .from("profiles")
         .select(`
@@ -71,12 +69,7 @@ export const AdministratorTab = () => {
         `)
         .eq("organization_id", user.organization_id);
 
-      if (profilesError) {
-        console.error("Error fetching organization profiles:", profilesError);
-        throw profilesError;
-      }
-      
-      console.log(`Fetched ${orgProfiles?.length || 0} profiles:`, orgProfiles);
+      if (profilesError) throw profilesError;
       setProfiles(orgProfiles || []);
     } catch (error) {
       console.error("Error fetching organization data:", error);
@@ -112,15 +105,13 @@ export const AdministratorTab = () => {
   }) => {
     try {
       // Store the current session before adding a new user
-      const { data: { session } } = await supabase.auth.getSession();
-      const currentSession = session;
+      const { data: sessionData } = await supabase.auth.getSession();
+      const currentSession = sessionData.session;
       
       // Determine role based on tab permissions
       const hasAdminTab = member.tabs.includes('administrator');
       const hasOrganizationsTab = member.tabs.includes('organizations');
       const memberRole = hasAdminTab || hasOrganizationsTab ? 'admin' : 'client';
-      
-      console.log(`Creating new member with role: ${memberRole}, admin tab: ${hasAdminTab}, org tab: ${hasOrganizationsTab}`);
       
       // Create new user with auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -142,7 +133,7 @@ export const AdministratorTab = () => {
       }
 
       // Update profile with organization id and correct role
-      const { data: profileData, error: profileError } = await supabase
+      const { error: profileError } = await supabase
         .from("profiles")
         .update({ 
           organization_id: orgId,
@@ -150,15 +141,9 @@ export const AdministratorTab = () => {
           name: member.name,
           email: member.email
         })
-        .eq("id", authData.user.id)
-        .select();
+        .eq("id", authData.user.id);
 
-      if (profileError) {
-        console.error('Error updating profile:', profileError);
-        throw profileError;
-      }
-
-      console.log(`Updated profile for user ${authData.user.id} with role ${memberRole}:`, profileData);
+      if (profileError) throw profileError;
 
       // Only assign tabs that the administrator has access to
       const filteredTabs = member.tabs.filter(tab => 
@@ -167,48 +152,23 @@ export const AdministratorTab = () => {
 
       // Add tab permissions if there are any
       if (filteredTabs.length > 0) {
-        const { data: tabData, error: tabError } = await supabase
+        const { error: tabError } = await supabase
           .from('user_tab_permissions')
           .insert(
             filteredTabs.map(tab_name => ({
               user_id: authData.user.id,
               tab_name: tab_name
             }))
-          )
-          .select();
+          );
 
-        if (tabError) {
-          console.error('Error adding tab permissions:', tabError);
-          throw tabError;
-        }
-        
-        console.log('Added tab permissions:', tabData);
+        if (tabError) throw tabError;
       }
 
       // Restore the original session to prevent being logged in as the new user
       if (currentSession) {
         await supabase.auth.setSession(currentSession);
       }
-      
-      // Verify the role was set correctly
-      const { data: verifyData, error: verifyError } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', authData.user.id)
-        .single();
-        
-      if (verifyError) {
-        console.error('Error verifying role:', verifyError);
-      } else {
-        console.log(`Verified role for new user: ${verifyData.role}`);
-        if (verifyData.role !== memberRole) {
-          console.warn('Role verification failed! Expected:', memberRole, 'Got:', verifyData.role);
-        }
-      }
 
-      // Refresh the current user's data (in case their role was changed)
-      await refreshUserData();
-      
       fetchOrganization(); // Refresh data
       toast.success("Medlem lagt til. Du kan nå redigere tilgangene deres.");
     } catch (error: any) {
@@ -225,17 +185,11 @@ export const AdministratorTab = () => {
         return;
       }
       
-      console.log(`Attempting to delete profile with ID: ${profileId}`);
-      const { data, error } = await supabase.rpc('delete_user', {
+      const { error } = await supabase.rpc('delete_user', {
         user_id: profileId
       });
 
-      if (error) {
-        console.error("Error in delete_user RPC call:", error);
-        throw error;
-      }
-      
-      console.log("Delete user RPC call result:", data);
+      if (error) throw error;
       
       fetchOrganization(); // Refresh data
       toast.success("Medlem fjernet");
