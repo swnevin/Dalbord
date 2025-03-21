@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Trash2, Pencil } from "lucide-react";
@@ -49,7 +48,8 @@ const tabLabels: Record<TabName, string> = {
   conversations: "Samtaler",
   knowledge: "Kunnskapsbase",
   statistics: "Statistikk",
-  home: "Hjem"
+  home: "Hjem",
+  administrator: "Administrator"
 };
 
 export const MemberList = ({ members, onDeleteMember, organizationType }: MemberListProps) => {

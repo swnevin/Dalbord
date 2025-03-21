@@ -204,6 +204,17 @@ export const AdministratorTab = () => {
     );
   }
 
+  // Update these functions to return Promises to match the expected type
+  const handleUpdateBot = async (orgId: string, config: { apiKey: string; projectId: string }): Promise<void> => {
+    // Empty implementation as this is disabled for client administrators
+    return Promise.resolve();
+  };
+
+  const handleDeleteOrg = async (orgId: string): Promise<void> => {
+    // Empty implementation as this is disabled for client administrators
+    return Promise.resolve();
+  };
+
   return (
     <div className="container max-w-7xl mx-auto p-6 space-y-8">
       <header>
@@ -217,8 +228,8 @@ export const AdministratorTab = () => {
         <OrganizationCard
           organization={organization}
           members={profiles}
-          onUpdateBot={() => {}} // Disabled for client administrators
-          onDeleteOrg={() => {}} // Disabled for client administrators
+          onUpdateBot={handleUpdateBot}
+          onDeleteOrg={handleDeleteOrg}
           onAddMember={handleAddMember}
           onDeleteMember={handleDeleteMember}
           hideControls={true} // Hide bot configuration and delete organization buttons
