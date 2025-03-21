@@ -1,0 +1,42 @@
+
+import { QAPair } from "./types";
+
+export const normalizeUrl = (url: string): string => {
+  let normalizedUrl = url;
+  
+  normalizedUrl = normalizedUrl.replace(/^https?:\/\//, '');
+  
+  normalizedUrl = normalizedUrl.replace(/\/+$/, '');
+  
+  return normalizedUrl.toLowerCase();
+};
+
+export const ensureQATitleSuffix = (title: string): string => {
+  if (!title.endsWith("- Q&A")) {
+    return `${title} - Q&A`;
+  }
+  return title;
+};
+
+export const createTextFile = (text: string, fileName: string): File => {
+  const textBlob = new Blob([text], { type: 'text/plain' });
+  const file = new File([textBlob], fileName);
+  return file;
+};
+
+export const createQAPayload = (title: string, qaPairs: QAPair[]) => {
+  const formattedTitle = ensureQATitleSuffix(title.trim());
+  
+  const qaItems = qaPairs.map(pair => ({
+    question: pair.question.trim(),
+    answer: pair.answer.trim()
+  }));
+
+  return {
+    data: {
+      schema: { searchableFields: ['question', 'answer'] },
+      name: formattedTitle,
+      items: qaItems
+    }
+  };
+};
