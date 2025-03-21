@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Trash2, Pencil } from "lucide-react";
@@ -74,13 +75,20 @@ export const MemberList = ({ members, onDeleteMember, organizationType }: Member
       const hasOrganizationsTab = editingMember.tabs.includes("organizations");
       const isAdmin = hasAdminTab || hasOrganizationsTab;
       
-      // Update user role if they have admin tabs or if admin privileges are removed
+      console.log(`Updating member ${editingMember.id} role to: ${isAdmin ? 'admin' : 'client'}`);
+      
+      // Update user role based on admin tabs
       const { error: roleError } = await supabase
         .from('profiles')
         .update({ role: isAdmin ? 'admin' : 'client' })
         .eq('id', editingMember.id);
         
-      if (roleError) throw roleError;
+      if (roleError) {
+        console.error('Error updating role:', roleError);
+        throw roleError;
+      }
+
+      console.log(`Role update successful for member ${editingMember.id}`);
 
       // Delete existing permissions
       const { error: deleteError } = await supabase

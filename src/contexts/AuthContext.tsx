@@ -8,6 +8,7 @@ interface User {
   id: string;
   email: string;
   organization_id?: string;
+  role?: string;
 }
 
 interface AuthContextType {
@@ -39,6 +40,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .from('profiles')
         .select(`
           organization_id,
+          role,
           organizations (
             type
           )
@@ -57,7 +59,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       return {
         organization_id: profileData.organization_id,
-        organization_type: profileData.organizations?.type
+        organization_type: profileData.organizations?.type,
+        role: profileData.role
       };
     } catch (error) {
       console.error('Error in fetchUserProfile:', error);
@@ -77,9 +80,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const userData = {
         id: session.user.id,
         email: session.user.email,
-        organization_id: profile.organization_id
+        organization_id: profile.organization_id,
+        role: profile.role
       };
 
+      console.log('Setting user data:', userData);
       setUser(userData);
 
       // Only handle navigation if we're not already on the admin dashboard

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import Sidebar from "../components/Sidebar";
@@ -147,9 +148,11 @@ const AdminDashboard = () => {
       const hasOrganizationsTab = member.tabs.includes("organizations");
       const userIsAdmin = hasAdminTab || hasOrganizationsTab;
 
+      console.log(`Adding member with admin role: ${userIsAdmin}, admin tab: ${hasAdminTab}, org tab: ${hasOrganizationsTab}`);
+
       // Store the current session before adding a new user
-      const { data: sessionData } = await supabase.auth.getSession();
-      const currentSession = sessionData.session;
+      const { data: { session } } = await supabase.auth.getSession();
+      const currentSession = session;
       
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: member.email,
@@ -169,6 +172,7 @@ const AdminDashboard = () => {
         throw new Error('Kunne ikke opprette bruker');
       }
 
+      // Update profile explicitly with correct role
       const { error: profileError } = await supabase
         .from("profiles")
         .update({ 
@@ -179,7 +183,12 @@ const AdminDashboard = () => {
         })
         .eq("id", authData.user.id);
 
-      if (profileError) throw profileError;
+      if (profileError) {
+        console.error('Error updating profile:', profileError);
+        throw profileError;
+      }
+
+      console.log(`Updated profile for user ${authData.user.id} with role ${userIsAdmin ? 'admin' : 'client'}`);
 
       if (member.tabs.length > 0) {
         const { error: tabError } = await supabase

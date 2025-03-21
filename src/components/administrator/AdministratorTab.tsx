@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -105,13 +106,15 @@ export const AdministratorTab = () => {
   }) => {
     try {
       // Store the current session before adding a new user
-      const { data: sessionData } = await supabase.auth.getSession();
-      const currentSession = sessionData.session;
+      const { data: { session } } = await supabase.auth.getSession();
+      const currentSession = session;
       
       // Determine role based on tab permissions
       const hasAdminTab = member.tabs.includes('administrator');
       const hasOrganizationsTab = member.tabs.includes('organizations');
       const memberRole = hasAdminTab || hasOrganizationsTab ? 'admin' : 'client';
+      
+      console.log(`Creating new member with role: ${memberRole}, admin tab: ${hasAdminTab}, org tab: ${hasOrganizationsTab}`);
       
       // Create new user with auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -143,7 +146,12 @@ export const AdministratorTab = () => {
         })
         .eq("id", authData.user.id);
 
-      if (profileError) throw profileError;
+      if (profileError) {
+        console.error('Error updating profile:', profileError);
+        throw profileError;
+      }
+
+      console.log(`Updated profile for user ${authData.user.id} with role ${memberRole}`);
 
       // Only assign tabs that the administrator has access to
       const filteredTabs = member.tabs.filter(tab => 
