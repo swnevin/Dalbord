@@ -110,13 +110,8 @@ export const FallbackRequests = () => {
     : resolvedRequests.slice(0, 3);
 
   const renderLoadingState = () => (
-    <div className="space-y-2">
-      {[1, 2, 3].map((i) => (
-        <div key={i} className="flex flex-col gap-2 p-4">
-          <Skeleton className="h-4 w-2/3" />
-          <Skeleton className="h-4 w-full" />
-        </div>
-      ))}
+    <div className="flex justify-center py-4">
+      <Loader size="sm" text="Laster henvendelser..." />
     </div>
   );
   
@@ -138,9 +133,7 @@ export const FallbackRequests = () => {
             
             <TabsContent value="unresolved">
               {isLoading ? (
-                <div className="flex justify-center py-6">
-                  <Loader size="sm" text="Laster henvendelser..." />
-                </div>
+                renderLoadingState()
               ) : fallbackRequests.length > 0 ? (
                 <div className="divide-y">
                   {fallbackRequests.map((request) => (
@@ -160,9 +153,7 @@ export const FallbackRequests = () => {
             
             <TabsContent value="resolved">
               {isLoading ? (
-                <div className="flex justify-center py-6">
-                  <Loader size="sm" text="Laster henvendelser..." />
-                </div>
+                renderLoadingState()
               ) : resolvedRequests.length > 0 ? (
                 <>
                   <div className="divide-y">
