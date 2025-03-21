@@ -10,6 +10,7 @@ import { SummaryCards } from "./SummaryCards";
 import { TimeSeriesChart } from "./TimeSeriesChart";
 import { SavingsCharts } from "./SavingsCharts";
 import { StatisticsData, LoadingState, TimeSeriesData, DateRange, TimeRange, SavingsSettings } from "./types";
+import { Loader } from "@/components/ui/loader";
 
 export const Statistics = () => {
   const { user } = useAuth();
