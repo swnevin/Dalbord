@@ -12,6 +12,7 @@ import {
   BookOpen,
   LineChart,
   Home,
+  Shield,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,7 +23,7 @@ interface SidebarProps {
   activeTab: string;
 }
 
-type TabName = "organizations" | "conversations" | "knowledge" | "statistics" | "home";
+type TabName = "organizations" | "conversations" | "knowledge" | "statistics" | "home" | "administrator";
 
 const Sidebar = ({ role, onTabChange, activeTab }: SidebarProps) => {
   const [collapsed, setCollapsed] = useState(false);
@@ -38,6 +39,7 @@ const Sidebar = ({ role, onTabChange, activeTab }: SidebarProps) => {
     { icon: MessageSquare, label: "Samtaler", value: "conversations" as TabName },
     { icon: BookOpen, label: "Kunnskapsbase", value: "knowledge" as TabName },
     { icon: LineChart, label: "Statistikk", value: "statistics" as TabName },
+    { icon: Shield, label: "Administrator", value: "administrator" as TabName },
   ];
 
   const allLinks = role === "admin" ? adminLinks : clientLinks;

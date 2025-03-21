@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import Sidebar from "../components/Sidebar";
 import KnowledgeBase from "@/components/KnowledgeBase";
@@ -10,6 +11,7 @@ import { ConversationDialog } from "@/components/conversations/ConversationDialo
 import { DeleteDialog } from "@/components/conversations/DeleteDialog";
 import { Statistics } from "@/components/statistics/Statistics";
 import { Home } from "@/components/home/Home";
+import { AdministratorTab } from "@/components/administrator/AdministratorTab";
 import { useDialogPreloader } from "@/hooks/use-dialog-preloader";
 
 interface VoiceflowTranscript {
@@ -384,6 +386,7 @@ const ClientDashboard = () => {
           <KnowledgeBase />
         )}
         {activeTab === "statistics" && <Statistics />}
+        {activeTab === "administrator" && <AdministratorTab />}
       </div>
 
       <DeleteDialog

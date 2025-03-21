@@ -167,6 +167,7 @@ export type Database = {
         | "knowledge"
         | "statistics"
         | "home"
+        | "administrator"
     }
     CompositeTypes: {
       [_ in never]: never
