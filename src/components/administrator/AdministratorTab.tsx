@@ -32,6 +32,7 @@ export const AdministratorTab = () => {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [isActuallyLoading, setIsActuallyLoading] = useState(true);
   const [userAccessibleTabs, setUserAccessibleTabs] = useState<TabName[]>([]);
+  // Using the minimum loading hook to ensure smooth transitions
   const isLoading = useMinimumLoading(isActuallyLoading);
 
   useEffect(() => {
@@ -45,6 +46,7 @@ export const AdministratorTab = () => {
     if (!user?.organization_id) return;
     
     try {
+      // Fetch organization data
       const { data: org, error: orgError } = await supabase
         .from("organizations")
         .select("*")
@@ -58,6 +60,7 @@ export const AdministratorTab = () => {
         type: org.type as "admin" | "client"
       });
 
+      // Fetch organization members
       const { data: orgProfiles, error: profilesError } = await supabase
         .from("profiles")
         .select(`
@@ -101,15 +104,16 @@ export const AdministratorTab = () => {
     tabs: TabName[];
   }) => {
     try {
+      // Store the current session before adding a new user
       const { data: sessionData } = await supabase.auth.getSession();
       const currentSession = sessionData.session;
       
+      // Determine role based on tab permissions
       const hasAdminTab = member.tabs.includes('administrator');
       const hasOrganizationsTab = member.tabs.includes('organizations');
       const memberRole = hasAdminTab || hasOrganizationsTab ? 'admin' : 'client';
       
-      console.log("Adding member with role:", memberRole, "tabs:", member.tabs);
-      
+      // Create new user with auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: member.email,
         password: member.password,
@@ -128,6 +132,7 @@ export const AdministratorTab = () => {
         throw new Error('Kunne ikke opprette bruker');
       }
 
+      // Update profile with organization id and correct role
       const { error: profileError } = await supabase
         .from("profiles")
         .update({ 
@@ -140,10 +145,12 @@ export const AdministratorTab = () => {
 
       if (profileError) throw profileError;
 
+      // Only assign tabs that the administrator has access to
       const filteredTabs = member.tabs.filter(tab => 
         userAccessibleTabs.includes(tab)
       );
 
+      // Add tab permissions if there are any
       if (filteredTabs.length > 0) {
         const { error: tabError } = await supabase
           .from('user_tab_permissions')
@@ -157,11 +164,12 @@ export const AdministratorTab = () => {
         if (tabError) throw tabError;
       }
 
+      // Restore the original session to prevent being logged in as the new user
       if (currentSession) {
         await supabase.auth.setSession(currentSession);
       }
 
-      fetchOrganization();
+      fetchOrganization(); // Refresh data
       toast.success("Medlem lagt til. Du kan nå redigere tilgangene deres.");
     } catch (error: any) {
       console.error("Error adding member:", error);
@@ -171,6 +179,7 @@ export const AdministratorTab = () => {
 
   const handleDeleteMember = async (profileId: string) => {
     try {
+      // Don't allow users to delete themselves
       if (profileId === user?.id) {
         toast.error("Du kan ikke slette din egen konto");
         return;
@@ -182,7 +191,7 @@ export const AdministratorTab = () => {
 
       if (error) throw error;
       
-      fetchOrganization();
+      fetchOrganization(); // Refresh data
       toast.success("Medlem fjernet");
     } catch (error: any) {
       console.error("Error removing member:", error);
@@ -190,14 +199,18 @@ export const AdministratorTab = () => {
     }
   };
 
+  // Update these functions to return Promises to match the expected type
   const handleUpdateBot = async (orgId: string, config: { apiKey: string; projectId: string }): Promise<void> => {
+    // Empty implementation as this is disabled for client administrators
     return Promise.resolve();
   };
 
   const handleDeleteOrg = async (orgId: string): Promise<void> => {
+    // Empty implementation as this is disabled for client administrators
     return Promise.resolve();
   };
 
+  // Show partial content during loading
   return (
     <div className="container max-w-7xl mx-auto p-6 space-y-8">
       <header>
@@ -222,7 +235,7 @@ export const AdministratorTab = () => {
               onDeleteOrg={handleDeleteOrg}
               onAddMember={handleAddMember}
               onDeleteMember={handleDeleteMember}
-              hideControls={true}
+              hideControls={true} // Hide bot configuration and delete organization buttons
             />
           )}
         </div>
