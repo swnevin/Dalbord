@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,12 +21,13 @@ interface Profile {
   id: string;
   name: string;
   email: string;
+  role: string;
   organization_id: string | null;
   tabs?: { tab_name: TabName }[];
 }
 
 export const AdministratorTab = () => {
-  const { user, isAdminUser } = useAuth();
+  const { user } = useAuth();
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [isActuallyLoading, setIsActuallyLoading] = useState(true);
@@ -64,10 +64,7 @@ export const AdministratorTab = () => {
       const { data: orgProfiles, error: profilesError } = await supabase
         .from("profiles")
         .select(`
-          id,
-          name,
-          email,
-          organization_id,
+          *,
           tabs:user_tab_permissions(tab_name)
         `)
         .eq("organization_id", user.organization_id);
@@ -111,9 +108,10 @@ export const AdministratorTab = () => {
       const { data: sessionData } = await supabase.auth.getSession();
       const currentSession = sessionData.session;
       
-      // Check if user has admin tabs
+      // Determine role based on tab permissions
       const hasAdminTab = member.tabs.includes('administrator');
       const hasOrganizationsTab = member.tabs.includes('organizations');
+      const memberRole = hasAdminTab || hasOrganizationsTab ? 'admin' : 'client';
       
       // Create new user with auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -121,7 +119,8 @@ export const AdministratorTab = () => {
         password: member.password,
         options: {
           data: {
-            name: member.name
+            name: member.name,
+            role: memberRole
           },
           emailRedirectTo: `${window.location.origin}/login`
         }
@@ -133,11 +132,12 @@ export const AdministratorTab = () => {
         throw new Error('Kunne ikke opprette bruker');
       }
 
-      // Update profile with organization id
+      // Update profile with organization id and correct role
       const { error: profileError } = await supabase
         .from("profiles")
         .update({ 
           organization_id: orgId,
+          role: memberRole,
           name: member.name,
           email: member.email
         })

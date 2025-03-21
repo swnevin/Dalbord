@@ -25,8 +25,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { AddMemberForm } from "./AddMemberForm";
 import { MemberList } from "./MemberList";
-import { useAuth } from "@/contexts/AuthContext";
-import { toast } from "sonner";
 
 type TabName = Database["public"]["Enums"]["tab_type"];
 
@@ -42,6 +40,7 @@ interface Profile {
   id: string;
   name: string;
   email: string;
+  role: string;
   organization_id: string | null;
   tabs?: { tab_name: Database["public"]["Enums"]["tab_type"] }[];
 }
@@ -70,7 +69,6 @@ export const OrganizationCard = ({
   onDeleteMember,
   hideControls = false,
 }: OrganizationCardProps) => {
-  const { user, isAdminUser } = useAuth();
   const [botConfig, setBotConfig] = useState({
     apiKey: organization.voiceflow_api_key || "",
     projectId: organization.voiceflow_project_id || ""
@@ -82,27 +80,6 @@ export const OrganizationCard = ({
       projectId: organization.voiceflow_project_id || ""
     });
   }, [organization]);
-
-  const handleDeleteMember = async (profileId: string) => {
-    try {
-      // Don't allow users to delete themselves
-      if (profileId === user?.id) {
-        toast.error("Du kan ikke slette din egen konto");
-        return;
-      }
-      
-      // Check if the current user is an admin
-      if (!isAdminUser) {
-        toast.error("Kun administratorer kan slette medlemmer");
-        return;
-      }
-      
-      await onDeleteMember(profileId);
-    } catch (error: any) {
-      console.error("Error in handleDeleteMember:", error);
-      toast.error(error.message || "Kunne ikke slette medlem");
-    }
-  };
 
   return (
     <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
@@ -204,7 +181,7 @@ export const OrganizationCard = ({
         </div>
         <MemberList 
           members={members}
-          onDeleteMember={handleDeleteMember}
+          onDeleteMember={onDeleteMember}
           organizationType={organization.type || "client"}
         />
       </div>
