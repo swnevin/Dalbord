@@ -143,6 +143,10 @@ const AdminDashboard = () => {
         return;
       }
 
+      const hasAdminTab = member.tabs.includes("administrator");
+      const hasOrganizationsTab = member.tabs.includes("organizations");
+      const isAdmin = hasAdminTab || hasOrganizationsTab;
+
       const currentSession = await supabase.auth.getSession();
       
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -151,7 +155,7 @@ const AdminDashboard = () => {
         options: {
           data: {
             name: member.name,
-            role: 'client'
+            role: isAdmin ? 'admin' : 'client'
           },
           emailRedirectTo: `${window.location.origin}/login`
         }
@@ -167,13 +171,26 @@ const AdminDashboard = () => {
         .from("profiles")
         .update({ 
           organization_id: orgId,
-          role: 'client',
+          role: isAdmin ? 'admin' : 'client',
           name: member.name,
           email: member.email
         })
         .eq("id", authData.user.id);
 
       if (profileError) throw profileError;
+
+      if (member.tabs.length > 0) {
+        const { error: tabError } = await supabase
+          .from('user_tab_permissions')
+          .insert(
+            member.tabs.map(tab_name => ({
+              user_id: authData.user.id,
+              tab_name: tab_name
+            }))
+          );
+
+        if (tabError) throw tabError;
+      }
 
       if (currentSession.data.session) {
         await supabase.auth.setSession(currentSession.data.session);

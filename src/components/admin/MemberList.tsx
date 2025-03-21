@@ -69,6 +69,29 @@ export const MemberList = ({ members, onDeleteMember, organizationType }: Member
     if (!editingMember) return;
 
     try {
+      // Check if the member is being given admin privileges
+      const hasAdminTab = editingMember.tabs.includes("administrator");
+      const hasOrganizationsTab = editingMember.tabs.includes("organizations");
+      const isAdmin = hasAdminTab || hasOrganizationsTab;
+      
+      // Update user role if they have admin tabs
+      if (isAdmin) {
+        const { error: roleError } = await supabase
+          .from('profiles')
+          .update({ role: 'admin' })
+          .eq('id', editingMember.id);
+          
+        if (roleError) throw roleError;
+      } else {
+        // Set back to client if admin privileges are removed
+        const { error: roleError } = await supabase
+          .from('profiles')
+          .update({ role: 'client' })
+          .eq('id', editingMember.id);
+          
+        if (roleError) throw roleError;
+      }
+
       // Delete existing permissions
       const { error: deleteError } = await supabase
         .from('user_tab_permissions')

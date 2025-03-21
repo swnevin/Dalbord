@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { OrganizationCard } from "@/components/admin/OrganizationCard";
-import { Loader } from "@/components/ui/loader";
+import { useMinimumLoading } from "@/hooks/use-minimum-loading";
 import { toast } from "sonner";
 import { Database } from "@/integrations/supabase/types";
 
@@ -31,8 +31,10 @@ export const AdministratorTab = () => {
   const { user } = useAuth();
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isActuallyLoading, setIsActuallyLoading] = useState(true);
   const [userAccessibleTabs, setUserAccessibleTabs] = useState<TabName[]>([]);
+  // Using the minimum loading hook to ensure smooth transitions
+  const isLoading = useMinimumLoading(isActuallyLoading);
 
   useEffect(() => {
     if (user?.organization_id) {
@@ -74,7 +76,7 @@ export const AdministratorTab = () => {
       console.error("Error fetching organization data:", error);
       toast.error("Kunne ikke hente organisasjonsdata");
     } finally {
-      setIsLoading(false);
+      setIsActuallyLoading(false);
     }
   };
 
@@ -110,7 +112,8 @@ export const AdministratorTab = () => {
         options: {
           data: {
             name: member.name,
-            role: 'client'
+            // Set role to admin if they're getting administrator tab
+            role: member.tabs.includes('administrator') ? 'admin' : 'client'
           },
           emailRedirectTo: `${window.location.origin}/login`
         }
@@ -122,12 +125,13 @@ export const AdministratorTab = () => {
         throw new Error('Kunne ikke opprette bruker');
       }
 
-      // Update profile with organization id
+      // Update profile with organization id and correct role
       const { error: profileError } = await supabase
         .from("profiles")
         .update({ 
           organization_id: orgId,
-          role: 'client',
+          // Set role to admin if they're getting administrator tab
+          role: member.tabs.includes('administrator') ? 'admin' : 'client',
           name: member.name,
           email: member.email
         })
@@ -184,26 +188,6 @@ export const AdministratorTab = () => {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px]">
-        <Loader className="w-8 h-8 mb-4" />
-        <p className="text-muted-foreground">Laster administratorpanel...</p>
-      </div>
-    );
-  }
-
-  if (!organization) {
-    return (
-      <div className="container max-w-4xl mx-auto p-6">
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
-          <h2 className="text-xl font-semibold text-primary mb-2">Ingen organisasjon funnet</h2>
-          <p className="text-gray-600">Du er ikke tilknyttet noen organisasjon eller mangler rettigheter.</p>
-        </div>
-      </div>
-    );
-  }
-
   // Update these functions to return Promises to match the expected type
   const handleUpdateBot = async (orgId: string, config: { apiKey: string; projectId: string }): Promise<void> => {
     // Empty implementation as this is disabled for client administrators
@@ -215,6 +199,7 @@ export const AdministratorTab = () => {
     return Promise.resolve();
   };
 
+  // Show partial content during loading
   return (
     <div className="container max-w-7xl mx-auto p-6 space-y-8">
       <header>
@@ -224,17 +209,26 @@ export const AdministratorTab = () => {
         </p>
       </header>
 
-      <div className="space-y-4">
-        <OrganizationCard
-          organization={organization}
-          members={profiles}
-          onUpdateBot={handleUpdateBot}
-          onDeleteOrg={handleDeleteOrg}
-          onAddMember={handleAddMember}
-          onDeleteMember={handleDeleteMember}
-          hideControls={true} // Hide bot configuration and delete organization buttons
-        />
-      </div>
+      {!organization && !isLoading ? (
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
+          <h2 className="text-xl font-semibold text-primary mb-2">Ingen organisasjon funnet</h2>
+          <p className="text-gray-600">Du er ikke tilknyttet noen organisasjon eller mangler rettigheter.</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {organization && (
+            <OrganizationCard
+              organization={organization}
+              members={profiles}
+              onUpdateBot={handleUpdateBot}
+              onDeleteOrg={handleDeleteOrg}
+              onAddMember={handleAddMember}
+              onDeleteMember={handleDeleteMember}
+              hideControls={true} // Hide bot configuration and delete organization buttons
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 };
