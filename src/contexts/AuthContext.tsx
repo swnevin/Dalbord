@@ -15,6 +15,8 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   isLoading: boolean;
+  isAdminUser: boolean;
+  checkAdminStatus: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -30,6 +32,7 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAdminUser, setIsAdminUser] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -65,6 +68,37 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  const checkAdminStatus = async () => {
+    if (!user) return false;
+    
+    try {
+      // Check organization type
+      const { data: orgData, error: orgError } = await supabase
+        .from('organizations')
+        .select('type')
+        .eq('id', user.organization_id)
+        .maybeSingle();
+        
+      if (orgError) throw orgError;
+      
+      // Check if user has admin tabs
+      const { data: tabData, error: tabError } = await supabase
+        .from('user_tab_permissions')
+        .select('tab_name')
+        .eq('user_id', user.id)
+        .in('tab_name', ['administrator', 'organizations']);
+        
+      if (tabError) throw tabError;
+      
+      const isAdmin = (orgData?.type === 'admin' || tabData.length > 0);
+      setIsAdminUser(isAdmin);
+      return isAdmin;
+    } catch (error) {
+      console.error('Error checking admin status:', error);
+      return false;
+    }
+  };
+
   const handleSession = async (session: any) => {
     if (!session?.user) {
       setUser(null);
@@ -81,6 +115,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       };
 
       setUser(userData);
+      
+      // Check admin status immediately after setting user
+      await checkAdminStatus();
 
       // Only handle navigation if we're not already on the admin dashboard
       // This prevents the flash when adding new members
@@ -167,7 +204,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, login, logout, isLoading, isAdminUser, checkAdminStatus }}>
       {children}
     </AuthContext.Provider>
   );

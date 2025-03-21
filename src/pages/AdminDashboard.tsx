@@ -29,42 +29,21 @@ interface Profile {
   id: string;
   name: string;
   email: string;
-  role: string;
   organization_id: string | null;
   tabs?: { tab_name: Database["public"]["Enums"]["tab_type"] }[];
 }
 
 const AdminDashboard = () => {
-  const { user } = useAuth();
+  const { user, isAdminUser, checkAdminStatus } = useAuth();
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile[]>>({});
   const [isLoading, setIsLoading] = useState(true);
-  const [isAdminUser, setIsAdminUser] = useState(false);
   const [activeTab, setActiveTab] = useState("organizations");
 
   useEffect(() => {
     fetchOrganizations();
     checkAdminStatus();
   }, []);
-
-  const checkAdminStatus = async () => {
-    if (!user) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single();
-        
-      if (error) throw error;
-      
-      setIsAdminUser(data.role === 'admin');
-    } catch (error) {
-      console.error('Error checking admin status:', error);
-      toast.error('Kunne ikke verifisere administratortilgang');
-    }
-  };
 
   const fetchOrganizations = async () => {
     try {
@@ -85,7 +64,10 @@ const AdminDashboard = () => {
         const { data: orgProfiles, error: profilesError } = await supabase
           .from("profiles")
           .select(`
-            *,
+            id,
+            name,
+            email,
+            organization_id,
             tabs:user_tab_permissions(tab_name)
           `)
           .eq("organization_id", org.id);
@@ -145,7 +127,6 @@ const AdminDashboard = () => {
 
       const hasAdminTab = member.tabs.includes("administrator");
       const hasOrganizationsTab = member.tabs.includes("organizations");
-      const userIsAdmin = hasAdminTab || hasOrganizationsTab;
 
       // Store the current session before adding a new user
       const { data: sessionData } = await supabase.auth.getSession();
@@ -156,8 +137,7 @@ const AdminDashboard = () => {
         password: member.password,
         options: {
           data: {
-            name: member.name,
-            role: userIsAdmin ? 'admin' : 'client'
+            name: member.name
           },
           emailRedirectTo: `${window.location.origin}/login`
         }
@@ -173,7 +153,6 @@ const AdminDashboard = () => {
         .from("profiles")
         .update({ 
           organization_id: orgId,
-          role: userIsAdmin ? 'admin' : 'client',
           name: member.name,
           email: member.email
         })
@@ -202,7 +181,10 @@ const AdminDashboard = () => {
       const { data: updatedProfiles, error: fetchError } = await supabase
         .from("profiles")
         .select(`
-          *,
+          id,
+          name,
+          email,
+          organization_id,
           tabs:user_tab_permissions(tab_name)
         `)
         .eq("organization_id", orgId);
