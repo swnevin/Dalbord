@@ -233,6 +233,23 @@ export const MemberList = ({ members, onDeleteMember, organizationType }: Member
                                 Statistikk
                               </Label>
                             </div>
+                            <div className="flex items-center space-x-2">
+                              <Checkbox 
+                                id="administrator"
+                                checked={editingMember.tabs.includes("administrator")}
+                                onCheckedChange={(checked) => {
+                                  setEditingMember({
+                                    ...editingMember,
+                                    tabs: checked 
+                                      ? [...editingMember.tabs, "administrator"]
+                                      : editingMember.tabs.filter(t => t !== "administrator")
+                                  });
+                                }}
+                              />
+                              <Label htmlFor="administrator" className="font-medium">
+                                Administrator
+                              </Label>
+                            </div>
                           </>
                         )}
                       </div>
