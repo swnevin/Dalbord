@@ -28,7 +28,7 @@ interface Profile {
 }
 
 export const AdministratorTab = () => {
-  const { user } = useAuth();
+  const { user, refreshUserData } = useAuth();
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [isActuallyLoading, setIsActuallyLoading] = useState(true);
@@ -61,7 +61,8 @@ export const AdministratorTab = () => {
         type: org.type as "admin" | "client"
       });
 
-      // Fetch organization members
+      // Fetch organization members with detailed logging
+      console.log(`Fetching profiles for organization: ${user.organization_id}`);
       const { data: orgProfiles, error: profilesError } = await supabase
         .from("profiles")
         .select(`
@@ -70,7 +71,12 @@ export const AdministratorTab = () => {
         `)
         .eq("organization_id", user.organization_id);
 
-      if (profilesError) throw profilesError;
+      if (profilesError) {
+        console.error("Error fetching organization profiles:", profilesError);
+        throw profilesError;
+      }
+      
+      console.log(`Fetched ${orgProfiles?.length || 0} profiles:`, orgProfiles);
       setProfiles(orgProfiles || []);
     } catch (error) {
       console.error("Error fetching organization data:", error);
@@ -136,7 +142,7 @@ export const AdministratorTab = () => {
       }
 
       // Update profile with organization id and correct role
-      const { error: profileError } = await supabase
+      const { data: profileData, error: profileError } = await supabase
         .from("profiles")
         .update({ 
           organization_id: orgId,
@@ -144,14 +150,15 @@ export const AdministratorTab = () => {
           name: member.name,
           email: member.email
         })
-        .eq("id", authData.user.id);
+        .eq("id", authData.user.id)
+        .select();
 
       if (profileError) {
         console.error('Error updating profile:', profileError);
         throw profileError;
       }
 
-      console.log(`Updated profile for user ${authData.user.id} with role ${memberRole}`);
+      console.log(`Updated profile for user ${authData.user.id} with role ${memberRole}:`, profileData);
 
       // Only assign tabs that the administrator has access to
       const filteredTabs = member.tabs.filter(tab => 
@@ -160,23 +167,48 @@ export const AdministratorTab = () => {
 
       // Add tab permissions if there are any
       if (filteredTabs.length > 0) {
-        const { error: tabError } = await supabase
+        const { data: tabData, error: tabError } = await supabase
           .from('user_tab_permissions')
           .insert(
             filteredTabs.map(tab_name => ({
               user_id: authData.user.id,
               tab_name: tab_name
             }))
-          );
+          )
+          .select();
 
-        if (tabError) throw tabError;
+        if (tabError) {
+          console.error('Error adding tab permissions:', tabError);
+          throw tabError;
+        }
+        
+        console.log('Added tab permissions:', tabData);
       }
 
       // Restore the original session to prevent being logged in as the new user
       if (currentSession) {
         await supabase.auth.setSession(currentSession);
       }
+      
+      // Verify the role was set correctly
+      const { data: verifyData, error: verifyError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', authData.user.id)
+        .single();
+        
+      if (verifyError) {
+        console.error('Error verifying role:', verifyError);
+      } else {
+        console.log(`Verified role for new user: ${verifyData.role}`);
+        if (verifyData.role !== memberRole) {
+          console.warn('Role verification failed! Expected:', memberRole, 'Got:', verifyData.role);
+        }
+      }
 
+      // Refresh the current user's data (in case their role was changed)
+      await refreshUserData();
+      
       fetchOrganization(); // Refresh data
       toast.success("Medlem lagt til. Du kan nå redigere tilgangene deres.");
     } catch (error: any) {
@@ -193,11 +225,17 @@ export const AdministratorTab = () => {
         return;
       }
       
-      const { error } = await supabase.rpc('delete_user', {
+      console.log(`Attempting to delete profile with ID: ${profileId}`);
+      const { data, error } = await supabase.rpc('delete_user', {
         user_id: profileId
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error in delete_user RPC call:", error);
+        throw error;
+      }
+      
+      console.log("Delete user RPC call result:", data);
       
       fetchOrganization(); // Refresh data
       toast.success("Medlem fjernet");

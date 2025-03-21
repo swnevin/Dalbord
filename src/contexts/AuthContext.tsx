@@ -16,6 +16,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   isLoading: boolean;
+  refreshUserData: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -36,6 +37,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const fetchUserProfile = async (userId: string) => {
     try {
+      console.log(`Fetching profile for user ID: ${userId}`);
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select(`
@@ -57,6 +59,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         throw new Error('Ingen brukerprofil funnet');
       }
 
+      console.log('Fetched profile data:', profileData);
       return {
         organization_id: profileData.organization_id,
         organization_type: profileData.organizations?.type,
@@ -65,6 +68,38 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } catch (error) {
       console.error('Error in fetchUserProfile:', error);
       throw error;
+    }
+  };
+
+  const refreshUserData = async () => {
+    try {
+      if (!supabase.auth.getUser) {
+        console.log('No active user to refresh');
+        return;
+      }
+      
+      const { data } = await supabase.auth.getUser();
+      if (!data.user) {
+        console.log('No active user to refresh');
+        return;
+      }
+      
+      console.log('Refreshing user data for user ID:', data.user.id);
+      const profile = await fetchUserProfile(data.user.id);
+      
+      const userData = {
+        id: data.user.id,
+        email: data.user.email || '',
+        organization_id: profile.organization_id,
+        role: profile.role
+      };
+
+      console.log('Setting refreshed user data:', userData);
+      setUser(userData);
+      
+      return true;
+    } catch (error) {
+      console.error('Error refreshing user data:', error);
     }
   };
 
@@ -172,7 +207,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, login, logout, isLoading, refreshUserData }}>
       {children}
     </AuthContext.Provider>
   );

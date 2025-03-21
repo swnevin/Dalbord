@@ -77,18 +77,19 @@ export const MemberList = ({ members, onDeleteMember, organizationType }: Member
       
       console.log(`Updating member ${editingMember.id} role to: ${isAdmin ? 'admin' : 'client'}`);
       
-      // Update user role based on admin tabs
-      const { error: roleError } = await supabase
+      // Update user role based on admin tabs - CRITICAL UPDATE
+      const { data: roleData, error: roleError } = await supabase
         .from('profiles')
         .update({ role: isAdmin ? 'admin' : 'client' })
-        .eq('id', editingMember.id);
+        .eq('id', editingMember.id)
+        .select();
         
       if (roleError) {
         console.error('Error updating role:', roleError);
         throw roleError;
       }
 
-      console.log(`Role update successful for member ${editingMember.id}`);
+      console.log(`Role update successful for member ${editingMember.id}:`, roleData);
 
       // Delete existing permissions
       const { error: deleteError } = await supabase
@@ -96,20 +97,47 @@ export const MemberList = ({ members, onDeleteMember, organizationType }: Member
         .delete()
         .eq('user_id', editingMember.id);
 
-      if (deleteError) throw deleteError;
+      if (deleteError) {
+        console.error('Error deleting permissions:', deleteError);
+        throw deleteError;
+      }
 
       // Insert new permissions
       if (editingMember.tabs.length > 0) {
-        const { error: insertError } = await supabase
+        const tabPermissions = editingMember.tabs.map(tab_name => ({
+          user_id: editingMember.id,
+          tab_name: tab_name
+        }));
+        
+        console.log('Inserting tab permissions:', tabPermissions);
+        
+        const { data: insertData, error: insertError } = await supabase
           .from('user_tab_permissions')
-          .insert(
-            editingMember.tabs.map(tab_name => ({
-              user_id: editingMember.id,
-              tab_name: tab_name
-            }))
-          );
+          .insert(tabPermissions)
+          .select();
 
-        if (insertError) throw insertError;
+        if (insertError) {
+          console.error('Error inserting permissions:', insertError);
+          throw insertError;
+        }
+        
+        console.log('Permissions insert successful:', insertData);
+      }
+
+      // Verify the role was updated
+      const { data: checkData, error: checkError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', editingMember.id)
+        .single();
+        
+      if (checkError) {
+        console.error('Error checking updated role:', checkError);
+      } else {
+        console.log(`Verified role after update: ${checkData.role}`);
+        if (checkData.role !== (isAdmin ? 'admin' : 'client')) {
+          console.warn('Role verification failed! Expected:', isAdmin ? 'admin' : 'client', 'Got:', checkData.role);
+        }
       }
 
       toast.success('Medlem oppdatert');
@@ -127,6 +155,7 @@ export const MemberList = ({ members, onDeleteMember, organizationType }: Member
           <div className="space-y-1">
             <p className="font-medium text-primary">{profile.name}</p>
             <p className="text-sm text-gray-500">{profile.email}</p>
+            <p className="text-xs text-gray-400">Rolle: {profile.role || 'Ikke satt'}</p>
             {profile.tabs && profile.tabs.length > 0 ? (
               <div className="flex flex-wrap gap-2 mt-2">
                 {profile.tabs.map((tab) => (
