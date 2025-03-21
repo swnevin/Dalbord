@@ -79,7 +79,7 @@ interface QAPair {
   id: string;
 }
 
-export const KnowledgeBase = () => {
+const KnowledgeBase = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [sources, setSources] = useState<VoiceflowDocument[]>([]);
@@ -1125,3 +1125,5 @@ export const KnowledgeBase = () => {
     </div>
   );
 };
+
+export default KnowledgeBase;
