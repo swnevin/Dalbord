@@ -54,27 +54,19 @@ const Sidebar = ({ role, onTabChange, activeTab }: SidebarProps) => {
 
         if (error) throw error;
 
-        // If we have specific permissions, use them
-        if (data && data.length > 0) {
-          const tabs = data.map(item => item.tab_name as TabName);
-          setPermittedTabs(tabs);
+        const tabs = data.map(item => item.tab_name as TabName);
+        setPermittedTabs(tabs);
 
-          if (tabs.length > 0 && !tabs.includes(activeTab as TabName)) {
-            onTabChange(tabs[0]);
-          }
-        } else {
-          // If no specific permissions are set, show all tabs for the role
-          setPermittedTabs(allLinks.map(link => link.value));
+        if (tabs.length > 0 && !tabs.includes(activeTab as TabName)) {
+          onTabChange(tabs[0]);
         }
       } catch (error) {
         console.error('Error fetching tab permissions:', error);
-        // Fallback to all tabs for the role if there's an error
-        setPermittedTabs(allLinks.map(link => link.value));
       }
     };
 
     fetchPermittedTabs();
-  }, [user, activeTab, onTabChange, allLinks]);
+  }, [user, activeTab, onTabChange]);
 
   const links = allLinks.filter(link => permittedTabs.includes(link.value));
 
@@ -105,7 +97,7 @@ const Sidebar = ({ role, onTabChange, activeTab }: SidebarProps) => {
 
       <div className="flex-1 p-4">
         <Tabs 
-          defaultValue={links.length > 0 ? links[0].value : undefined} 
+          defaultValue={links[0]?.value} 
           value={activeTab}
           onValueChange={onTabChange} 
           orientation="vertical" 
