@@ -2,12 +2,15 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { Loader } from "@/components/ui/loader";
 import { ServerStatus } from "./ServerStatus";
 import { FallbackRequests } from "./FallbackRequests";
+import { useMinimumLoading } from "@/hooks/use-minimum-loading";
 
 export const Home = () => {
   const { user } = useAuth();
   const [userName, setUserName] = useState<string>("");
+  const [isLoading, setIsLoading] = useState(true);
   
   useEffect(() => {
     const fetchUserName = async () => {
@@ -27,11 +30,23 @@ export const Home = () => {
         }
       } catch (error) {
         console.error('Error fetching user profile:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
     
     fetchUserName();
   }, [user]);
+  
+  const showLoader = useMinimumLoading(isLoading);
+  
+  if (showLoader) {
+    return (
+      <div className="w-full h-full flex items-center justify-center">
+        <Loader size="lg" />
+      </div>
+    );
+  }
   
   return (
     <div className="container max-w-7xl mx-auto p-6 space-y-8">

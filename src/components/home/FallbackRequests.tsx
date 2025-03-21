@@ -7,10 +7,13 @@ import {
   CardContent, 
   CardHeader, 
   CardTitle,
-  CardDescription
+  CardDescription,
+  CardFooter
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { PlusCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import { FallbackRequestItem } from "./FallbackRequestItem";
 import { CreateFAQDialog } from "./CreateFAQDialog";
@@ -106,52 +109,16 @@ export const FallbackRequests = () => {
     ? resolvedRequests 
     : resolvedRequests.slice(0, 3);
 
-  const renderTabContent = (requests: FallbackRequest[], isResolved: boolean, emptyMessage: string) => {
-    if (isLoading) {
-      return (
-        <div className="flex justify-center py-6">
-          <Loader size="sm" text="Laster henvendelser..." />
+  const renderLoadingState = () => (
+    <div className="space-y-2">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="flex flex-col gap-2 p-4">
+          <Skeleton className="h-4 w-2/3" />
+          <Skeleton className="h-4 w-full" />
         </div>
-      );
-    }
-    
-    if (requests.length === 0) {
-      return (
-        <div className="text-center py-8 text-muted-foreground">
-          <p>{emptyMessage}</p>
-        </div>
-      );
-    }
-    
-    return (
-      <>
-        <div className="divide-y">
-          {requests.map((request) => (
-            <FallbackRequestItem 
-              key={request.id} 
-              request={request} 
-              onClick={isResolved ? () => {} : () => handleRequestClick(request)} 
-              isResolved={isResolved}
-            />
-          ))}
-        </div>
-        
-        {isResolved && resolvedRequests.length > 3 && (
-          <Button 
-            variant="ghost" 
-            className="w-full mt-2 flex items-center justify-center gap-1" 
-            onClick={() => setShowAllResolved(!showAllResolved)}
-          >
-            {showAllResolved ? (
-              <>Vis færre <ChevronUp className="h-4 w-4" /></>
-            ) : (
-              <>Vis alle ({resolvedRequests.length}) <ChevronDown className="h-4 w-4" /></>
-            )}
-          </Button>
-        )}
-      </>
-    );
-  };
+      ))}
+    </div>
+  );
   
   return (
     <>
@@ -170,11 +137,64 @@ export const FallbackRequests = () => {
             </TabsList>
             
             <TabsContent value="unresolved">
-              {renderTabContent(fallbackRequests, false, "Hurra! Ingen uløste henvendelser til fallback")}
+              {isLoading ? (
+                <div className="flex justify-center py-6">
+                  <Loader size="sm" text="Laster henvendelser..." />
+                </div>
+              ) : fallbackRequests.length > 0 ? (
+                <div className="divide-y">
+                  {fallbackRequests.map((request) => (
+                    <FallbackRequestItem 
+                      key={request.id} 
+                      request={request} 
+                      onClick={() => handleRequestClick(request)} 
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>Hurra! Ingen uløste henvendelser til fallback</p>
+                </div>
+              )}
             </TabsContent>
             
             <TabsContent value="resolved">
-              {renderTabContent(displayedResolvedRequests, true, "Ingen løste henvendelser til fallback")}
+              {isLoading ? (
+                <div className="flex justify-center py-6">
+                  <Loader size="sm" text="Laster henvendelser..." />
+                </div>
+              ) : resolvedRequests.length > 0 ? (
+                <>
+                  <div className="divide-y">
+                    {displayedResolvedRequests.map((request) => (
+                      <FallbackRequestItem 
+                        key={request.id} 
+                        request={request} 
+                        onClick={() => {}} // Resolved requests don't need to be clicked
+                        isResolved={true}
+                      />
+                    ))}
+                  </div>
+                  
+                  {resolvedRequests.length > 3 && (
+                    <Button 
+                      variant="ghost" 
+                      className="w-full mt-2 flex items-center justify-center gap-1" 
+                      onClick={() => setShowAllResolved(!showAllResolved)}
+                    >
+                      {showAllResolved ? (
+                        <>Vis færre <ChevronUp className="h-4 w-4" /></>
+                      ) : (
+                        <>Vis alle ({resolvedRequests.length}) <ChevronDown className="h-4 w-4" /></>
+                      )}
+                    </Button>
+                  )}
+                </>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>Ingen løste henvendelser til fallback</p>
+                </div>
+              )}
             </TabsContent>
           </Tabs>
         </CardContent>
