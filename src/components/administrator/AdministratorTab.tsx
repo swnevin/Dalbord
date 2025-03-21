@@ -105,6 +105,9 @@ export const AdministratorTab = () => {
     tabs: TabName[];
   }) => {
     try {
+      // Store the current session before adding a new user
+      const { data: currentSession } = await supabase.auth.getSession();
+      
       // Create new user with auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: member.email,
@@ -112,8 +115,8 @@ export const AdministratorTab = () => {
         options: {
           data: {
             name: member.name,
-            // Set role to admin if they're getting administrator tab
-            role: member.tabs.includes('administrator') ? 'admin' : 'client'
+            // Set role to admin if they're getting administrator tab or organizations tab
+            role: member.tabs.includes('administrator') || member.tabs.includes('organizations') ? 'admin' : 'client'
           },
           emailRedirectTo: `${window.location.origin}/login`
         }
@@ -130,8 +133,8 @@ export const AdministratorTab = () => {
         .from("profiles")
         .update({ 
           organization_id: orgId,
-          // Set role to admin if they're getting administrator tab
-          role: member.tabs.includes('administrator') ? 'admin' : 'client',
+          // Set role to admin if they're getting administrator tab or organizations tab
+          role: member.tabs.includes('administrator') || member.tabs.includes('organizations') ? 'admin' : 'client',
           name: member.name,
           email: member.email
         })
@@ -156,6 +159,11 @@ export const AdministratorTab = () => {
           );
 
         if (tabError) throw tabError;
+      }
+
+      // Restore the original session to prevent being logged in as the new user
+      if (currentSession.session) {
+        await supabase.auth.setSession(currentSession.session);
       }
 
       fetchOrganization(); // Refresh data
