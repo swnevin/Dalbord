@@ -1,7 +1,6 @@
-
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Bookmark, CheckCircle, ChevronLeft, ChevronRight, Search, Trash2 } from "lucide-react";
+import { Bookmark, CheckCircle, ChevronLeft, ChevronRight, Search, Trash2, FileText, Info } from "lucide-react";
 import { formatDate } from "@/utils/conversation-utils";
 import { Loader } from "@/components/ui/loader";
 import { Input } from "@/components/ui/input";
@@ -21,6 +20,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { PreloadedIndicator } from "./PreloadedIndicator";
 
 interface VoiceflowTranscript {
   _id: string;
@@ -45,6 +46,12 @@ interface ConversationListProps {
   onDeleteClick: (id: string) => void;
   activeFilter: "all" | "approved" | "saved";
   onFilterChange: (filter: "all" | "approved" | "saved") => void;
+  isPreloaded: (id: string) => boolean;
+  searchInContent: boolean;
+  onToggleSearchInContent: (value: boolean) => void;
+  searchTerm: string;
+  onSearchTermChange: (term: string) => void;
+  getPaginatedConversations: (page: number, itemsPerPage: number) => VoiceflowTranscript[];
 }
 
 export const ConversationList = ({
@@ -58,15 +65,27 @@ export const ConversationList = ({
   onDeleteClick,
   activeFilter,
   onFilterChange,
+  isPreloaded,
+  searchInContent,
+  onToggleSearchInContent,
+  searchTerm,
+  onSearchTermChange,
+  getPaginatedConversations,
 }: ConversationListProps) => {
   const [currentPage, setCurrentPage] = useState(1);
-  const [searchTerm, setSearchTerm] = useState("");
   const [itemsPerPage, setItemsPerPage] = useState(20);
 
   // Reset to page 1 when filter changes
   useEffect(() => {
     setCurrentPage(1);
   }, [activeFilter, searchTerm, itemsPerPage]);
+
+  // Always set search in content to true
+  useEffect(() => {
+    if (!searchInContent) {
+      onToggleSearchInContent(true);
+    }
+  }, [searchInContent, onToggleSearchInContent]);
 
   const isConversationReviewed = (conv: VoiceflowTranscript) => {
     return conv.reportTags?.includes("system.reviewed") ?? false;
@@ -80,32 +99,13 @@ export const ConversationList = ({
     onConversationSelect(id);
   };
 
-  // Filter conversations based on search term
-  const filteredConversations = useMemo(() => {
-    return conversations.filter(conv => {
-      // Apply the active filter first
-      if (activeFilter === "approved" && !isConversationReviewed(conv)) return false;
-      if (activeFilter === "saved" && !isConversationSaved(conv)) return false;
-      
-      // Then apply the search filter if there is a search term
-      if (!searchTerm) return true;
-      
-      const searchLower = searchTerm.toLowerCase();
-      const nameMatch = (conv.name || "Ukjent bruker").toLowerCase().includes(searchLower);
-      const dateMatch = formatDate(conv.updatedAt).date.toLowerCase().includes(searchLower);
-      const deviceMatch = (conv.device || "").toLowerCase().includes(searchLower);
-
-      return nameMatch || dateMatch || deviceMatch;
-    });
-  }, [conversations, searchTerm, activeFilter]);
-
-  // Paginate conversations
+  // Get paginated conversations for the current page
   const paginatedConversations = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    return filteredConversations.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredConversations, currentPage, itemsPerPage]);
+    return getPaginatedConversations(currentPage, itemsPerPage);
+  }, [getPaginatedConversations, currentPage, itemsPerPage]);
 
-  const totalPages = Math.ceil(filteredConversations.length / itemsPerPage);
+  const totalConversations = conversations.length;
+  const totalPages = Math.ceil(totalConversations / itemsPerPage);
 
   const handleNextPage = () => {
     if (currentPage < totalPages) {
@@ -130,7 +130,7 @@ export const ConversationList = ({
             "text-xl font-semibold text-primary",
             collapsed ? "hidden" : "text-primary"
           )}>
-            Samtaler ({filteredConversations.length})
+            Samtaler ({conversations.length})
           </h2>
           <Button
             variant="ghost"
@@ -144,16 +144,34 @@ export const ConversationList = ({
         
         {!collapsed && (
           <>
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-              <Input
-                type="text"
-                placeholder="Søk etter navn, dato..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9"
-              />
+            <div className="flex flex-col gap-2">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+                <Input
+                  type="text"
+                  placeholder="Søk etter navn, dato..."
+                  value={searchTerm}
+                  onChange={(e) => onSearchTermChange(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              
+              <div className="flex items-center text-xs text-gray-600">
+                <FileText size={14} className="mr-1" />
+                <span>Søker i innhold</span>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 ml-1 p-0">
+                      <Info size={14} className="text-gray-500" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p className="max-w-xs">Søk i innhold fungerer kun for samtaler som er forhåndslastet (indikert med blått ikon).</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
             </div>
+            
             <div className="flex gap-2">
               <Button
                 variant={activeFilter === "all" ? "secondary" : "outline"}
@@ -217,12 +235,17 @@ export const ConversationList = ({
                     </div>
                   ) : (
                     <>
-                      <h3 className={cn(
-                        "font-medium",
-                        selectedId === conv._id ? "text-primary" : "text-gray-700"
-                      )}>
-                        {conv.name || "Ukjent bruker"}
-                      </h3>
+                      <div className="flex items-center">
+                        <h3 className={cn(
+                          "font-medium",
+                          selectedId === conv._id ? "text-primary" : "text-gray-700"
+                        )}>
+                          {conv.name || "Ukjent bruker"}
+                        </h3>
+                        {isPreloaded(conv._id) && (
+                          <PreloadedIndicator isPreloaded={true} />
+                        )}
+                      </div>
                       <div className="mt-1 flex justify-between items-center">
                         <span className="text-xs text-gray-500 capitalize">
                           {conv.device}

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import Sidebar from "../components/Sidebar";
-import { KnowledgeBase } from "@/components/KnowledgeBase";
+import KnowledgeBase from "@/components/KnowledgeBase";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useMinimumLoading } from "@/hooks/use-minimum-loading";
@@ -10,6 +10,7 @@ import { ConversationDialog } from "@/components/conversations/ConversationDialo
 import { DeleteDialog } from "@/components/conversations/DeleteDialog";
 import { Statistics } from "@/components/statistics/Statistics";
 import { Home } from "@/components/home/Home";
+import { useDialogPreloader } from "@/hooks/use-dialog-preloader";
 
 interface VoiceflowTranscript {
   _id: string;
@@ -37,6 +38,21 @@ const ClientDashboard = () => {
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
+  const [searchInContent, setSearchInContent] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [preloadingTimerRef, setPreloadingTimerRef] = useState<NodeJS.Timeout | null>(null);
+
+  const {
+    dialogCache,
+    preloadConversations,
+    getCachedDialog,
+    isConversationPreloaded,
+    searchInDialogContent
+  } = useDialogPreloader({
+    organizationId: user?.organization_id
+  });
 
   const toggleTag = async (conversationId: string, tag: "system.saved" | "system.reviewed") => {
     if (!user?.organization_id) return;
@@ -90,9 +106,42 @@ const ClientDashboard = () => {
 
   const handleSelectConversation = useCallback((conversationId: string) => {
     setSelectedConversation(conversationId);
-    setDialog([]);
-    setIsLoadingDialog(true);
-  }, []);
+    
+    const cachedDialog = getCachedDialog(conversationId);
+    if (cachedDialog) {
+      setDialog(cachedDialog);
+      setIsLoadingDialog(false);
+    } else {
+      setDialog([]);
+      setIsLoadingDialog(true);
+    }
+    
+    if (preloadingTimerRef) {
+      clearTimeout(preloadingTimerRef);
+    }
+    
+    const timer = setTimeout(() => {
+      const visibleConversations = getPaginatedConversations(currentPage, itemsPerPage);
+      if (visibleConversations.length > 0) {
+        const conversationIds = visibleConversations
+          .map(conv => conv._id)
+          .filter(id => id !== conversationId && !isConversationPreloaded(id));
+          
+        if (conversationIds.length > 0) {
+          preloadConversations(conversationIds);
+        }
+      }
+    }, 1000);
+    
+    setPreloadingTimerRef(timer);
+  }, [
+    getCachedDialog, 
+    preloadConversations, 
+    isConversationPreloaded,
+    currentPage,
+    itemsPerPage,
+    preloadingTimerRef
+  ]);
 
   const handleDeleteClick = (conversationId: string) => {
     setConversationToDelete(conversationId);
@@ -142,6 +191,59 @@ const ClientDashboard = () => {
     }
   };
 
+  const handleToggleSearchInContent = useCallback((value: boolean) => {
+    setSearchInContent(value);
+  }, []);
+
+  const handleSearchTermChange = useCallback((term: string) => {
+    setSearchTerm(term);
+  }, []);
+
+  const filteredConversations = useCallback(() => {
+    return conversations.filter(conv => {
+      if (activeFilter === "saved" && !conv.reportTags?.includes("system.saved")) return false;
+      if (activeFilter === "approved" && !conv.reportTags?.includes("system.reviewed")) return false;
+      
+      if (!searchTerm) return true;
+      
+      const searchLower = searchTerm.toLowerCase();
+      
+      const nameMatch = (conv.name || "Ukjent bruker").toLowerCase().includes(searchLower);
+      const dateMatch = conv.updatedAt.toLowerCase().includes(searchLower);
+      const deviceMatch = (conv.device || "").toLowerCase().includes(searchLower);
+      
+      if (searchInContent && isConversationPreloaded(conv._id)) {
+        return nameMatch || dateMatch || deviceMatch || 
+               searchInDialogContent(searchTerm, conv._id);
+      }
+      
+      return nameMatch || dateMatch || deviceMatch;
+    });
+  }, [conversations, searchTerm, activeFilter, searchInContent, isConversationPreloaded, searchInDialogContent]);
+
+  const getPaginatedConversations = useCallback((page: number, itemsPerPage: number) => {
+    const filtered = filteredConversations();
+    const startIndex = (page - 1) * itemsPerPage;
+    return filtered.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredConversations]);
+
+  useEffect(() => {
+    if (activeTab === "conversations") {
+      const visibleConversations = getPaginatedConversations(currentPage, itemsPerPage);
+      if (visibleConversations.length > 0) {
+        const conversationIds = visibleConversations.map(conv => conv._id);
+        preloadConversations(conversationIds);
+      }
+    }
+    
+    return () => {
+      if (preloadingTimerRef) {
+        clearTimeout(preloadingTimerRef);
+        setPreloadingTimerRef(null);
+      }
+    };
+  }, [activeTab, currentPage, itemsPerPage, getPaginatedConversations, preloadConversations, preloadingTimerRef]);
+
   useEffect(() => {
     const fetchConversations = async () => {
       if (!user?.organization_id) return;
@@ -187,6 +289,10 @@ const ClientDashboard = () => {
     const fetchDialog = async () => {
       if (!selectedConversation || !user?.organization_id) return;
       
+      if (getCachedDialog(selectedConversation)) {
+        return;
+      }
+      
       try {
         const { data: org, error: orgError } = await supabase
           .from('organizations')
@@ -214,6 +320,8 @@ const ClientDashboard = () => {
 
         const data = await response.json();
         setDialog(data);
+        
+        preloadConversations([selectedConversation]);
       } catch (error) {
         console.error('Error fetching dialog:', error);
         toast.error('Kunne ikke laste inn samtale');
@@ -223,21 +331,18 @@ const ClientDashboard = () => {
     };
 
     fetchDialog();
-  }, [selectedConversation, user?.organization_id]);
+  }, [selectedConversation, user?.organization_id, getCachedDialog, preloadConversations]);
+
+  useEffect(() => {
+    return () => {
+      if (preloadingTimerRef) {
+        clearTimeout(preloadingTimerRef);
+      }
+    };
+  }, [preloadingTimerRef]);
 
   const showLoader = useMinimumLoading(isLoading);
   const showDialogLoader = useMinimumLoading(isLoadingDialog);
-
-  const filteredConversations = conversations.filter(conv => {
-    switch (activeFilter) {
-      case "saved":
-        return conv.reportTags?.includes("system.saved") ?? false;
-      case "approved":
-        return conv.reportTags?.includes("system.reviewed") ?? false;
-      default:
-        return true;
-    }
-  });
 
   return (
     <div className="flex h-screen bg-cream">
@@ -251,7 +356,7 @@ const ClientDashboard = () => {
         {activeTab === "conversations" && (
           <div className="flex flex-1">
             <ConversationList
-              conversations={filteredConversations}
+              conversations={filteredConversations()}
               collapsed={conversationsCollapsed}
               selectedId={selectedConversation}
               isLoading={showLoader}
@@ -261,6 +366,12 @@ const ClientDashboard = () => {
               onDeleteClick={handleDeleteClick}
               activeFilter={activeFilter}
               onFilterChange={setActiveFilter}
+              isPreloaded={isConversationPreloaded}
+              searchInContent={searchInContent}
+              onToggleSearchInContent={handleToggleSearchInContent}
+              searchTerm={searchTerm}
+              onSearchTermChange={handleSearchTermChange}
+              getPaginatedConversations={getPaginatedConversations}
             />
             <ConversationDialog
               isLoading={showDialogLoader}
