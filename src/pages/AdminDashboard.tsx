@@ -149,7 +149,8 @@ const AdminDashboard = () => {
       const userIsAdmin = hasAdminTab || hasOrganizationsTab;
 
       // Store the current session before adding a new user
-      const { data: currentSession } = await supabase.auth.getSession();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const currentSession = sessionData.session;
       
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: member.email,
@@ -195,8 +196,8 @@ const AdminDashboard = () => {
       }
 
       // Restore the original session to prevent being logged in as the new user
-      if (currentSession.data.session) {
-        await supabase.auth.setSession(currentSession.data.session);
+      if (currentSession) {
+        await supabase.auth.setSession(currentSession);
       }
 
       const { data: updatedProfiles, error: fetchError } = await supabase
