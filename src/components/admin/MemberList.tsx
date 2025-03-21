@@ -74,23 +74,13 @@ export const MemberList = ({ members, onDeleteMember, organizationType }: Member
       const hasOrganizationsTab = editingMember.tabs.includes("organizations");
       const isAdmin = hasAdminTab || hasOrganizationsTab;
       
-      // Update user role if they have admin tabs
-      if (isAdmin) {
-        const { error: roleError } = await supabase
-          .from('profiles')
-          .update({ role: 'admin' })
-          .eq('id', editingMember.id);
-          
-        if (roleError) throw roleError;
-      } else {
-        // Set back to client if admin privileges are removed
-        const { error: roleError } = await supabase
-          .from('profiles')
-          .update({ role: 'client' })
-          .eq('id', editingMember.id);
-          
-        if (roleError) throw roleError;
-      }
+      // Update user role if they have admin tabs or if admin privileges are removed
+      const { error: roleError } = await supabase
+        .from('profiles')
+        .update({ role: isAdmin ? 'admin' : 'client' })
+        .eq('id', editingMember.id);
+        
+      if (roleError) throw roleError;
 
       // Delete existing permissions
       const { error: deleteError } = await supabase

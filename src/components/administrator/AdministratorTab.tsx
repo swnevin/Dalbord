@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -106,7 +105,13 @@ export const AdministratorTab = () => {
   }) => {
     try {
       // Store the current session before adding a new user
-      const { data: currentSession } = await supabase.auth.getSession();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const currentSession = sessionData.session;
+      
+      // Determine role based on tab permissions
+      const hasAdminTab = member.tabs.includes('administrator');
+      const hasOrganizationsTab = member.tabs.includes('organizations');
+      const memberRole = hasAdminTab || hasOrganizationsTab ? 'admin' : 'client';
       
       // Create new user with auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -115,8 +120,7 @@ export const AdministratorTab = () => {
         options: {
           data: {
             name: member.name,
-            // Set role to admin if they're getting administrator tab or organizations tab
-            role: member.tabs.includes('administrator') || member.tabs.includes('organizations') ? 'admin' : 'client'
+            role: memberRole
           },
           emailRedirectTo: `${window.location.origin}/login`
         }
@@ -133,8 +137,7 @@ export const AdministratorTab = () => {
         .from("profiles")
         .update({ 
           organization_id: orgId,
-          // Set role to admin if they're getting administrator tab or organizations tab
-          role: member.tabs.includes('administrator') || member.tabs.includes('organizations') ? 'admin' : 'client',
+          role: memberRole,
           name: member.name,
           email: member.email
         })
@@ -162,12 +165,12 @@ export const AdministratorTab = () => {
       }
 
       // Restore the original session to prevent being logged in as the new user
-      if (currentSession.session) {
-        await supabase.auth.setSession(currentSession.session);
+      if (currentSession) {
+        await supabase.auth.setSession(currentSession);
       }
 
       fetchOrganization(); // Refresh data
-      toast.success("Medlem lagt til");
+      toast.success("Medlem lagt til. Du kan nå redigere tilgangene deres.");
     } catch (error: any) {
       console.error("Error adding member:", error);
       toast.error(error.message || "Kunne ikke legge til medlem");
