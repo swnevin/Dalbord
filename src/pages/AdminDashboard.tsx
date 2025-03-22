@@ -13,6 +13,8 @@ import { toast } from "sonner";
 import { AddOrganizationForm } from "@/components/admin/AddOrganizationForm";
 import { OrganizationCard } from "@/components/admin/OrganizationCard";
 import { Database } from "@/integrations/supabase/types";
+import { useMinimumLoading } from "@/hooks/use-minimum-loading";
+import { Loader } from "@/components/ui/loader";
 
 type TabName = Database["public"]["Enums"]["tab_type"];
 
@@ -38,9 +40,11 @@ const AdminDashboard = () => {
   const { user } = useAuth();
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile[]>>({});
-  const [isLoading, setIsLoading] = useState(true);
+  const [isActuallyLoading, setIsActuallyLoading] = useState(true);
   const [isAdminUser, setIsAdminUser] = useState(false);
   const [activeTab, setActiveTab] = useState("organizations");
+  
+  const isLoading = useMinimumLoading(isActuallyLoading);
 
   useEffect(() => {
     fetchOrganizations();
@@ -101,7 +105,7 @@ const AdminDashboard = () => {
       console.error("Error fetching data:", error);
       toast.error("Kunne ikke hente organisasjoner");
     } finally {
-      setIsLoading(false);
+      setIsActuallyLoading(false);
     }
   };
 
@@ -147,7 +151,6 @@ const AdminDashboard = () => {
       const hasOrganizationsTab = member.tabs.includes("organizations");
       const userIsAdmin = hasAdminTab || hasOrganizationsTab;
 
-      // Store the current session before adding a new user
       const { data: sessionData } = await supabase.auth.getSession();
       const currentSession = sessionData.session;
       
@@ -194,7 +197,6 @@ const AdminDashboard = () => {
         if (tabError) throw tabError;
       }
 
-      // Restore the original session to prevent being logged in as the new user
       if (currentSession) {
         await supabase.auth.setSession(currentSession);
       }
@@ -300,7 +302,11 @@ const AdminDashboard = () => {
   };
 
   if (isLoading) {
-    return <div>Laster...</div>;
+    return (
+      <div className="flex h-screen items-center justify-center bg-cream">
+        <Loader size="lg" text="Laster inn organisasjoner..." />
+      </div>
+    );
   }
 
   const sortedOrganizations = [...organizations].sort((a, b) => {
