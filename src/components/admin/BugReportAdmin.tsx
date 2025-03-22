@@ -46,7 +46,7 @@ export const BugReportAdmin = () => {
       
       if (error) throw error;
       
-      setBugReports(data || []);
+      setBugReports(data as unknown as BugReport[] || []);
     } catch (error) {
       console.error('Error fetching bug reports:', error);
       toast({
