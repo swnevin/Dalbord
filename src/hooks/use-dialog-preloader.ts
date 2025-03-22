@@ -91,11 +91,6 @@ export const useDialogPreloader = ({
         throw new Error('Mangler Voiceflow-legitimasjon');
       }
 
-      // Always ensure AbortController is valid before using its signal
-      if (!abortControllerRef.current) {
-        abortControllerRef.current = new AbortController();
-      }
-
       const response = await fetch(
         `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}/${nextId}`,
         {
@@ -138,8 +133,6 @@ export const useDialogPreloader = ({
         console.error('Error preloading dialog:', error);
       }
     } finally {
-      // Reset abort controller
-      abortControllerRef.current = null;
       processingRef.current = false;
       
       if (pendingQueue.current.size > 0) {

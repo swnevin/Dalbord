@@ -42,19 +42,13 @@ export const formatText = (text: string) => {
 };
 
 export const containsIframe = (text: string) => {
-  // Updated regex to detect iframe tag across multiple lines
-  return /<\s*iframe[\s\S]*?src\s*=\s*["'].*?["'][\s\S]*?>/.test(text);
+  return text.includes('<iframe');
 };
 
 export const extractIframeAndCleanText = (text: string) => {
-  // Improved regex to better match multi-line iframe with attributes
-  const iframeRegex = /<\s*iframe[\s\S]*?src\s*=\s*["'](.*?)["'][\s\S]*?(?:\/?>|<\/iframe>)/;
-  const iframeMatch = text.match(iframeRegex);
+  const iframeMatch = text.match(/<iframe[^>]*src="([^"]*)"[^>]*>/);
   const iframeSrc = iframeMatch ? iframeMatch[1] : null;
-  
-  // Remove the entire iframe tag from the text
-  const cleanText = text.replace(/<\s*iframe[\s\S]*?(?:\/?>|<\/iframe>)/, '').trim();
-  
+  const cleanText = text.replace(/<iframe[^>]*>.*?<\/iframe>/s, '').trim();
   return { cleanText, iframeSrc };
 };
 
