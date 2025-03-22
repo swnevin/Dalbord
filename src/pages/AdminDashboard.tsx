@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import Sidebar from "../components/Sidebar";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import { OrganizationCard } from "@/components/admin/OrganizationCard";
 import { Database } from "@/integrations/supabase/types";
 import { useMinimumLoading } from "@/hooks/use-minimum-loading";
 import { Loader } from "@/components/ui/loader";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type TabName = Database["public"]["Enums"]["tab_type"];
 
@@ -36,13 +37,12 @@ interface Profile {
   tabs?: { tab_name: Database["public"]["Enums"]["tab_type"] }[];
 }
 
-const AdminDashboard = () => {
+const OrganizationsTab = () => {
   const { user } = useAuth();
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile[]>>({});
   const [isActuallyLoading, setIsActuallyLoading] = useState(true);
   const [isAdminUser, setIsAdminUser] = useState(false);
-  const [activeTab, setActiveTab] = useState("organizations");
   
   const isLoading = useMinimumLoading(isActuallyLoading);
 
@@ -303,7 +303,7 @@ const AdminDashboard = () => {
 
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-cream">
+      <div className="flex h-full items-center justify-center">
         <Loader size="lg" text="Laster inn organisasjoner..." />
       </div>
     );
@@ -316,6 +316,59 @@ const AdminDashboard = () => {
   });
 
   return (
+    <div className="space-y-8">
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold text-primary">Organisasjoner</h1>
+        <Sheet>
+          <SheetTrigger asChild>
+            <Button className="bg-secondary text-primary hover:bg-secondary/90">
+              <Plus className="mr-2 h-4 w-4" /> Legg til organisasjon
+            </Button>
+          </SheetTrigger>
+          <SheetContent>
+            <AddOrganizationForm onSubmit={handleCreateOrg} />
+          </SheetContent>
+        </Sheet>
+      </div>
+
+      <div className="space-y-4">
+        {sortedOrganizations.map((org) => {
+          const isAdminOrg = org.name === "Dalai";
+          
+          return isAdminOrg ? (
+            <div key={org.id} className="border-2 border-primary/20 rounded-lg p-2">
+              <OrganizationCard
+                organization={org}
+                members={profiles[org.id] || []}
+                onUpdateBot={handleUpdateBot}
+                onDeleteOrg={handleDeleteOrg}
+                onAddMember={handleAddMember}
+                onDeleteMember={handleDeleteMember}
+                hideControls={true}
+              />
+            </div>
+          ) : (
+            <OrganizationCard
+              key={org.id}
+              organization={org}
+              members={profiles[org.id] || []}
+              onUpdateBot={handleUpdateBot}
+              onDeleteOrg={handleDeleteOrg}
+              onAddMember={handleAddMember}
+              onDeleteMember={handleDeleteMember}
+              hideControls={false}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+const AdminDashboard = () => {
+  const [activeTab, setActiveTab] = useState("organizations");
+
+  return (
     <div className="flex h-screen bg-cream">
       <Sidebar 
         role="admin" 
@@ -323,50 +376,15 @@ const AdminDashboard = () => {
         onTabChange={setActiveTab}
       />
       <main className="flex-1 overflow-auto p-8">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-primary">Organisasjoner</h1>
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button className="bg-secondary text-primary hover:bg-secondary/90">
-                <Plus className="mr-2 h-4 w-4" /> Legg til organisasjon
-              </Button>
-            </SheetTrigger>
-            <SheetContent>
-              <AddOrganizationForm onSubmit={handleCreateOrg} />
-            </SheetContent>
-          </Sheet>
-        </div>
-
-        <div className="space-y-4">
-          {sortedOrganizations.map((org) => {
-            const isAdminOrg = org.name === "Dalai";
-            
-            return isAdminOrg ? (
-              <div key={org.id} className="border-2 border-primary/20 rounded-lg p-2">
-                <OrganizationCard
-                  organization={org}
-                  members={profiles[org.id] || []}
-                  onUpdateBot={handleUpdateBot}
-                  onDeleteOrg={handleDeleteOrg}
-                  onAddMember={handleAddMember}
-                  onDeleteMember={handleDeleteMember}
-                  hideControls={true}
-                />
-              </div>
-            ) : (
-              <OrganizationCard
-                key={org.id}
-                organization={org}
-                members={profiles[org.id] || []}
-                onUpdateBot={handleUpdateBot}
-                onDeleteOrg={handleDeleteOrg}
-                onAddMember={handleAddMember}
-                onDeleteMember={handleDeleteMember}
-                hideControls={false}
-              />
-            );
-          })}
-        </div>
+        <Tabs 
+          value={activeTab} 
+          onValueChange={setActiveTab}
+          className="w-full"
+        >
+          <TabsContent value="organizations" className="mt-0 h-full">
+            <OrganizationsTab />
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );

@@ -14,7 +14,6 @@ import {
   Home,
   Shield,
 } from "lucide-react";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 
 interface SidebarProps {
@@ -98,26 +97,22 @@ const Sidebar = ({ role, onTabChange, activeTab }: SidebarProps) => {
       </div>
 
       <div className="flex-1 p-4">
-        <Tabs 
-          defaultValue={links[0]?.value} 
-          value={activeTab}
-          onValueChange={onTabChange} 
-          orientation="vertical" 
-          className="w-full"
-        >
-          <TabsList className="flex flex-col h-auto bg-transparent space-y-2">
-            {links.map((link) => (
-              <TabsTrigger
-                key={link.value}
-                value={link.value}
-                className="w-full justify-start gap-3 text-white data-[state=active]:bg-secondary data-[state=active]:text-primary hover:bg-white/10 active:bg-white/20 data-[state=active]:hover:bg-secondary"
-              >
-                <link.icon size={20} />
-                {!collapsed && <span>{link.label}</span>}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
+        <nav className="flex flex-col space-y-2">
+          {links.map((link) => (
+            <Button
+              key={link.value}
+              variant="ghost"
+              className={cn(
+                "w-full justify-start gap-3 text-white hover:bg-white/10 active:bg-white/20",
+                activeTab === link.value && "bg-secondary text-primary hover:bg-secondary"
+              )}
+              onClick={() => onTabChange(link.value)}
+            >
+              <link.icon size={20} />
+              {!collapsed && <span>{link.label}</span>}
+            </Button>
+          ))}
+        </nav>
       </div>
 
       <div className="p-4 border-t border-white/10">
