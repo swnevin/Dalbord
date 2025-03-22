@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, Bot, Trash2 } from "lucide-react";
+import { Plus, Bot, Trash2, Clipboard } from "lucide-react";
 import { Database } from "@/integrations/supabase/types";
 import {
   Sheet,
@@ -25,6 +25,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { AddMemberForm } from "./AddMemberForm";
 import { MemberList } from "./MemberList";
+import { toast } from "sonner";
 
 type TabName = Database["public"]["Enums"]["tab_type"];
 
@@ -81,6 +82,16 @@ export const OrganizationCard = ({
     });
   }, [organization]);
 
+  const copyOrgIdToClipboard = () => {
+    navigator.clipboard.writeText(organization.id)
+      .then(() => {
+        toast.success("Organisasjons-ID kopiert til utklippstavlen");
+      })
+      .catch(() => {
+        toast.error("Kunne ikke kopiere til utklippstavlen");
+      });
+  };
+
   return (
     <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
       <div className="flex justify-between items-center mb-6">
@@ -94,6 +105,14 @@ export const OrganizationCard = ({
         </div>
         {!hideControls && (
           <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              size="icon" 
+              onClick={copyOrgIdToClipboard} 
+              title="Kopier organisasjons-ID"
+            >
+              <Clipboard className="h-4 w-4" />
+            </Button>
             <Sheet>
               <SheetTrigger asChild>
                 <Button variant="outline" size="icon">
