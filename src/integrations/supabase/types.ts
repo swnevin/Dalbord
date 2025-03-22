@@ -9,47 +9,6 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      bug_reports: {
-        Row: {
-          created_at: string
-          description: string
-          id: string
-          organization_id: string
-          resolved_at: string | null
-          status: string
-          title: string
-          user_id: string | null
-        }
-        Insert: {
-          created_at?: string
-          description: string
-          id?: string
-          organization_id: string
-          resolved_at?: string | null
-          status?: string
-          title: string
-          user_id?: string | null
-        }
-        Update: {
-          created_at?: string
-          description?: string
-          id?: string
-          organization_id?: string
-          resolved_at?: string | null
-          status?: string
-          title?: string
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "bug_reports_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       fallback_requests: {
         Row: {
           created_at: string

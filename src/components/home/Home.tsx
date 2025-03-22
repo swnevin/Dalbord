@@ -4,8 +4,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { ServerStatus } from "./ServerStatus";
 import { FallbackRequests } from "./FallbackRequests";
-import { DashboardManual } from "./DashboardManual";
-import { BugReportSection } from "./BugReportSection";
 
 export const Home = () => {
   const { user } = useAuth();
@@ -46,17 +44,9 @@ export const Home = () => {
         </p>
       </header>
       
-      <DashboardManual />
+      <ServerStatus />
       
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="space-y-6">
-          <ServerStatus />
-          <BugReportSection />
-        </div>
-        <div>
-          <FallbackRequests />
-        </div>
-      </div>
+      <FallbackRequests />
     </div>
   );
 };
