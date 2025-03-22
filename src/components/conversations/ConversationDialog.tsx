@@ -252,12 +252,14 @@ export const ConversationDialog = ({
         const messageText = message.payload?.payload?.message;
         if (!messageText) return null;
 
+        // Enhanced iframe detection
         const hasIframe = containsIframe(messageText);
         const { cleanText, iframeSrc } = hasIframe 
           ? extractIframeAndCleanText(messageText)
           : { cleanText: messageText, iframeSrc: null };
         
         const formattedText = formatText(cleanText);
+        const hasContent = cleanText.trim() !== "";
 
         return (
           <div 
@@ -268,17 +270,21 @@ export const ConversationDialog = ({
               <div className={`bg-primary text-primary-foreground p-3 rounded-2xl rounded-bl-none transition-all 
                 ${isMessageSelected(message) ? 'ring-2 ring-secondary ring-offset-2' : 'hover:ring-1 hover:ring-secondary/50 hover:ring-offset-1'}`}>
                 <div className="space-y-2">
-                  <div 
-                    dangerouslySetInnerHTML={{ __html: formattedText }}
-                    className="prose prose-invert max-w-none [&>p]:mb-2 [&>p:last-child]:mb-0"
-                  />
+                  {hasContent && (
+                    <div 
+                      dangerouslySetInnerHTML={{ __html: formattedText }}
+                      className="prose prose-invert max-w-none [&>p]:mb-2 [&>p:last-child]:mb-0"
+                    />
+                  )}
+                  
                   {iframeSrc && (
-                    <div className="relative w-full pt-[56.25%] mt-4">
+                    <div className="relative w-full pt-[56.25%] mt-2">
                       <iframe
                         src={iframeSrc}
                         className="absolute top-0 left-0 w-full h-full rounded-lg"
-                        frameBorder="0"
+                        style={{ border: "none" }}
                         allowFullScreen
+                        title="Embedded content"
                       />
                     </div>
                   )}

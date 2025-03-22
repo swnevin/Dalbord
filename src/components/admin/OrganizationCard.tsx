@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus, Bot, Trash2 } from "lucide-react";
 import { Database } from "@/integrations/supabase/types";
+import { toast } from "sonner";
 import {
   Sheet,
   SheetContent,
