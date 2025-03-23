@@ -37,14 +37,22 @@ export const getTimeFrames = (from: Date, to: Date) => {
   let currentDate = new Date(from);
 
   if (daysDifference <= 30) {
+    // For 30 days or less, create daily frames
     while (currentDate <= to) {
+      const startOfDay = new Date(currentDate);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(currentDate);
+      endOfDay.setHours(23, 59, 59, 999);
+      
       timeFrames.push({
-        start: new Date(currentDate),
-        end: new Date(currentDate)
+        start: startOfDay,
+        end: endOfDay
       });
+      
       currentDate = addDays(currentDate, 1);
     }
   } else if (daysDifference < 365) {
+    // For less than a year, create weekly frames
     while (currentDate <= to) {
       const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 }); // Monday
       const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 }); // Sunday
@@ -57,6 +65,7 @@ export const getTimeFrames = (from: Date, to: Date) => {
       currentDate = addDays(weekEnd, 1);
     }
   } else {
+    // For a year or more, create monthly frames
     while (currentDate <= to) {
       const monthStart = startOfMonth(currentDate);
       const monthEnd = endOfMonth(currentDate);
@@ -76,7 +85,7 @@ export const getTimeFrames = (from: Date, to: Date) => {
 export const formatDateLabel = (date: Date, daysDiff: number) => {
   if (daysDiff <= 30) {
     // For daily view, use a more compact format dd.MM
-    return dateFnsFormat(date, 'dd.MM');
+    return dateFnsFormat(date, 'dd.MM', { locale: nb });
   } else if (daysDiff < 365) {
     return `Uke ${getWeek(date, { locale: nb })}`;
   } else {

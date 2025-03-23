@@ -467,7 +467,9 @@ export const useStatistics = (
         const timeFrames = getTimeFrames(dateRange.from, dateRange.to);
         const feedbackTimeSeries: FeedbackTimeSeriesData[] = [];
         const escalationTimeSeries: TimeSeriesData[] = [];
-        
+      
+        const daysDiff = differenceInDays(dateRange.to, dateRange.from);
+      
         for (const frame of timeFrames) {
           const frameMetrics = metricsData.filter(m => {
             const date = new Date(m.timestamp);
@@ -479,18 +481,24 @@ export const useStatistics = (
           const sad = frameMetrics.filter(m => m.metric_type === 'sad_face').length;
           const escalated = frameMetrics.filter(m => m.metric_type === 'escalated_to_human').length;
 
+          // Format the date for display
+          const dateLabel = formatDateLabel(frame.start, daysDiff);
+        
           feedbackTimeSeries.push({
-            date: formatDateLabel(frame.start, differenceInDays(dateRange.to, dateRange.from)),
+            date: dateLabel,
             happy_face: happy,
             neutral_face: neutral,
             sad_face: sad
           });
 
           escalationTimeSeries.push({
-            date: formatDateLabel(frame.start, differenceInDays(dateRange.to, dateRange.from)),
+            date: dateLabel,
             value: escalated
           });
         }
+
+        // Log for debugging
+        console.log('Feedback time series:', feedbackTimeSeries);
 
         if (isMounted) {
           setData(prev => ({
@@ -502,7 +510,7 @@ export const useStatistics = (
             feedbackTimeSeries,
             escalationTimeSeries
           }));
-          
+        
           setLoading(prev => ({
             ...prev,
             feedbackChart: false,

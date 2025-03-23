@@ -131,21 +131,36 @@ serve(async (req) => {
     }, {})
     
     // 2. Group by day for time series charts
-    const timeSeriesData = {}
+    // Create a day-by-day mapping from start to end date
+    const days: string[] = []
+    const timeSeriesData: Record<string, Record<string, number>> = {}
     
+    // Create a set of days from start to end
+    let currentDay = new Date(startDate)
+    while (currentDay <= endDate) {
+      const dayString = currentDay.toISOString().split('T')[0]
+      days.push(dayString)
+      
+      // Initialize each day with zero counts
+      timeSeriesData[dayString] = metricTypes.reduce((acc, type) => {
+        acc[type] = 0
+        return acc
+      }, {})
+      
+      // Move to next day
+      currentDay.setDate(currentDay.getDate() + 1)
+    }
+    
+    // Fill in actual counts
     metrics.forEach(metric => {
       const day = new Date(metric.timestamp).toISOString().split('T')[0]
-      if (!timeSeriesData[day]) {
-        timeSeriesData[day] = metricTypes.reduce((acc, type) => {
-          acc[type] = 0
-          return acc
-        }, {})
+      if (timeSeriesData[day]) {
+        timeSeriesData[day][metric.metric_type]++
       }
-      timeSeriesData[day][metric.metric_type]++
     })
     
-    // Convert to array format for the charts
-    const timeSeries = Object.keys(timeSeriesData).map(day => ({
+    // Convert to array format for the charts (ensuring all days are represented)
+    const timeSeries = days.map(day => ({
       date: day,
       ...timeSeriesData[day]
     }))

@@ -26,18 +26,19 @@ interface FeedbackChartProps {
 
 // Process data to ensure no undefined/null values and determine min/max values
 const processChartData = (data: FeedbackTimeSeriesData[]) => {
+  // Make a deep copy to avoid modifying the original data
   const processedData = data.map(item => ({
     date: item.date,
-    happy_face: item.happy_face || 0,
-    neutral_face: item.neutral_face || 0,
-    sad_face: item.sad_face || 0
+    happy_face: typeof item.happy_face === 'number' ? item.happy_face : 0,
+    neutral_face: typeof item.neutral_face === 'number' ? item.neutral_face : 0,
+    sad_face: typeof item.sad_face === 'number' ? item.sad_face : 0
   }));
 
   // Calculate maximum value for better Y axis domain
   let maxValue = 0;
   processedData.forEach(item => {
-    const totalValue = (item.happy_face || 0) + (item.neutral_face || 0) + (item.sad_face || 0);
-    maxValue = Math.max(maxValue, totalValue);
+    const totalValue = item.happy_face + item.neutral_face + item.sad_face;
+    maxValue = Math.max(maxValue, totalValue, item.happy_face, item.neutral_face, item.sad_face);
   });
 
   return { 
@@ -119,6 +120,10 @@ export const FeedbackLineChart: React.FC<FeedbackChartProps> = ({
 }) => {
   // Process data for chart display
   const { processedData, maxValue } = processChartData(data);
+
+  // Log data for debugging
+  console.log('Raw Feedback Data:', data);
+  console.log('Processed Feedback Data:', processedData);
 
   return (
     <Card>
