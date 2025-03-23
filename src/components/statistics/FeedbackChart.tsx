@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
   ResponsiveContainer, 
   LineChart, 
@@ -15,6 +15,13 @@ import {
 import { Loader } from '@/components/ui/loader';
 import { FeedbackTimeSeriesData } from './types';
 import { ChartContainer } from '@/components/ui/chart/ChartContainer';
+import { 
+  Tooltip as UITooltip, 
+  TooltipContent, 
+  TooltipTrigger, 
+  TooltipProvider 
+} from '@/components/ui/tooltip';
+import { InfoIcon } from 'lucide-react';
 
 interface FeedbackChartProps {
   data: FeedbackTimeSeriesData[];
@@ -127,9 +134,21 @@ export const FeedbackLineChart: React.FC<FeedbackChartProps> = ({
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
+        <TooltipProvider delayDuration={100}>
+          <UITooltip>
+            <TooltipTrigger asChild>
+              <InfoIcon className="h-4 w-4 text-muted-foreground cursor-help" />
+            </TooltipTrigger>
+            <TooltipContent>
+              <div className="space-y-2 max-w-xs">
+                <p className="font-medium">{title}</p>
+                <p>{description}</p>
+              </div>
+            </TooltipContent>
+          </UITooltip>
+        </TooltipProvider>
       </CardHeader>
       <CardContent>
         {isLoading ? (

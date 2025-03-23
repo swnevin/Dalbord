@@ -1,9 +1,16 @@
 
 import React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PieChart as RechartsPieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { Loader } from '@/components/ui/loader';
 import { ChartContainer } from '@/components/ui/chart/ChartContainer';
+import { 
+  Tooltip as UITooltip, 
+  TooltipContent, 
+  TooltipTrigger, 
+  TooltipProvider 
+} from '@/components/ui/tooltip';
+import { InfoIcon } from 'lucide-react';
 
 interface FeedbackPieChartProps {
   happyFaceCount: number;
@@ -51,9 +58,21 @@ export const FeedbackPieChart: React.FC<FeedbackPieChartProps> = ({
   if (isLoading || totalConversations === 0) {
     return (
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle>Tilbakemeldinger</CardTitle>
-          <CardDescription>Fordeling av brukernes tilbakemeldinger på samtaler</CardDescription>
+          <TooltipProvider delayDuration={100}>
+            <UITooltip>
+              <TooltipTrigger asChild>
+                <InfoIcon className="h-4 w-4 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <div className="space-y-2 max-w-xs">
+                  <p className="font-medium">Tilbakemeldinger</p>
+                  <p>Fordeling av brukernes tilbakemeldinger på samtaler</p>
+                </div>
+              </TooltipContent>
+            </UITooltip>
+          </TooltipProvider>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center justify-center h-64">
@@ -67,9 +86,21 @@ export const FeedbackPieChart: React.FC<FeedbackPieChartProps> = ({
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle>Tilbakemeldinger</CardTitle>
-        <CardDescription>Fordeling av brukernes tilbakemeldinger på samtaler</CardDescription>
+        <TooltipProvider delayDuration={100}>
+          <UITooltip>
+            <TooltipTrigger asChild>
+              <InfoIcon className="h-4 w-4 text-muted-foreground cursor-help" />
+            </TooltipTrigger>
+            <TooltipContent>
+              <div className="space-y-2 max-w-xs">
+                <p className="font-medium">Tilbakemeldinger</p>
+                <p>Fordeling av brukernes tilbakemeldinger på samtaler</p>
+              </div>
+            </TooltipContent>
+          </UITooltip>
+        </TooltipProvider>
       </CardHeader>
       <CardContent>
         <div className="h-64 flex items-center justify-center">
