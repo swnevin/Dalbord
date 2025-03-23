@@ -106,11 +106,11 @@ export const BarChart = ({
           </div>
         ) : filteredData && filteredData.length > 0 ? (
           <div className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ChartContainer config={{}}>
               <RechartsBarChart
                 data={filteredData}
                 margin={{ top: 20, right: 30, left: 60, bottom: 40 }}
-                layout="horizontal"
+                layout={layout}
                 barCategoryGap={10}
                 barGap={0}
               >
@@ -159,7 +159,7 @@ export const BarChart = ({
                   ))}
                 </Bar>
               </RechartsBarChart>
-            </ResponsiveContainer>
+            </ChartContainer>
           </div>
         ) : (
           <div className="h-[300px] flex items-center justify-center text-muted-foreground">

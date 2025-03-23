@@ -67,7 +67,7 @@ export const TimeSeriesChart = ({
           </div>
         ) : data && data.length > 0 ? (
           <div className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ChartContainer config={{}}>
               <LineChart 
                 data={data}
                 margin={{ top: 20, right: 10, left: 10, bottom: 20 }}
@@ -109,7 +109,7 @@ export const TimeSeriesChart = ({
                   animationEasing="ease-in-out"
                 />
               </LineChart>
-            </ResponsiveContainer>
+            </ChartContainer>
           </div>
         ) : (
           <div className="h-[300px] flex items-center justify-center text-muted-foreground">

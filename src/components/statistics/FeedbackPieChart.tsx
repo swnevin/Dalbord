@@ -3,6 +3,7 @@ import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { PieChart as RechartsPieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Loader } from '@/components/ui/loader';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 
 interface FeedbackPieChartProps {
   happyFaceCount: number;
@@ -30,7 +31,7 @@ export const FeedbackPieChart: React.FC<FeedbackPieChartProps> = ({
     { name: 'Ikke vurdert', value: notReviewedCount, color: '#E0E0E0' }
   ];
 
-  // Custom tooltip
+  // Custom tooltip component
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const item = payload[0].payload;
@@ -61,7 +62,7 @@ export const FeedbackPieChart: React.FC<FeedbackPieChartProps> = ({
           </div>
         ) : (
           <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
+            <ChartContainer config={{}}>
               <RechartsPieChart>
                 <Pie
                   data={data}
@@ -77,10 +78,10 @@ export const FeedbackPieChart: React.FC<FeedbackPieChartProps> = ({
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip content={<CustomTooltip />} />
+                <ChartTooltip content={<CustomTooltip />} />
                 <Legend />
               </RechartsPieChart>
-            </ResponsiveContainer>
+            </ChartContainer>
           </div>
         )}
       </CardContent>
