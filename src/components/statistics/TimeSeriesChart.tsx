@@ -7,7 +7,6 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip as RechartsTooltip,
   ResponsiveContainer,
 } from "recharts";
 import { TimeSeriesData } from "./types";
@@ -18,6 +17,11 @@ import {
   TooltipTrigger,
   TooltipProvider
 } from "@/components/ui/tooltip";
+import { 
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent 
+} from "@/components/ui/chart";
 
 interface TimeSeriesChartProps {
   data: TimeSeriesData[] | undefined;
@@ -62,7 +66,12 @@ export const TimeSeriesChart = ({
             <Loader size="md" text={loadingText} />
           </div>
         ) : data && data.length > 0 ? (
-          <ResponsiveContainer width="100%" height={300}>
+          <ChartContainer 
+            config={{
+              value: { color }
+            }}
+            className="h-[300px]"
+          >
             <LineChart data={data}>
               <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
               <XAxis
@@ -77,13 +86,17 @@ export const TimeSeriesChart = ({
                 tickLine={false}
                 axisLine={false}
               />
-              <RechartsTooltip
-                contentStyle={{
-                  backgroundColor: "#FFF",
-                  border: "1px solid #E2E8F0",
-                  borderRadius: "6px",
-                }}
-                formatter={(value: number) => [`Verdi: ${value}`, '']}
+              <ChartTooltip
+                content={({active, payload, label}) => 
+                  active && payload && payload.length ? (
+                    <ChartTooltipContent 
+                      active={active} 
+                      payload={payload} 
+                      label={label}
+                      formatter={(value: number) => [`Verdi: ${value}`, '']}
+                    />
+                  ) : null
+                }
               />
               <Line
                 type="monotone"
@@ -95,7 +108,7 @@ export const TimeSeriesChart = ({
                 animationEasing="ease-in-out"
               />
             </LineChart>
-          </ResponsiveContainer>
+          </ChartContainer>
         ) : (
           <div className="h-[300px] flex items-center justify-center text-muted-foreground">
             Ingen data tilgjengelig
