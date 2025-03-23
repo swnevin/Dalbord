@@ -14,7 +14,6 @@ import {
 import { Loader } from '@/components/ui/loader';
 import { FeedbackTimeSeriesData } from './types';
 import { ChartContainer } from '@/components/ui/chart/ChartContainer';
-import { Smile, Meh, Frown } from 'lucide-react';
 
 interface FeedbackChartProps {
   data: FeedbackTimeSeriesData[];
@@ -97,10 +96,24 @@ export const FeedbackLineChart: React.FC<FeedbackChartProps> = ({
         ) : (
           <div className="h-64">
             <ChartContainer config={{}} className="h-full">
-              <LineChart data={data}>
+              <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                <XAxis dataKey="date" stroke="#64748B" fontSize={12} tickLine={false} />
-                <YAxis stroke="#64748B" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
+                <XAxis 
+                  dataKey="date" 
+                  stroke="#64748B" 
+                  fontSize={12} 
+                  tickLine={false} 
+                  padding={{ left: 10, right: 10 }}
+                />
+                <YAxis 
+                  stroke="#64748B" 
+                  fontSize={12} 
+                  tickLine={false} 
+                  axisLine={false} 
+                  allowDecimals={false}
+                  domain={[0, 'auto']}
+                  padding={{ top: 10 }}
+                />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend content={<CustomLegend />} />
                 <Line 
@@ -111,6 +124,7 @@ export const FeedbackLineChart: React.FC<FeedbackChartProps> = ({
                   strokeWidth={2}
                   activeDot={{ r: 6 }}
                   dot={{ r: 4 }}
+                  isAnimationActive={true}
                 />
                 <Line 
                   type="monotone" 
@@ -120,6 +134,7 @@ export const FeedbackLineChart: React.FC<FeedbackChartProps> = ({
                   strokeWidth={2}
                   activeDot={{ r: 6 }}
                   dot={{ r: 4 }}
+                  isAnimationActive={true}
                 />
                 <Line 
                   type="monotone" 
@@ -129,6 +144,7 @@ export const FeedbackLineChart: React.FC<FeedbackChartProps> = ({
                   strokeWidth={2}
                   activeDot={{ r: 6 }}
                   dot={{ r: 4 }}
+                  isAnimationActive={true}
                 />
               </LineChart>
             </ChartContainer>

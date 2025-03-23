@@ -4,7 +4,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { PieChart as RechartsPieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { Loader } from '@/components/ui/loader';
 import { ChartContainer } from '@/components/ui/chart/ChartContainer';
-import { Smile, Meh, Frown } from 'lucide-react';
 
 interface FeedbackPieChartProps {
   happyFaceCount: number;
@@ -73,12 +72,12 @@ export const FeedbackPieChart: React.FC<FeedbackPieChartProps> = ({
         <CardDescription>Fordeling av brukernes tilbakemeldinger på samtaler</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="h-64">
+        <div className="h-64 flex items-center justify-center">
           <ChartContainer 
             config={{}} 
-            className="h-full"
+            className="h-full w-full flex items-center justify-center"
           >
-            <RechartsPieChart>
+            <RechartsPieChart width={250} height={250} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
               <Pie
                 data={data}
                 cx="50%"
