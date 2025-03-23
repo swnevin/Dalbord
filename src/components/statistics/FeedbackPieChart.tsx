@@ -1,9 +1,8 @@
 
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { PieChart as RechartsPieChart, Pie, Cell, Legend, ResponsiveContainer } from 'recharts';
+import { PieChart as RechartsPieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Loader } from '@/components/ui/loader';
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 
 interface FeedbackPieChartProps {
   happyFaceCount: number;
@@ -31,7 +30,7 @@ export const FeedbackPieChart: React.FC<FeedbackPieChartProps> = ({
     { name: 'Ikke vurdert', value: notReviewedCount, color: '#E0E0E0' }
   ];
 
-  // Custom tooltip component
+  // Custom tooltip
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const item = payload[0].payload;
@@ -55,14 +54,14 @@ export const FeedbackPieChart: React.FC<FeedbackPieChartProps> = ({
         <CardDescription>Fordeling av brukernes tilbakemeldinger på samtaler</CardDescription>
       </CardHeader>
       <CardContent>
-        {isLoading || totalConversations === 0 ? (
+        {isLoading ? (
           <div className="flex flex-col items-center justify-center h-64">
             <Loader className="mb-4" />
             <p className="text-muted-foreground">Laster tilbakemeldingsdata...</p>
           </div>
         ) : (
           <div className="h-64">
-            <ChartContainer config={{}}>
+            <ResponsiveContainer width="100%" height="100%">
               <RechartsPieChart>
                 <Pie
                   data={data}
@@ -78,10 +77,10 @@ export const FeedbackPieChart: React.FC<FeedbackPieChartProps> = ({
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <ChartTooltip content={<CustomTooltip />} />
+                <Tooltip content={<CustomTooltip />} />
                 <Legend />
               </RechartsPieChart>
-            </ChartContainer>
+            </ResponsiveContainer>
           </div>
         )}
       </CardContent>
