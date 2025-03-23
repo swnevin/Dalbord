@@ -51,18 +51,23 @@ export const BarChart = ({
         .slice(0, limit)
     : [];
   
-  // Beautiful gradient colors from dark green to lighter shades
+  // Dalai theme gradient colors from dark green to yellow
   const colors = [
     "#28483F", // Primary Dark Green
-    "#3A5F55",
-    "#4D776B",
-    "#5F8F81",
-    "#72A697",
-    "#84BEAE",
-    "#97D6C4",
-    "#A9EEDA",
-    "#BFE2D0",
-    "#D2F5E6"
+    "#34584C",
+    "#406858",
+    "#4C7965",
+    "#588972",
+    "#64997E",
+    "#70AA8B",
+    "#7CBA98",
+    "#88CAA4",
+    "#9ADAB1",
+    "#ABEBBD",
+    "#BDF0C5",
+    "#CEF5CD",
+    "#E0FAD6",
+    "#E2B808"  // Accent Yellow
   ];
 
   return (
@@ -99,25 +104,28 @@ export const BarChart = ({
           >
             <RechartsBarChart
               data={filteredData}
-              margin={{ top: 20, right: 30, left: 120, bottom: 5 }}
-              layout="vertical"
+              margin={{ top: 10, right: 30, left: 40, bottom: 60 }}
+              layout="horizontal"
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" horizontal={true} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" vertical={true} />
               <XAxis
-                type="number"
-                stroke="#64748B"
-                fontSize={12}
-                tickLine={false}
-                axisLine={true}
-              />
-              <YAxis
                 type="category"
                 dataKey="name"
                 stroke="#64748B"
                 fontSize={12}
                 tickLine={false}
+                axisLine={true}
+                angle={-45}
+                textAnchor="end"
+                height={60}
+                interval={0}
+              />
+              <YAxis
+                type="number"
+                stroke="#64748B"
+                fontSize={12}
+                tickLine={false}
                 axisLine={false}
-                width={120}
               />
               <ChartTooltip
                 content={({active, payload, label}) => 
@@ -126,7 +134,10 @@ export const BarChart = ({
                       active={active} 
                       payload={payload} 
                       label={label}
-                      formatter={(value: number, name: string) => [`Antall: ${value}`, name === "count" ? "Tema" : name]}
+                      formatter={(value: number, name: string) => [
+                        `${value}`, 
+                        name === "count" ? "Antall" : name
+                      ]}
                     />
                   ) : null
                 }
@@ -136,7 +147,8 @@ export const BarChart = ({
                 name="Antall"
                 animationDuration={1500}
                 animationEasing="ease-in-out"
-                radius={[0, 4, 4, 0]}
+                radius={[4, 4, 0, 0]}
+                maxBarSize={60}
               >
                 {filteredData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
