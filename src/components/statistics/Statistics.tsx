@@ -12,7 +12,7 @@ export const Statistics = () => {
   const [timeRange, setTimeRange] = useState<TimeRange>('7d');
   const [dateRange, setDateRange] = useState<DateRange>(updateDateRange('7d'));
   const [savingsSettings, setSavingsSettings] = useState<SavingsSettings>({
-    timePerMessage: 1, // default: 1 minutes per message
+    timePerMessage: 2, // default: 2 minutes per message
     hourlyRate: 300    // default: 300 NOK per hour
   });
 
