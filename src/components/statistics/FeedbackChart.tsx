@@ -9,7 +9,8 @@ import {
   YAxis, 
   CartesianGrid,
   Tooltip,
-  Legend
+  Legend,
+  Text
 } from 'recharts';
 import { Loader } from '@/components/ui/loader';
 import { FeedbackTimeSeriesData } from './types';
@@ -22,6 +23,28 @@ interface FeedbackChartProps {
   isLoading: boolean;
   loadingText?: string;
 }
+
+// Process data to ensure no undefined/null values and determine min/max values
+const processChartData = (data: FeedbackTimeSeriesData[]) => {
+  const processedData = data.map(item => ({
+    date: item.date,
+    happy_face: item.happy_face || 0,
+    neutral_face: item.neutral_face || 0,
+    sad_face: item.sad_face || 0
+  }));
+
+  // Calculate maximum value for better Y axis domain
+  let maxValue = 0;
+  processedData.forEach(item => {
+    const totalValue = (item.happy_face || 0) + (item.neutral_face || 0) + (item.sad_face || 0);
+    maxValue = Math.max(maxValue, totalValue);
+  });
+
+  return { 
+    processedData, 
+    maxValue: Math.max(maxValue, 1) // Ensure at least 1 to avoid empty chart
+  };
+};
 
 // Custom tooltip component
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -70,6 +93,23 @@ const CustomLegend = ({ payload }: any) => {
   );
 };
 
+// Custom tick formatter for X axis
+const CustomXAxisTick = (props: any) => {
+  const { x, y, payload } = props;
+  return (
+    <Text 
+      x={x} 
+      y={y} 
+      dy={16} 
+      textAnchor="middle" 
+      fill="#64748B" 
+      fontSize={12}
+    >
+      {payload.value}
+    </Text>
+  );
+};
+
 export const FeedbackLineChart: React.FC<FeedbackChartProps> = ({
   data,
   title,
@@ -77,6 +117,9 @@ export const FeedbackLineChart: React.FC<FeedbackChartProps> = ({
   isLoading,
   loadingText = 'Laster data...'
 }) => {
+  // Process data for chart display
+  const { processedData, maxValue } = processChartData(data);
+
   return (
     <Card>
       <CardHeader>
@@ -89,21 +132,26 @@ export const FeedbackLineChart: React.FC<FeedbackChartProps> = ({
             <Loader className="mb-4" />
             <p className="text-muted-foreground">{loadingText}</p>
           </div>
-        ) : data.length === 0 ? (
+        ) : processedData.length === 0 ? (
           <div className="flex items-center justify-center h-64">
             <p className="text-muted-foreground">Ingen data tilgjengelig</p>
           </div>
         ) : (
           <div className="h-64">
             <ChartContainer config={{}} className="h-full">
-              <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+              <LineChart 
+                data={processedData} 
+                margin={{ top: 10, right: 30, left: 10, bottom: 25 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
                 <XAxis 
                   dataKey="date" 
                   stroke="#64748B" 
                   fontSize={12} 
                   tickLine={false} 
-                  padding={{ left: 10, right: 10 }}
+                  padding={{ left: 15, right: 15 }}
+                  height={40}
+                  tick={CustomXAxisTick}
                 />
                 <YAxis 
                   stroke="#64748B" 
@@ -111,8 +159,8 @@ export const FeedbackLineChart: React.FC<FeedbackChartProps> = ({
                   tickLine={false} 
                   axisLine={false} 
                   allowDecimals={false}
-                  domain={[0, 'auto']}
-                  padding={{ top: 10 }}
+                  domain={[0, Math.ceil(maxValue * 1.2)]} // Add 20% padding at the top
+                  width={35}
                 />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend content={<CustomLegend />} />

@@ -75,6 +75,7 @@ export const getTimeFrames = (from: Date, to: Date) => {
 
 export const formatDateLabel = (date: Date, daysDiff: number) => {
   if (daysDiff <= 30) {
+    // For daily view, use a more compact format dd.MM
     return dateFnsFormat(date, 'dd.MM');
   } else if (daysDiff < 365) {
     return `Uke ${getWeek(date, { locale: nb })}`;
