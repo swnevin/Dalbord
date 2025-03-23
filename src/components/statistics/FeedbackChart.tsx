@@ -77,30 +77,6 @@ export const FeedbackLineChart: React.FC<FeedbackChartProps> = ({
   isLoading,
   loadingText = 'Laster data...'
 }) => {
-  // Process the data to ensure there are no null/undefined values
-  const processedData = React.useMemo(() => {
-    return data.map(item => ({
-      date: item.date,
-      happy_face: item.happy_face || 0,
-      neutral_face: item.neutral_face || 0,
-      sad_face: item.sad_face || 0
-    }));
-  }, [data]);
-
-  // Calculate a reasonable Y-axis domain based on the data
-  const maxValue = React.useMemo(() => {
-    if (processedData.length === 0) return 10;
-    
-    const allValues = processedData.flatMap(item => [
-      item.happy_face,
-      item.neutral_face,
-      item.sad_face
-    ]);
-    
-    const max = Math.max(...allValues);
-    return max > 0 ? max : 10;
-  }, [processedData]);
-
   return (
     <Card>
       <CardHeader>
@@ -113,17 +89,14 @@ export const FeedbackLineChart: React.FC<FeedbackChartProps> = ({
             <Loader className="mb-4" />
             <p className="text-muted-foreground">{loadingText}</p>
           </div>
-        ) : processedData.length === 0 ? (
+        ) : data.length === 0 ? (
           <div className="flex items-center justify-center h-64">
             <p className="text-muted-foreground">Ingen data tilgjengelig</p>
           </div>
         ) : (
           <div className="h-64">
             <ChartContainer config={{}} className="h-full">
-              <LineChart 
-                data={processedData} 
-                margin={{ top: 15, right: 30, left: 20, bottom: 15 }}
-              >
+              <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
                 <XAxis 
                   dataKey="date" 
@@ -131,28 +104,6 @@ export const FeedbackLineChart: React.FC<FeedbackChartProps> = ({
                   fontSize={12} 
                   tickLine={false} 
                   padding={{ left: 10, right: 10 }}
-                  height={35}
-                  tick={(props) => {
-                    const { x, y, payload } = props;
-                    const angle = processedData.length > 10 ? -30 : 0;
-                    const textAnchor = processedData.length > 10 ? 'end' : 'middle';
-                    
-                    return (
-                      <g transform={`translate(${x},${y})`}>
-                        <text 
-                          x={0} 
-                          y={0} 
-                          dy={16} 
-                          textAnchor={textAnchor} 
-                          fill="#64748B"
-                          fontSize={12}
-                          transform={`rotate(${angle})`}
-                        >
-                          {payload.value}
-                        </text>
-                      </g>
-                    );
-                  }}
                 />
                 <YAxis 
                   stroke="#64748B" 
@@ -160,10 +111,8 @@ export const FeedbackLineChart: React.FC<FeedbackChartProps> = ({
                   tickLine={false} 
                   axisLine={false} 
                   allowDecimals={false}
-                  domain={[0, maxValue > 5 ? 'auto' : 5]}
+                  domain={[0, 'auto']}
                   padding={{ top: 10 }}
-                  width={30}
-                  tickCount={5}
                 />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend content={<CustomLegend />} />
