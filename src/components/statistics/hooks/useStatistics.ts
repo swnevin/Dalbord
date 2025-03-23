@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { differenceInDays } from "date-fns";
-import { StatisticsData, LoadingState, DateRange, TimeRange, SavingsSettings, TimeSeriesData, IntentData, FeedbackTimeSeriesData, MetricsResponse } from "../types";
+import { StatisticsData, LoadingState, DateRange, TimeRange, SavingsSettings, TimeSeriesData, IntentData, FeedbackTimeSeriesData, MetricsResponse, SuccessVsFallbackTimeSeriesData } from "../types";
 import { getTimeFrames, formatDateLabel } from "../utils/dateUtils";
 
 export const useStatistics = (
@@ -26,8 +26,11 @@ export const useStatistics = (
     neutralFaceCount: 0,
     sadFaceCount: 0,
     escalatedCount: 0,
+    successfulAnswerCount: 0,
+    fallbackCount: 0,
     feedbackTimeSeries: [],
-    escalationTimeSeries: []
+    escalationTimeSeries: [],
+    successVsFallbackTimeSeries: []
   });
   const [loading, setLoading] = useState<LoadingState>({
     summaryCards: true,
@@ -36,7 +39,8 @@ export const useStatistics = (
     sessionChart: true,
     intentChart: true,
     feedbackChart: true,
-    escalationChart: true
+    escalationChart: true,
+    fallbackChart: true
   });
 
   // Calculate savings whenever total messages or settings change
@@ -531,6 +535,110 @@ export const useStatistics = (
     };
 
     fetchFeedbackMetrics();
+
+    return () => {
+      isMounted = false;
+      abortController.abort();
+    };
+  }, [user?.organization_id, dateRange, timeRange]);
+
+  // Fetch successful answers metrics and fallback requests
+  useEffect(() => {
+    let isMounted = true;
+    const abortController = new AbortController();
+
+    const fetchSuccessMetrics = async () => {
+      if (!user?.organization_id) return;
+
+      setLoading(prev => ({ 
+        ...prev, 
+        fallbackChart: true
+      }));
+
+      try {
+        // Query metrics for successful answers
+        const { data: metricsData, error: metricsError } = await supabase
+          .from('conversation_metrics')
+          .select('*')
+          .eq('organization_id', user.organization_id)
+          .eq('metric_type', 'successful_answer')
+          .gte('timestamp', dateRange.from.toISOString())
+          .lte('timestamp', dateRange.to.toISOString());
+
+        if (metricsError) throw metricsError;
+
+        // Query fallback requests
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from('fallback_requests')
+          .select('*')
+          .eq('organization_id', user.organization_id)
+          .gte('created_at', dateRange.from.toISOString())
+          .lte('created_at', dateRange.to.toISOString());
+
+        if (fallbackError) throw fallbackError;
+
+        // Get counts
+        const successfulAnswerCount = metricsData.length;
+        const fallbackCount = fallbackData.length;
+
+        // Process time series data
+        const timeFrames = getTimeFrames(dateRange.from, dateRange.to);
+        const successVsFallbackTimeSeries: SuccessVsFallbackTimeSeriesData[] = [];
+        
+        const daysDiff = differenceInDays(dateRange.to, dateRange.from);
+        
+        for (const frame of timeFrames) {
+          // Count successful answers in this timeframe
+          const successfulAnswers = metricsData.filter(m => {
+            const date = new Date(m.timestamp);
+            return date >= frame.start && date <= frame.end;
+          }).length;
+
+          // Count fallbacks in this timeframe
+          const fallbacks = fallbackData.filter(f => {
+            const date = new Date(f.created_at);
+            return date >= frame.start && date <= frame.end;
+          }).length;
+
+          // Format the date for display
+          const dateLabel = formatDateLabel(frame.start, daysDiff);
+          
+          successVsFallbackTimeSeries.push({
+            date: dateLabel,
+            successful_answer: successfulAnswers,
+            fallback: fallbacks
+          });
+        }
+
+        // Debug log
+        console.log('Success vs Fallback time series:', successVsFallbackTimeSeries);
+
+        if (isMounted) {
+          setData(prev => ({
+            ...prev,
+            successfulAnswerCount,
+            fallbackCount,
+            successVsFallbackTimeSeries
+          }));
+          
+          setLoading(prev => ({
+            ...prev,
+            fallbackChart: false
+          }));
+        }
+      } catch (error) {
+        if (isMounted && !abortController.signal.aborted) {
+          console.error('Error fetching success metrics:', error);
+          toast.error('Kunne ikke hente svar/fallback-data');
+          setLoading(prev => ({
+            ...prev,
+            fallbackChart: false
+          }));
+        }
+      }
+    };
+
+    fetchSuccessMetrics();
 
     return () => {
       isMounted = false;

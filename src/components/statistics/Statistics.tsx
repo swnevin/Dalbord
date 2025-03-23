@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { updateDateRange } from "./utils/dateUtils";
 import { StatisticsHeader } from "./StatisticsHeader";
@@ -8,6 +9,9 @@ import { BarChart } from "./BarChart";
 import { FeedbackPieChart } from "./FeedbackPieChart";
 import { FeedbackLineChart } from "./FeedbackChart";
 import { SavingsCharts } from "./SavingsCharts";
+import { SuccessMetricsCards } from "./SuccessMetricsCards";
+import { SuccessVsFallbackPieChart } from "./SuccessVsFallbackPieChart";
+import { SuccessVsFallbackLineChart } from "./SuccessVsFallbackChart";
 import { DateRange, TimeRange, SavingsSettings } from "./types";
 import { useStatistics } from "./hooks/useStatistics";
 
@@ -45,7 +49,7 @@ export const Statistics = () => {
         onDateRangeChange={setDateRange}
       />
       
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-6">
         <div className="md:col-span-3">
           <SummaryCards
             totalMessages={data.totalMessages ?? 0}
@@ -54,10 +58,17 @@ export const Statistics = () => {
             isLoading={loading.summaryCards}
           />
         </div>
-        <FeedbackSummaryCards
-          escalatedCount={data.escalatedCount ?? 0}
-          isLoading={loading.feedbackChart}
-        />
+        <div className="md:col-span-3 grid grid-cols-3 gap-4">
+          <FeedbackSummaryCards
+            escalatedCount={data.escalatedCount ?? 0}
+            isLoading={loading.feedbackChart}
+          />
+          <SuccessMetricsCards
+            successfulAnswerCount={data.successfulAnswerCount ?? 0}
+            fallbackCount={data.fallbackCount ?? 0}
+            isLoading={loading.fallbackChart}
+          />
+        </div>
       </div>
 
       <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
@@ -75,6 +86,20 @@ export const Statistics = () => {
           description="Utvikling av brukerens tilbakemeldinger over tid"
           isLoading={loading.feedbackChart}
           loadingText="Laster tilbakemeldingsdata..."
+        />
+      </div>
+
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+        <SuccessVsFallbackPieChart
+          successfulAnswerCount={data.successfulAnswerCount ?? 0}
+          fallbackCount={data.fallbackCount ?? 0}
+          isLoading={loading.fallbackChart}
+        />
+        
+        <SuccessVsFallbackLineChart
+          data={data.successVsFallbackTimeSeries ?? []}
+          isLoading={loading.fallbackChart}
+          loadingText="Laster svar/fallback-data..."
         />
       </div>
 

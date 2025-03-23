@@ -10,13 +10,16 @@ export interface StatisticsData {
   timeSaved?: number;
   moneySaved?: number;
   
-  // New metrics from Supabase
+  // Metrics from Supabase
   happyFaceCount?: number;
   neutralFaceCount?: number;
   sadFaceCount?: number;
   escalatedCount?: number;
+  successfulAnswerCount?: number;
+  fallbackCount?: number;
   feedbackTimeSeries?: FeedbackTimeSeriesData[];
   escalationTimeSeries?: TimeSeriesData[];
+  successVsFallbackTimeSeries?: SuccessVsFallbackTimeSeriesData[];
 }
 
 export interface LoadingState {
@@ -27,6 +30,7 @@ export interface LoadingState {
   intentChart: boolean;
   feedbackChart: boolean;
   escalationChart: boolean;
+  fallbackChart: boolean;
 }
 
 export interface TimeSeriesData {
@@ -39,6 +43,12 @@ export interface FeedbackTimeSeriesData {
   happy_face: number;
   neutral_face: number;
   sad_face: number;
+}
+
+export interface SuccessVsFallbackTimeSeriesData {
+  date: string;
+  successful_answer: number;
+  fallback: number;
 }
 
 export interface IntentData {
@@ -64,6 +74,7 @@ export interface MetricsResponse {
     neutral_face: number;
     sad_face: number;
     escalated_to_human: number;
+    successful_answer: number;
   };
   timeSeries: Array<{
     date: string;
@@ -71,11 +82,12 @@ export interface MetricsResponse {
     neutral_face: number;
     sad_face: number;
     escalated_to_human: number;
+    successful_answer: number;
   }>;
   rawMetrics: Array<{
     id: string;
     organization_id: string;
-    metric_type: 'happy_face' | 'neutral_face' | 'sad_face' | 'escalated_to_human';
+    metric_type: 'happy_face' | 'neutral_face' | 'sad_face' | 'escalated_to_human' | 'successful_answer';
     timestamp: string;
     created_at: string;
   }>;

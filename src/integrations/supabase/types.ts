@@ -195,6 +195,7 @@ export type Database = {
         | "neutral_face"
         | "sad_face"
         | "escalated_to_human"
+        | "successful_answer"
       tab_type:
         | "organizations"
         | "conversations"
