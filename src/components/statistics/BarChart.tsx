@@ -50,7 +50,7 @@ export const BarChart = ({
   layout = 'horizontal', // Changed default to horizontal for vertical bars
   dataKey = "name",
   valueKey = "count",
-  tooltipFormatter = (value: number) => [`${value}`, "Antall"]
+  tooltipFormatter = (value: number) => [`${value}`, " Antall"]
 }: BarChartProps) => {
   // Filter out categories starting with "VF." and take only the top N intents
   const filteredData = data 
@@ -155,7 +155,7 @@ export const BarChart = ({
                 />
                 <Bar
                   dataKey={valueKey}
-                  name=" Antall"
+                  name="Antall"
                   animationDuration={1500}
                   animationEasing="ease-in-out"
                   radius={[4, 4, 0, 0]}
