@@ -64,7 +64,7 @@ export const Statistics = () => {
           data={data.userTimeSeries}
           title="Brukere over tid"
           description="Antall unike brukere som har interagert med systemet over tid."
-          color="#E2B808"
+          color="#28483f"
           isLoading={loading.userChart}
           loadingText="Laster brukerstatistikk..."
         />
