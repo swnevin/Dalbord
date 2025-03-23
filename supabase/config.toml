@@ -1,4 +1,5 @@
 
+# project_id should always be the first line
 project_id = "zsczqlfwqegpfttwhdho"
 
 [api]
@@ -17,20 +18,21 @@ port = 54324
 
 [auth]
 enabled = true
-port = 54325
 
 [storage]
 enabled = true
-port = 54326
 
-[edge_functions]
-enabled = true
-port = 54327
+[[functions]]
+name = "add-metrics"
+path = "add-metrics"
+verify_jwt = false
 
-[[edge_functions.routes]]
-path = "/add-metrics"
-function = "add-metrics"
+[[functions]]
+name = "get-metrics"
+path = "get-metrics"
+verify_jwt = false
 
-[[edge_functions.routes]]
-path = "/get-metrics"
-function = "get-metrics"
+[[functions]]
+name = "get-voiceflow-analytics"
+path = "get-voiceflow-analytics"
+verify_jwt = false
