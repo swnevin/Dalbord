@@ -32,7 +32,7 @@ export const SummaryCards = ({ totalMessages, totalSessions, totalConversations,
               <TooltipContent>
                 <div className="space-y-2 max-w-xs">
                   <p className="font-medium">Antall meldinger</p>
-                  <p>Det totale antallet meldinger som er sendt gjennom systemet i den valgte tidsperioden.</p>
+                  <p>Det totale antallet meldinger som er sendt gjennom systemet i den valgte tidsperioden. OBS: Knappetrykk øker også antall meldinger</p>
                 </div>
               </TooltipContent>
             </Tooltip>
@@ -64,7 +64,7 @@ export const SummaryCards = ({ totalMessages, totalSessions, totalConversations,
               <TooltipContent>
                 <div className="space-y-2 max-w-xs">
                   <p className="font-medium">Antall samtaler</p>
-                  <p>Det totale antallet samtaler (økter) gjennomført i systemet i den valgte tidsperioden.</p>
+                  <p>Det totale antallet samtaler (økter) gjennomført i systemet i den valgte tidsperioden. OBS: En bruker kan ha flere samtaler om brukereren starter flere økter</p>
                 </div>
               </TooltipContent>
             </Tooltip>
@@ -86,7 +86,7 @@ export const SummaryCards = ({ totalMessages, totalSessions, totalConversations,
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">
-            Antall Brukere
+            Antall brukere
           </CardTitle>
           <TooltipProvider delayDuration={100}>
             <Tooltip>
