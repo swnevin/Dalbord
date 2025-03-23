@@ -16,15 +16,18 @@ export const useStatistics = (
   const [data, setData] = useState<StatisticsData>({
     totalMessages: 0,
     totalConversations: 0,
+    totalSessions: 0,
     messageTimeSeries: [],
     userTimeSeries: [],
+    sessionTimeSeries: [],
     timeSaved: 0,
     moneySaved: 0
   });
   const [loading, setLoading] = useState<LoadingState>({
     summaryCards: true,
     messageChart: true,
-    userChart: true
+    userChart: true,
+    sessionChart: true
   });
 
   // Calculate savings whenever total messages or settings change
@@ -41,7 +44,7 @@ export const useStatistics = (
     }
   }, [data.totalMessages, savingsSettings]);
 
-  // Fetch summary data (total messages and conversations)
+  // Fetch summary data (total messages, sessions and conversations)
   useEffect(() => {
     let isMounted = true;
     const abortController = new AbortController();
@@ -52,15 +55,29 @@ export const useStatistics = (
       setLoading(prev => ({ ...prev, summaryCards: true }));
 
       try {
+        // Fetch message counts
         const { data: messageData, error: messageError } = await supabase.functions
           .invoke('get-voiceflow-analytics', {
             body: {
               startDate: dateRange.from.toISOString(),
               endDate: dateRange.to.toISOString(),
+              queryType: 'interactions'
             },
           });
 
         if (messageError) throw messageError;
+
+        // Fetch session counts
+        const { data: sessionData, error: sessionError } = await supabase.functions
+          .invoke('get-voiceflow-analytics', {
+            body: {
+              startDate: dateRange.from.toISOString(),
+              endDate: dateRange.to.toISOString(),
+              queryType: 'sessions'
+            },
+          });
+
+        if (sessionError) throw sessionError;
 
         const { data: org, error: orgError } = await supabase
           .from('organizations')
@@ -96,6 +113,7 @@ export const useStatistics = (
           setData(prev => ({
             ...prev,
             totalMessages: messageData?.result?.[0]?.count || 0,
+            totalSessions: sessionData?.result?.[0]?.count || 0,
             totalConversations
           }));
           setLoading(prev => ({ ...prev, summaryCards: false }));
@@ -144,6 +162,7 @@ export const useStatistics = (
                 body: {
                   startDate: startOfDay.toISOString(),
                   endDate: endOfDay.toISOString(),
+                  queryType: 'interactions'
                 },
               });
 
@@ -159,6 +178,7 @@ export const useStatistics = (
                 body: {
                   startDate: frame.start.toISOString(),
                   endDate: frame.end.toISOString(),
+                  queryType: 'interactions'
                 },
               });
 
@@ -185,6 +205,82 @@ export const useStatistics = (
     };
 
     fetchMessageTimeSeries();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.organization_id, dateRange, timeRange]);
+
+  // Fetch session time series data
+  useEffect(() => {
+    let isMounted = true;
+    const abortController = new AbortController();
+
+    const fetchSessionTimeSeries = async () => {
+      if (!user?.organization_id) return;
+
+      setLoading(prev => ({ ...prev, sessionChart: true }));
+
+      try {
+        const timeFrames = getTimeFrames(dateRange.from, dateRange.to);
+        const sessionTimeSeries: TimeSeriesData[] = [];
+        const daysDiff = differenceInDays(dateRange.to, dateRange.from);
+
+        for (const frame of timeFrames) {
+          if (daysDiff <= 30) {
+            const startOfDay = new Date(frame.start);
+            startOfDay.setHours(0, 0, 0, 0);
+            const endOfDay = new Date(frame.start);
+            endOfDay.setHours(23, 59, 59, 999);
+
+            const { data: sessionData, error: sessionError } = await supabase.functions
+              .invoke('get-voiceflow-analytics', {
+                body: {
+                  startDate: startOfDay.toISOString(),
+                  endDate: endOfDay.toISOString(),
+                  queryType: 'sessions'
+                },
+              });
+
+            if (sessionError) throw sessionError;
+
+            sessionTimeSeries.push({
+              date: formatDateLabel(frame.start, daysDiff),
+              value: sessionData?.result?.[0]?.count || 0
+            });
+          } else {
+            const { data: sessionData, error: sessionError } = await supabase.functions
+              .invoke('get-voiceflow-analytics', {
+                body: {
+                  startDate: frame.start.toISOString(),
+                  endDate: frame.end.toISOString(),
+                  queryType: 'sessions'
+                },
+              });
+
+            if (sessionError) throw sessionError;
+
+            sessionTimeSeries.push({
+              date: formatDateLabel(frame.start, daysDiff),
+              value: sessionData?.result?.[0]?.count || 0
+            });
+          }
+        }
+
+        if (isMounted) {
+          setData(prev => ({ ...prev, sessionTimeSeries }));
+          setLoading(prev => ({ ...prev, sessionChart: false }));
+        }
+      } catch (error) {
+        if (isMounted) {
+          console.error('Error fetching session time series:', error);
+          toast.error('Kunne ikke hente samtalestatistikk over tid');
+          setLoading(prev => ({ ...prev, sessionChart: false }));
+        }
+      }
+    };
+
+    fetchSessionTimeSeries();
 
     return () => {
       isMounted = false;

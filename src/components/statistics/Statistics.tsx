@@ -44,6 +44,7 @@ export const Statistics = () => {
       
       <SummaryCards
         totalMessages={data.totalMessages ?? 0}
+        totalSessions={data.totalSessions ?? 0}
         totalConversations={data.totalConversations ?? 0}
         isLoading={loading.summaryCards}
       />
@@ -66,6 +67,14 @@ export const Statistics = () => {
           color="#E2B808"
           isLoading={loading.userChart}
           loadingText="Laster brukerstatistikk..."
+        />
+        <TimeSeriesChart
+          data={data.sessionTimeSeries}
+          title="Samtaler over tid"
+          description="Totalt antall samtaler (økter) gjennomført i systemet over tid."
+          color="#28483F"
+          isLoading={loading.sessionChart}
+          loadingText="Laster samtalestatistikk..."
         />
         <TimeSeriesChart
           data={data.messageTimeSeries}

@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { startDate, endDate } = await req.json()
+    const { startDate, endDate, queryType = 'interactions' } = await req.json()
 
     if (!startDate || !endDate) {
       throw new Error('Start date and end date are required')
@@ -67,6 +67,12 @@ serve(async (req) => {
       throw new Error('Organization has no Voiceflow credentials')
     }
 
+    // Prepare the query based on the query type
+    let queryName = 'interactions'; // Default is interactions (messages)
+    if (queryType === 'sessions') {
+      queryName = 'sessions';
+    }
+
     const options = {
       method: 'POST',
       headers: {
@@ -77,7 +83,7 @@ serve(async (req) => {
       body: JSON.stringify({
         query: [
           {
-            name: 'interactions',
+            name: queryName,
             filter: {
               projectID: org.voiceflow_project_id,
               startTime: startDate,
@@ -95,7 +101,7 @@ serve(async (req) => {
     }
     
     const data = await response.json()
-    console.log('Voiceflow analytics response:', data)
+    console.log(`Voiceflow ${queryName} analytics response:`, data)
 
     return new Response(
       JSON.stringify(data),

@@ -2,8 +2,10 @@
 export interface StatisticsData {
   totalMessages?: number;
   totalConversations?: number;
+  totalSessions?: number;
   messageTimeSeries?: TimeSeriesData[];
   userTimeSeries?: TimeSeriesData[];
+  sessionTimeSeries?: TimeSeriesData[];
   timeSaved?: number;
   moneySaved?: number;
 }
@@ -12,6 +14,7 @@ export interface LoadingState {
   summaryCards: boolean;
   messageChart: boolean;
   userChart: boolean;
+  sessionChart: boolean;
 }
 
 export interface TimeSeriesData {
