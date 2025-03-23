@@ -144,7 +144,7 @@ export const BarChart = ({
               />
               <Bar
                 dataKey="count"
-                name="Antall"
+                name=" Antall"
                 animationDuration={1500}
                 animationEasing="ease-in-out"
                 radius={[4, 4, 0, 0]}
