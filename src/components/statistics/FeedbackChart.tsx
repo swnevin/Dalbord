@@ -132,7 +132,27 @@ export const FeedbackLineChart: React.FC<FeedbackChartProps> = ({
                   tickLine={false} 
                   padding={{ left: 10, right: 10 }}
                   height={35}
-                  tick={{ angle: processedData.length > 10 ? -30 : 0, textAnchor: processedData.length > 10 ? 'end' : 'middle' }}
+                  tick={(props) => {
+                    const { x, y, payload } = props;
+                    const angle = processedData.length > 10 ? -30 : 0;
+                    const textAnchor = processedData.length > 10 ? 'end' : 'middle';
+                    
+                    return (
+                      <g transform={`translate(${x},${y})`}>
+                        <text 
+                          x={0} 
+                          y={0} 
+                          dy={16} 
+                          textAnchor={textAnchor} 
+                          fill="#64748B"
+                          fontSize={12}
+                          transform={`rotate(${angle})`}
+                        >
+                          {payload.value}
+                        </text>
+                      </g>
+                    );
+                  }}
                 />
                 <YAxis 
                   stroke="#64748B" 
