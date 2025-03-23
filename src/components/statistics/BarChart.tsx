@@ -136,7 +136,7 @@ export const BarChart = ({
                       label={label}
                       formatter={(value: number, name: string) => [
                         `${value}`, 
-                        name === "count" ? "Antall" : name
+                        name === "count" ? " Antall" : name
                       ]}
                     />
                   ) : null
