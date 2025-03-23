@@ -1,8 +1,10 @@
 
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { PieChart as RechartsPieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { PieChart as RechartsPieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { Loader } from '@/components/ui/loader';
+import { ChartContainer } from '@/components/ui/chart/ChartContainer';
+import { Smile, Meh, Frown } from 'lucide-react';
 
 interface FeedbackPieChartProps {
   happyFaceCount: number;
@@ -24,10 +26,10 @@ export const FeedbackPieChart: React.FC<FeedbackPieChartProps> = ({
   const notReviewedCount = Math.max(0, totalConversations - reviewedCount);
 
   const data = [
-    { name: 'Fornøyde', value: happyFaceCount, color: '#4CAF50' },
-    { name: 'Nøytrale', value: neutralFaceCount, color: '#E2B808' },
-    { name: 'Misfornøyde', value: sadFaceCount, color: '#F44336' },
-    { name: 'Ikke vurdert', value: notReviewedCount, color: '#E0E0E0' }
+    { name: 'Fornøyde 🙂', value: happyFaceCount, color: '#28483F' }, // Primary Dark Green
+    { name: 'Nøytrale 😐', value: neutralFaceCount, color: '#E2B808' }, // Accent Yellow
+    { name: 'Misfornøyde 🙁', value: sadFaceCount, color: '#8E9196' }, // Neutral Gray
+    { name: 'Ikke vurdert', value: notReviewedCount, color: '#F1F0FB' } // Soft Gray background
   ];
 
   // Custom tooltip
@@ -47,6 +49,23 @@ export const FeedbackPieChart: React.FC<FeedbackPieChartProps> = ({
     return null;
   };
 
+  if (isLoading || totalConversations === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Tilbakemeldinger</CardTitle>
+          <CardDescription>Fordeling av brukernes tilbakemeldinger på samtaler</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col items-center justify-center h-64">
+            <Loader className="mb-4" />
+            <p className="text-muted-foreground">Laster tilbakemeldingsdata...</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -54,35 +73,29 @@ export const FeedbackPieChart: React.FC<FeedbackPieChartProps> = ({
         <CardDescription>Fordeling av brukernes tilbakemeldinger på samtaler</CardDescription>
       </CardHeader>
       <CardContent>
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center h-64">
-            <Loader className="mb-4" />
-            <p className="text-muted-foreground">Laster tilbakemeldingsdata...</p>
-          </div>
-        ) : (
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <RechartsPieChart>
-                <Pie
-                  data={data}
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  innerRadius={40}
-                  dataKey="value"
-                  labelLine={false}
-                  label={({ name, percent }) => percent > 0.05 ? `${name}: ${(percent * 100).toFixed(0)}%` : ''}
-                >
-                  {data.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip content={<CustomTooltip />} />
-                <Legend />
-              </RechartsPieChart>
-            </ResponsiveContainer>
-          </div>
-        )}
+        <div className="h-64">
+          <ChartContainer 
+            config={{}} 
+            className="h-full"
+          >
+            <RechartsPieChart>
+              <Pie
+                data={data}
+                cx="50%"
+                cy="50%"
+                outerRadius={80}
+                innerRadius={40}
+                dataKey="value"
+                labelLine={false}
+              >
+                {data.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
+                ))}
+              </Pie>
+              <Tooltip content={<CustomTooltip />} />
+            </RechartsPieChart>
+          </ChartContainer>
+        </div>
       </CardContent>
     </Card>
   );

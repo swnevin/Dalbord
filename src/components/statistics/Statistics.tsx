@@ -7,6 +7,7 @@ import { FeedbackSummaryCards } from "./FeedbackSummaryCards";
 import { TimeSeriesChart } from "./TimeSeriesChart";
 import { BarChart } from "./BarChart";
 import { FeedbackPieChart } from "./FeedbackPieChart";
+import { FeedbackLineChart } from "./FeedbackChart";
 import { SavingsCharts } from "./SavingsCharts";
 import { DateRange, TimeRange, SavingsSettings } from "./types";
 import { useStatistics } from "./hooks/useStatistics";
@@ -60,13 +61,23 @@ export const Statistics = () => {
         />
       </div>
 
-      <FeedbackPieChart
-        happyFaceCount={data.happyFaceCount ?? 0}
-        neutralFaceCount={data.neutralFaceCount ?? 0}
-        sadFaceCount={data.sadFaceCount ?? 0}
-        totalConversations={data.totalConversations ?? 0}
-        isLoading={loading.feedbackChart}
-      />
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+        <FeedbackPieChart
+          happyFaceCount={data.happyFaceCount ?? 0}
+          neutralFaceCount={data.neutralFaceCount ?? 0}
+          sadFaceCount={data.sadFaceCount ?? 0}
+          totalConversations={data.totalConversations ?? 0}
+          isLoading={loading.feedbackChart || loading.summaryCards}
+        />
+        
+        <FeedbackLineChart
+          data={data.feedbackTimeSeries ?? []}
+          title="Tilbakemeldinger over tid"
+          description="Utvikling av brukerens tilbakemeldinger over tid"
+          isLoading={loading.feedbackChart}
+          loadingText="Laster tilbakemeldingsdata..."
+        />
+      </div>
 
       <SavingsCharts
         timeSaved={data.timeSaved ?? 0}
