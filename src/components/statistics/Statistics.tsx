@@ -4,6 +4,7 @@ import { updateDateRange } from "./utils/dateUtils";
 import { StatisticsHeader } from "./StatisticsHeader";
 import { SummaryCards } from "./SummaryCards";
 import { TimeSeriesChart } from "./TimeSeriesChart";
+import { BarChart } from "./BarChart";
 import { SavingsCharts } from "./SavingsCharts";
 import { DateRange, TimeRange, SavingsSettings } from "./types";
 import { useStatistics } from "./hooks/useStatistics";
@@ -60,6 +61,16 @@ export const Statistics = () => {
       />
 
       <div className="grid gap-8 mt-8">
+        <BarChart
+          data={data.topIntents}
+          title="Temaer"
+          description="De vanligste temaene brukerne spør om i systemet."
+          color="#28483F"
+          isLoading={loading.intentChart}
+          loadingText="Laster tema-statistikk..."
+          limit={10}
+        />
+        
         <TimeSeriesChart
           data={data.userTimeSeries}
           title="Brukere over tid"
@@ -68,6 +79,7 @@ export const Statistics = () => {
           isLoading={loading.userChart}
           loadingText="Laster brukerstatistikk..."
         />
+        
         <TimeSeriesChart
           data={data.sessionTimeSeries}
           title="Samtaler over tid"
@@ -76,6 +88,7 @@ export const Statistics = () => {
           isLoading={loading.sessionChart}
           loadingText="Laster samtalestatistikk..."
         />
+        
         <TimeSeriesChart
           data={data.messageTimeSeries}
           title="Meldinger over tid"

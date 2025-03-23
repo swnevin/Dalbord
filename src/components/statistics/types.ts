@@ -6,6 +6,7 @@ export interface StatisticsData {
   messageTimeSeries?: TimeSeriesData[];
   userTimeSeries?: TimeSeriesData[];
   sessionTimeSeries?: TimeSeriesData[];
+  topIntents?: IntentData[];
   timeSaved?: number;
   moneySaved?: number;
 }
@@ -15,11 +16,17 @@ export interface LoadingState {
   messageChart: boolean;
   userChart: boolean;
   sessionChart: boolean;
+  intentChart: boolean;
 }
 
 export interface TimeSeriesData {
   date: string;
   value: number;
+}
+
+export interface IntentData {
+  name: string;
+  count: number;
 }
 
 export type DateRange = {

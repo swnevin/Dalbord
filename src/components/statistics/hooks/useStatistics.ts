@@ -1,10 +1,9 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { differenceInDays } from "date-fns";
-import { StatisticsData, LoadingState, DateRange, TimeRange, SavingsSettings, TimeSeriesData } from "../types";
+import { StatisticsData, LoadingState, DateRange, TimeRange, SavingsSettings, TimeSeriesData, IntentData } from "../types";
 import { getTimeFrames, formatDateLabel } from "../utils/dateUtils";
 
 export const useStatistics = (
@@ -20,6 +19,7 @@ export const useStatistics = (
     messageTimeSeries: [],
     userTimeSeries: [],
     sessionTimeSeries: [],
+    topIntents: [],
     timeSaved: 0,
     moneySaved: 0
   });
@@ -27,7 +27,8 @@ export const useStatistics = (
     summaryCards: true,
     messageChart: true,
     userChart: true,
-    sessionChart: true
+    sessionChart: true,
+    intentChart: true
   });
 
   // Calculate savings whenever total messages or settings change
@@ -369,6 +370,53 @@ export const useStatistics = (
     };
 
     fetchUserTimeSeries();
+
+    return () => {
+      isMounted = false;
+      abortController.abort();
+    };
+  }, [user?.organization_id, dateRange, timeRange]);
+
+  // Fetch top intents data
+  useEffect(() => {
+    let isMounted = true;
+    const abortController = new AbortController();
+
+    const fetchTopIntents = async () => {
+      if (!user?.organization_id) return;
+
+      setLoading(prev => ({ ...prev, intentChart: true }));
+
+      try {
+        // Fetch top intents data
+        const { data: intentData, error: intentError } = await supabase.functions
+          .invoke('get-voiceflow-analytics', {
+            body: {
+              startDate: dateRange.from.toISOString(),
+              endDate: dateRange.to.toISOString(),
+              queryType: 'top_intents'
+            },
+          });
+
+        if (intentError) throw intentError;
+
+        // Extract intents from the response
+        const topIntents: IntentData[] = intentData?.result?.[0]?.intents || [];
+
+        if (isMounted) {
+          setData(prev => ({ ...prev, topIntents }));
+          setLoading(prev => ({ ...prev, intentChart: false }));
+        }
+      } catch (error) {
+        if (isMounted && !abortController.signal.aborted) {
+          console.error('Error fetching top intents:', error);
+          toast.error('Kunne ikke hente tema-statistikk');
+          setLoading(prev => ({ ...prev, intentChart: false }));
+        }
+      }
+    };
+
+    fetchTopIntents();
 
     return () => {
       isMounted = false;

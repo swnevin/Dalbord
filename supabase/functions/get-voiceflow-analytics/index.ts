@@ -69,8 +69,12 @@ serve(async (req) => {
 
     // Prepare the query based on the query type
     let queryName = 'interactions'; // Default is interactions (messages)
+    let endpoint = 'https://analytics-api.voiceflow.com/v1/query/usage';
+    
     if (queryType === 'sessions') {
       queryName = 'sessions';
+    } else if (queryType === 'top_intents') {
+      queryName = 'top_intents';
     }
 
     const options = {
@@ -94,7 +98,7 @@ serve(async (req) => {
       })
     };
 
-    const response = await fetch('https://analytics-api.voiceflow.com/v1/query/usage', options)
+    const response = await fetch(endpoint, options)
     
     if (!response.ok) {
       throw new Error(`Voiceflow API error: ${response.status}`)
