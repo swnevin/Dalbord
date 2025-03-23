@@ -36,13 +36,3 @@ verify_jwt = false
 name = "get-voiceflow-analytics"
 path = "get-voiceflow-analytics"
 verify_jwt = false
-
-[[functions]]
-name = "add-successful-answer"
-path = "add-successful-answer"
-verify_jwt = false
-
-[[functions]]
-name = "add-fallback"
-path = "add-fallback"
-verify_jwt = false

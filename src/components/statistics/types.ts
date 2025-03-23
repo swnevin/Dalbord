@@ -75,7 +75,6 @@ export interface MetricsResponse {
     sad_face: number;
     escalated_to_human: number;
     successful_answer: number;
-    fallback: number;
   };
   timeSeries: Array<{
     date: string;
@@ -84,12 +83,11 @@ export interface MetricsResponse {
     sad_face: number;
     escalated_to_human: number;
     successful_answer: number;
-    fallback: number;
   }>;
   rawMetrics: Array<{
     id: string;
     organization_id: string;
-    metric_type: 'happy_face' | 'neutral_face' | 'sad_face' | 'escalated_to_human' | 'successful_answer' | 'fallback';
+    metric_type: 'happy_face' | 'neutral_face' | 'sad_face' | 'escalated_to_human' | 'successful_answer';
     timestamp: string;
     created_at: string;
   }>;
