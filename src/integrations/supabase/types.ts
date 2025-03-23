@@ -9,6 +9,38 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      conversation_metrics: {
+        Row: {
+          created_at: string
+          id: string
+          metric_type: Database["public"]["Enums"]["metric_type"]
+          organization_id: string
+          timestamp: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          metric_type: Database["public"]["Enums"]["metric_type"]
+          organization_id: string
+          timestamp?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          metric_type?: Database["public"]["Enums"]["metric_type"]
+          organization_id?: string
+          timestamp?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_metrics_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fallback_requests: {
         Row: {
           created_at: string
@@ -143,6 +175,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_conversation_metric: {
+        Args: {
+          org_id: string
+          metric: string
+          api_key?: string
+        }
+        Returns: string
+      }
       create_organization_member: {
         Args: {
           user_email: string
@@ -161,6 +201,11 @@ export type Database = {
     }
     Enums: {
       custom_tab_icon: "default"
+      metric_type:
+        | "happy_face"
+        | "neutral_face"
+        | "sad_face"
+        | "escalated_to_human"
       tab_type:
         | "organizations"
         | "conversations"

@@ -1,1 +1,36 @@
+
 project_id = "zsczqlfwqegpfttwhdho"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage"]
+
+[db]
+port = 54322
+
+[studio]
+port = 54323
+
+[inbucket]
+port = 54324
+
+[auth]
+enabled = true
+port = 54325
+
+[storage]
+enabled = true
+port = 54326
+
+[edge_functions]
+enabled = true
+port = 54327
+
+[[edge_functions.routes]]
+path = "/add-metrics"
+function = "add-metrics"
+
+[[edge_functions.routes]]
+path = "/get-metrics"
+function = "get-metrics"

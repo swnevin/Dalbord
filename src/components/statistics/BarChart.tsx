@@ -8,7 +8,8 @@ import {
   YAxis,
   CartesianGrid,
   ResponsiveContainer,
-  Cell
+  Cell,
+  Tooltip as RechartsTooltip
 } from "recharts";
 import { IntentData } from "./types";
 import { InfoIcon } from "lucide-react";
@@ -32,6 +33,10 @@ interface BarChartProps {
   isLoading: boolean;
   loadingText?: string;
   limit?: number;
+  layout?: 'vertical' | 'horizontal';
+  dataKey?: string;
+  valueKey?: string;
+  tooltipFormatter?: (value: number) => [string, string];
 }
 
 export const BarChart = ({
@@ -41,12 +46,16 @@ export const BarChart = ({
   color = "#28483F",
   isLoading,
   loadingText = "Laster data...",
-  limit = 10
+  limit = 10,
+  layout = 'vertical',
+  dataKey = "name",
+  valueKey = "count",
+  tooltipFormatter = (value: number) => [`${value}`, "Antall"]
 }: BarChartProps) => {
   // Filter out categories starting with "VF." and take only the top N intents
   const filteredData = data 
     ? [...data]
-        .filter(item => !item.name.startsWith("VF."))
+        .filter(item => !item.name?.startsWith("VF."))
         .sort((a, b) => b.count - a.count)
         .slice(0, limit)
     : [];
@@ -102,59 +111,65 @@ export const BarChart = ({
             }}
             className="h-[300px]"
           >
-            <RechartsBarChart
-              data={filteredData}
-              margin={{ top: 10, right: 30, left: 40, bottom: 60 }}
-              layout="horizontal"
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" vertical={true} />
-              <XAxis
-                type="category"
-                dataKey="name"
-                stroke="#64748B"
-                fontSize={12}
-                tickLine={false}
-                axisLine={true}
-                angle={-45}
-                textAnchor="end"
-                height={60}
-                interval={0}
-              />
-              <YAxis
-                type="number"
-                stroke="#64748B"
-                fontSize={12}
-                tickLine={false}
-                axisLine={false}
-              />
-              <ChartTooltip
-                content={({active, payload, label}) => 
-                  active && payload && payload.length ? (
-                    <ChartTooltipContent 
-                      active={active} 
-                      payload={payload} 
-                      label={label}
-                      formatter={(value: number, name: string) => [
-                        `${value}`, 
-                        name === "count" ? " Antall" : name
-                      ]}
-                    />
-                  ) : null
-                }
-              />
-              <Bar
-                dataKey="count"
-                name=" Antall"
-                animationDuration={1500}
-                animationEasing="ease-in-out"
-                radius={[4, 4, 0, 0]}
-                maxBarSize={60}
+            <ResponsiveContainer width="100%" height="100%">
+              <RechartsBarChart
+                data={filteredData}
+                margin={{ top: 20, right: 30, left: 60, bottom: 40 }}
+                layout={layout}
+                barCategoryGap={10}
+                barGap={0}
               >
-                {filteredData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
-                ))}
-              </Bar>
-            </RechartsBarChart>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                <XAxis
+                  type={layout === 'vertical' ? "number" : "category"}
+                  dataKey={layout === 'vertical' ? undefined : dataKey}
+                  stroke="#64748B"
+                  fontSize={12}
+                  tickLine={false}
+                  axisLine={true}
+                  angle={layout === 'vertical' ? 0 : -45}
+                  textAnchor={layout === 'vertical' ? 'middle' : 'end'}
+                  height={60}
+                  interval={0}
+                />
+                <YAxis
+                  type={layout === 'vertical' ? "category" : "number"}
+                  dataKey={layout === 'vertical' ? dataKey : undefined}
+                  stroke="#64748B"
+                  fontSize={12}
+                  tickLine={false}
+                  axisLine={false}
+                  width={120}
+                />
+                <ChartTooltip
+                  content={({active, payload, label}) => 
+                    active && payload && payload.length ? (
+                      <ChartTooltipContent 
+                        active={active} 
+                        payload={payload} 
+                        label={label}
+                        formatter={(value: number) => tooltipFormatter(value)}
+                      />
+                    ) : null
+                  }
+                />
+                <defs>
+                  <linearGradient id="dalaiGradient" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#28483F" /> {/* Primary Dark Green */}
+                    <stop offset="100%" stopColor="#E2B808" /> {/* Accent Yellow */}
+                  </linearGradient>
+                </defs>
+                <Bar
+                  dataKey={valueKey}
+                  fill="url(#dalaiGradient)"
+                  name="Antall"
+                  animationDuration={1500}
+                  animationEasing="ease-in-out"
+                  radius={[4, 4, 4, 4]}
+                  maxBarSize={40}
+                />
+              </RechartsBarChart>
+            </ResponsiveContainer>
           </ChartContainer>
         ) : (
           <div className="h-[300px] flex items-center justify-center text-muted-foreground">
