@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { updateDateRange } from "./utils/dateUtils";
 import { StatisticsHeader } from "./StatisticsHeader";
@@ -98,6 +97,7 @@ export const Statistics = () => {
           isLoading={loading.intentChart}
           loadingText="Laster tema-statistikk..."
           limit={10}
+          layout="horizontal" 
         />
         
         <TimeSeriesChart

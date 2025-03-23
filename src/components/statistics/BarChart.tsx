@@ -47,7 +47,7 @@ export const BarChart = ({
   isLoading,
   loadingText = "Laster data...",
   limit = 10,
-  layout = 'vertical',
+  layout = 'horizontal', // Changed default to horizontal for vertical bars
   dataKey = "name",
   valueKey = "count",
   tooltipFormatter = (value: number) => [`${value}`, "Antall"]
@@ -99,9 +99,9 @@ export const BarChart = ({
           </TooltipProvider>
         )}
       </CardHeader>
-      <CardContent>
+      <CardContent className="h-[320px]">
         {isLoading ? (
-          <div className="h-[300px] flex items-center justify-center">
+          <div className="h-full flex items-center justify-center">
             <Loader size="md" text={loadingText} />
           </div>
         ) : filteredData && filteredData.length > 0 ? (
@@ -109,14 +109,14 @@ export const BarChart = ({
             config={{
               value: { color }
             }}
-            className="h-[300px]"
+            className="h-full w-full"
           >
             <ResponsiveContainer width="100%" height="100%">
               <RechartsBarChart
                 data={filteredData}
                 margin={{ top: 20, right: 30, left: 60, bottom: 40 }}
                 layout={layout}
-                barCategoryGap={10}
+                barCategoryGap="20%"
                 barGap={0}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
@@ -153,26 +153,26 @@ export const BarChart = ({
                     ) : null
                   }
                 />
-                <defs>
-                  <linearGradient id="dalaiGradient" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor="#28483F" /> {/* Primary Dark Green */}
-                    <stop offset="100%" stopColor="#E2B808" /> {/* Accent Yellow */}
-                  </linearGradient>
-                </defs>
                 <Bar
                   dataKey={valueKey}
-                  fill="url(#dalaiGradient)"
                   name="Antall"
                   animationDuration={1500}
                   animationEasing="ease-in-out"
-                  radius={[4, 4, 4, 4]}
-                  maxBarSize={40}
-                />
+                  radius={[4, 4, 0, 0]}
+                  maxBarSize={60}
+                >
+                  {filteredData.map((entry, index) => (
+                    <Cell 
+                      key={`cell-${index}`} 
+                      fill={colors[Math.min(index, colors.length - 1)]}
+                    />
+                  ))}
+                </Bar>
               </RechartsBarChart>
             </ResponsiveContainer>
           </ChartContainer>
         ) : (
-          <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+          <div className="h-full flex items-center justify-center text-muted-foreground">
             Ingen data tilgjengelig
           </div>
         )}

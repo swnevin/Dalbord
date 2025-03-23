@@ -60,9 +60,9 @@ export const TimeSeriesChart = ({
           </TooltipProvider>
         )}
       </CardHeader>
-      <CardContent>
+      <CardContent className="h-[320px]">
         {isLoading ? (
-          <div className="h-[300px] flex items-center justify-center">
+          <div className="h-full flex items-center justify-center">
             <Loader size="md" text={loadingText} />
           </div>
         ) : data && data.length > 0 ? (
@@ -70,47 +70,58 @@ export const TimeSeriesChart = ({
             config={{
               value: { color }
             }}
-            className="h-[300px]"
+            className="h-full w-full"
           >
-            <LineChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
-              <XAxis
-                dataKey="date"
-                stroke="#64748B"
-                fontSize={12}
-                tickLine={false}
-              />
-              <YAxis
-                stroke="#64748B"
-                fontSize={12}
-                tickLine={false}
-                axisLine={false}
-              />
-              <ChartTooltip
-                content={({active, payload, label}) => 
-                  active && payload && payload.length ? (
-                    <ChartTooltipContent 
-                      active={active} 
-                      payload={payload} 
-                      label={label}
-                      formatter={(value: number) => [`Verdi: ${value}`, '']}
-                    />
-                  ) : null
-                }
-              />
-              <Line
-                type="monotone"
-                dataKey="value"
-                stroke={color}
-                strokeWidth={2}
-                dot={data.length <= 30}
-                animationDuration={1500}
-                animationEasing="ease-in-out"
-              />
-            </LineChart>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart 
+                data={data}
+                margin={{ top: 20, right: 20, left: 20, bottom: 40 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                <XAxis
+                  dataKey="date"
+                  stroke="#64748B"
+                  fontSize={12}
+                  tickLine={false}
+                  angle={-45}
+                  textAnchor="end"
+                  height={60}
+                  interval="preserveStartEnd"
+                  minTickGap={30}
+                />
+                <YAxis
+                  stroke="#64748B"
+                  fontSize={12}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <ChartTooltip
+                  content={({active, payload, label}) => 
+                    active && payload && payload.length ? (
+                      <ChartTooltipContent 
+                        active={active} 
+                        payload={payload} 
+                        label={label}
+                        formatter={(value: number) => [`Verdi: ${value}`, '']}
+                      />
+                    ) : null
+                  }
+                />
+                <Line
+                  type="monotone"
+                  dataKey="value"
+                  stroke={color}
+                  strokeWidth={2}
+                  dot={data.length <= 30}
+                  activeDot={{ r: 6 }}
+                  animationDuration={1500}
+                  animationEasing="ease-in-out"
+                />
+              </LineChart>
+            </ResponsiveContainer>
           </ChartContainer>
         ) : (
-          <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+          <div className="h-full flex items-center justify-center text-muted-foreground">
             Ingen data tilgjengelig
           </div>
         )}
