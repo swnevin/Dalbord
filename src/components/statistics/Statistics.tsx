@@ -6,7 +6,7 @@ import { SummaryCards } from "./SummaryCards";
 import { FeedbackSummaryCards } from "./FeedbackSummaryCards";
 import { TimeSeriesChart } from "./TimeSeriesChart";
 import { BarChart } from "./BarChart";
-import { FeedbackChart } from "./FeedbackChart";
+import { FeedbackPieChart } from "./FeedbackPieChart";
 import { SavingsCharts } from "./SavingsCharts";
 import { DateRange, TimeRange, SavingsSettings } from "./types";
 import { useStatistics } from "./hooks/useStatistics";
@@ -45,18 +45,26 @@ export const Statistics = () => {
         onDateRangeChange={setDateRange}
       />
       
-      <SummaryCards
-        totalMessages={data.totalMessages ?? 0}
-        totalSessions={data.totalSessions ?? 0}
-        totalConversations={data.totalConversations ?? 0}
-        isLoading={loading.summaryCards}
-      />
+      <div className="grid gap-4 md:grid-cols-4">
+        <div className="md:col-span-3">
+          <SummaryCards
+            totalMessages={data.totalMessages ?? 0}
+            totalSessions={data.totalSessions ?? 0}
+            totalConversations={data.totalConversations ?? 0}
+            isLoading={loading.summaryCards}
+          />
+        </div>
+        <FeedbackSummaryCards
+          escalatedCount={data.escalatedCount ?? 0}
+          isLoading={loading.feedbackChart}
+        />
+      </div>
 
-      <FeedbackSummaryCards
+      <FeedbackPieChart
         happyFaceCount={data.happyFaceCount ?? 0}
         neutralFaceCount={data.neutralFaceCount ?? 0}
         sadFaceCount={data.sadFaceCount ?? 0}
-        escalatedCount={data.escalatedCount ?? 0}
+        totalConversations={data.totalConversations ?? 0}
         isLoading={loading.feedbackChart}
       />
 
@@ -71,24 +79,6 @@ export const Statistics = () => {
       />
 
       <div className="grid gap-8 mt-8">
-        {/* New Feedback Charts */}
-        <FeedbackChart
-          data={data.feedbackTimeSeries || []}
-          title="Tilbakemeldinger over tid"
-          description="Oversikt over positive, nøytrale og negative tilbakemeldinger over tid."
-          isLoading={loading.feedbackChart}
-          loadingText="Laster tilbakemeldingsdata..."
-        />
-        
-        <TimeSeriesChart
-          data={data.escalationTimeSeries || []}
-          title="Eskalerte samtaler over tid"
-          description="Antall samtaler som er eskalert til menneskelig støtte over tid."
-          color="#E2B808"
-          isLoading={loading.escalationChart}
-          loadingText="Laster eskaleringsdata..."
-        />
-
         <BarChart
           data={data.topIntents}
           title="Temaer"
