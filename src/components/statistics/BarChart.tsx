@@ -7,9 +7,7 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  ResponsiveContainer,
   Cell,
-  Tooltip as RechartsTooltip
 } from "recharts";
 import { IntentData } from "./types";
 import { InfoIcon } from "lucide-react";

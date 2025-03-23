@@ -7,7 +7,6 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  ResponsiveContainer,
 } from "recharts";
 import { TimeSeriesData } from "./types";
 import { InfoIcon } from "lucide-react";
