@@ -11,21 +11,18 @@ export type Database = {
     Tables: {
       conversation_metrics: {
         Row: {
-          created_at: string
           id: string
           metric_type: Database["public"]["Enums"]["metric_type"]
           organization_id: string
           timestamp: string
         }
         Insert: {
-          created_at?: string
           id?: string
           metric_type: Database["public"]["Enums"]["metric_type"]
           organization_id: string
           timestamp?: string
         }
         Update: {
-          created_at?: string
           id?: string
           metric_type?: Database["public"]["Enums"]["metric_type"]
           organization_id?: string
@@ -175,14 +172,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      add_conversation_metric: {
-        Args: {
-          org_id: string
-          metric: string
-          api_key?: string
-        }
-        Returns: string
-      }
       create_organization_member: {
         Args: {
           user_email: string

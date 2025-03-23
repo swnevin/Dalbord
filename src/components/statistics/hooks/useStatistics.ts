@@ -1,10 +1,9 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { differenceInDays } from "date-fns";
-import { StatisticsData, LoadingState, DateRange, TimeRange, SavingsSettings, TimeSeriesData, IntentData } from "../types";
+import { StatisticsData, LoadingState, DateRange, TimeRange, SavingsSettings, TimeSeriesData, IntentData, FeedbackTimeSeriesData, MetricsResponse } from "../types";
 import { getTimeFrames, formatDateLabel } from "../utils/dateUtils";
 
 export const useStatistics = (
@@ -22,14 +21,22 @@ export const useStatistics = (
     sessionTimeSeries: [],
     topIntents: [],
     timeSaved: 0,
-    moneySaved: 0
+    moneySaved: 0,
+    happyFaceCount: 0,
+    neutralFaceCount: 0,
+    sadFaceCount: 0,
+    escalatedCount: 0,
+    feedbackTimeSeries: [],
+    escalationTimeSeries: []
   });
   const [loading, setLoading] = useState<LoadingState>({
     summaryCards: true,
     messageChart: true,
     userChart: true,
     sessionChart: true,
-    intentChart: true
+    intentChart: true,
+    feedbackChart: true,
+    escalationChart: true
   });
 
   // Calculate savings whenever total messages or settings change
@@ -418,6 +425,104 @@ export const useStatistics = (
     };
 
     fetchTopIntents();
+
+    return () => {
+      isMounted = false;
+      abortController.abort();
+    };
+  }, [user?.organization_id, dateRange, timeRange]);
+
+  // Fetch feedback and escalation metrics
+  useEffect(() => {
+    let isMounted = true;
+    const abortController = new AbortController();
+
+    const fetchFeedbackMetrics = async () => {
+      if (!user?.organization_id) return;
+
+      setLoading(prev => ({ 
+        ...prev, 
+        feedbackChart: true,
+        escalationChart: true
+      }));
+
+      try {
+        // Query the database directly for metrics
+        const { data: metricsData, error: metricsError } = await supabase
+          .from('conversation_metrics')
+          .select('*')
+          .eq('organization_id', user.organization_id)
+          .gte('timestamp', dateRange.from.toISOString())
+          .lte('timestamp', dateRange.to.toISOString());
+
+        if (metricsError) throw metricsError;
+
+        // Process metrics data
+        const happyFaceCount = metricsData.filter(m => m.metric_type === 'happy_face').length;
+        const neutralFaceCount = metricsData.filter(m => m.metric_type === 'neutral_face').length;
+        const sadFaceCount = metricsData.filter(m => m.metric_type === 'sad_face').length;
+        const escalatedCount = metricsData.filter(m => m.metric_type === 'escalated_to_human').length;
+
+        // Process time series data
+        const timeFrames = getTimeFrames(dateRange.from, dateRange.to);
+        const feedbackTimeSeries: FeedbackTimeSeriesData[] = [];
+        const escalationTimeSeries: TimeSeriesData[] = [];
+        
+        for (const frame of timeFrames) {
+          const frameMetrics = metricsData.filter(m => {
+            const date = new Date(m.timestamp);
+            return date >= frame.start && date <= frame.end;
+          });
+
+          const happy = frameMetrics.filter(m => m.metric_type === 'happy_face').length;
+          const neutral = frameMetrics.filter(m => m.metric_type === 'neutral_face').length;
+          const sad = frameMetrics.filter(m => m.metric_type === 'sad_face').length;
+          const escalated = frameMetrics.filter(m => m.metric_type === 'escalated_to_human').length;
+
+          feedbackTimeSeries.push({
+            date: formatDateLabel(frame.start, differenceInDays(dateRange.to, dateRange.from)),
+            happy_face: happy,
+            neutral_face: neutral,
+            sad_face: sad
+          });
+
+          escalationTimeSeries.push({
+            date: formatDateLabel(frame.start, differenceInDays(dateRange.to, dateRange.from)),
+            value: escalated
+          });
+        }
+
+        if (isMounted) {
+          setData(prev => ({
+            ...prev,
+            happyFaceCount,
+            neutralFaceCount,
+            sadFaceCount,
+            escalatedCount,
+            feedbackTimeSeries,
+            escalationTimeSeries
+          }));
+          
+          setLoading(prev => ({
+            ...prev,
+            feedbackChart: false,
+            escalationChart: false
+          }));
+        }
+      } catch (error) {
+        if (isMounted && !abortController.signal.aborted) {
+          console.error('Error fetching feedback metrics:', error);
+          toast.error('Kunne ikke hente tilbakemeldingsdata');
+          setLoading(prev => ({
+            ...prev,
+            feedbackChart: false,
+            escalationChart: false
+          }));
+        }
+      }
+    };
+
+    fetchFeedbackMetrics();
 
     return () => {
       isMounted = false;
