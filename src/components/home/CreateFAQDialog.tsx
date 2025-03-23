@@ -40,13 +40,10 @@ export const CreateFAQDialog = ({
   const [voiceflowApiKey, setVoiceflowApiKey] = useState<string | null>(null);
   const [voiceflowProjectId, setVoiceflowProjectId] = useState<string | null>(null);
   
-  // Auto-generate title from question
+  // Auto-generate title from question - use the full question as title
   useEffect(() => {
     if (question) {
-      const generatedTitle = question.length > 30 
-        ? `${question.substring(0, 30)}...` 
-        : question;
-      setQaTitle(generatedTitle);
+      setQaTitle(question);
     }
   }, [question]);
   
@@ -83,8 +80,8 @@ export const CreateFAQDialog = ({
     try {
       setIsSubmitting(true);
       
-      // Format the Q&A title
-      const title = qaTitle.trim() || faqQuestion.substring(0, 30);
+      // Format the Q&A title - use the full title without truncation
+      const title = qaTitle.trim() || faqQuestion;
       const formattedTitle = ensureQATitleSuffix(title);
       
       // Check if a Q&A with this title already exists

@@ -29,12 +29,12 @@ export const FallbackRequestItem = ({ request, onClick, isResolved = false }: Fa
       onClick={isResolved ? undefined : onClick}
     >
       <div className="space-y-1">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <h3 className="font-medium truncate">{request.query}</h3>
-            {isResolved && <CheckCircle className="h-4 w-4 text-green-600" />}
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-start gap-2">
+            <h3 className="font-medium break-words leading-tight">{request.query}</h3>
+            {isResolved && <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0 mt-1" />}
           </div>
-          <span className="text-xs text-muted-foreground">{formattedDate}</span>
+          <span className="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0">{formattedDate}</span>
         </div>
         <p className="text-sm text-muted-foreground line-clamp-2">
           {request.response}
