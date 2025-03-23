@@ -8,7 +8,6 @@ import {
   YAxis,
   CartesianGrid,
   ResponsiveContainer,
-  Tooltip as RechartsTooltip,
   Cell
 } from "recharts";
 import { IntentData } from "./types";
@@ -44,13 +43,15 @@ export const BarChart = ({
   loadingText = "Laster data...",
   limit = 10
 }: BarChartProps) => {
-  // Take only the top N intents and sort by count
-  const limitedData = data 
+  // Filter out categories starting with "VF." and take only the top N intents
+  const filteredData = data 
     ? [...data]
+        .filter(item => !item.name.startsWith("VF."))
         .sort((a, b) => b.count - a.count)
         .slice(0, limit)
     : [];
   
+  // Beautiful gradient colors from dark green to lighter shades
   const colors = [
     "#28483F", // Primary Dark Green
     "#3A5F55",
@@ -89,7 +90,7 @@ export const BarChart = ({
           <div className="h-[300px] flex items-center justify-center">
             <Loader size="md" text={loadingText} />
           </div>
-        ) : limitedData && limitedData.length > 0 ? (
+        ) : filteredData && filteredData.length > 0 ? (
           <ChartContainer 
             config={{
               value: { color }
@@ -97,16 +98,17 @@ export const BarChart = ({
             className="h-[300px]"
           >
             <RechartsBarChart
-              data={limitedData}
+              data={filteredData}
+              margin={{ top: 20, right: 30, left: 120, bottom: 5 }}
               layout="vertical"
-              margin={{ top: 20, right: 30, left: 80, bottom: 5 }}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" horizontal={true} />
               <XAxis
                 type="number"
                 stroke="#64748B"
                 fontSize={12}
                 tickLine={false}
+                axisLine={true}
               />
               <YAxis
                 type="category"
@@ -115,7 +117,7 @@ export const BarChart = ({
                 fontSize={12}
                 tickLine={false}
                 axisLine={false}
-                width={80}
+                width={120}
               />
               <ChartTooltip
                 content={({active, payload, label}) => 
@@ -134,8 +136,9 @@ export const BarChart = ({
                 name="Antall"
                 animationDuration={1500}
                 animationEasing="ease-in-out"
+                radius={[0, 4, 4, 0]}
               >
-                {limitedData.map((entry, index) => (
+                {filteredData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
                 ))}
               </Bar>

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -400,7 +401,7 @@ export const useStatistics = (
 
         if (intentError) throw intentError;
 
-        // Extract intents from the response
+        // Extract intents from the response and filter out VF prefixed ones
         const topIntents: IntentData[] = intentData?.result?.[0]?.intents || [];
 
         if (isMounted) {
