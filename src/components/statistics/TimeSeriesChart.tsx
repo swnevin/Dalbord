@@ -66,49 +66,51 @@ export const TimeSeriesChart = ({
             <Loader size="md" text={loadingText} />
           </div>
         ) : data && data.length > 0 ? (
-          <ChartContainer 
-            config={{
-              value: { color }
-            }}
-            className="h-[300px]"
-          >
-            <LineChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
-              <XAxis
-                dataKey="date"
-                stroke="#64748B"
-                fontSize={12}
-                tickLine={false}
-              />
-              <YAxis
-                stroke="#64748B"
-                fontSize={12}
-                tickLine={false}
-                axisLine={false}
-              />
-              <ChartTooltip
-                content={({active, payload, label}) => 
-                  active && payload && payload.length ? (
-                    <ChartTooltipContent 
-                      active={active} 
-                      payload={payload} 
-                      label={label}
-                      formatter={(value: number) => [`Verdi: ${value}`, '']}
-                    />
-                  ) : null
-                }
-              />
-              <Line
-                type="monotone"
-                dataKey="value"
-                stroke={color}
-                strokeWidth={2}
-                dot={data.length <= 30}
-                animationDuration={1500}
-                animationEasing="ease-in-out"
-              />
-            </LineChart>
-          </ChartContainer>
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart 
+                data={data}
+                margin={{ top: 20, right: 10, left: 10, bottom: 20 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                <XAxis
+                  dataKey="date"
+                  stroke="#64748B"
+                  fontSize={12}
+                  tickLine={false}
+                  tickMargin={10}
+                />
+                <YAxis
+                  stroke="#64748B"
+                  fontSize={12}
+                  tickLine={false}
+                  axisLine={false}
+                  width={40}
+                />
+                <ChartTooltip
+                  content={({active, payload, label}) => 
+                    active && payload && payload.length ? (
+                      <ChartTooltipContent 
+                        active={active} 
+                        payload={payload} 
+                        label={label}
+                        formatter={(value: number) => [`Verdi: ${value}`, '']}
+                      />
+                    ) : null
+                  }
+                />
+                <Line
+                  type="monotone"
+                  dataKey="value"
+                  stroke={color}
+                  strokeWidth={2}
+                  dot={data.length <= 30}
+                  animationDuration={1500}
+                  animationEasing="ease-in-out"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         ) : (
           <div className="h-[300px] flex items-center justify-center text-muted-foreground">
             Ingen data tilgjengelig

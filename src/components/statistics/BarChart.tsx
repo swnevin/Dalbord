@@ -47,7 +47,7 @@ export const BarChart = ({
   isLoading,
   loadingText = "Laster data...",
   limit = 10,
-  layout = 'vertical',
+  layout = 'horizontal',
   dataKey = "name",
   valueKey = "count",
   tooltipFormatter = (value: number) => [`${value}`, "Antall"]
@@ -105,41 +105,31 @@ export const BarChart = ({
             <Loader size="md" text={loadingText} />
           </div>
         ) : filteredData && filteredData.length > 0 ? (
-          <ChartContainer 
-            config={{
-              value: { color }
-            }}
-            className="h-[300px]"
-          >
+          <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <RechartsBarChart
                 data={filteredData}
                 margin={{ top: 20, right: 30, left: 60, bottom: 40 }}
-                layout={layout}
+                layout="horizontal"
                 barCategoryGap={10}
                 barGap={0}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
                 <XAxis
-                  type={layout === 'vertical' ? "number" : "category"}
-                  dataKey={layout === 'vertical' ? undefined : dataKey}
+                  dataKey={dataKey}
                   stroke="#64748B"
                   fontSize={12}
                   tickLine={false}
-                  axisLine={true}
-                  angle={layout === 'vertical' ? 0 : -45}
-                  textAnchor={layout === 'vertical' ? 'middle' : 'end'}
+                  angle={-45}
+                  textAnchor="end"
                   height={60}
                   interval={0}
                 />
                 <YAxis
-                  type={layout === 'vertical' ? "category" : "number"}
-                  dataKey={layout === 'vertical' ? dataKey : undefined}
                   stroke="#64748B"
                   fontSize={12}
                   tickLine={false}
                   axisLine={false}
-                  width={120}
                 />
                 <ChartTooltip
                   content={({active, payload, label}) => 
@@ -153,24 +143,24 @@ export const BarChart = ({
                     ) : null
                   }
                 />
-                <defs>
-                  <linearGradient id="dalaiGradient" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor="#28483F" /> {/* Primary Dark Green */}
-                    <stop offset="100%" stopColor="#E2B808" /> {/* Accent Yellow */}
-                  </linearGradient>
-                </defs>
                 <Bar
                   dataKey={valueKey}
-                  fill="url(#dalaiGradient)"
                   name="Antall"
                   animationDuration={1500}
                   animationEasing="ease-in-out"
-                  radius={[4, 4, 4, 4]}
-                  maxBarSize={40}
-                />
+                  radius={[4, 4, 0, 0]}
+                  maxBarSize={50}
+                >
+                  {filteredData.map((entry, index) => (
+                    <Cell 
+                      key={`cell-${index}`}
+                      fill={colors[Math.min(index, colors.length - 1)]}
+                    />
+                  ))}
+                </Bar>
               </RechartsBarChart>
             </ResponsiveContainer>
-          </ChartContainer>
+          </div>
         ) : (
           <div className="h-[300px] flex items-center justify-center text-muted-foreground">
             Ingen data tilgjengelig

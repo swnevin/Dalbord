@@ -54,7 +54,7 @@ export const FeedbackPieChart: React.FC<FeedbackPieChartProps> = ({
         <CardDescription>Fordeling av brukernes tilbakemeldinger på samtaler</CardDescription>
       </CardHeader>
       <CardContent>
-        {isLoading ? (
+        {isLoading || totalConversations === 0 ? (
           <div className="flex flex-col items-center justify-center h-64">
             <Loader className="mb-4" />
             <p className="text-muted-foreground">Laster tilbakemeldingsdata...</p>
