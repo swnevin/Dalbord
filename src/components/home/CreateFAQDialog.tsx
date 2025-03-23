@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { ensureQATitleSuffix } from "@/components/knowledge-base/utils";
 
 interface CreateFAQDialogProps {
   open: boolean;
@@ -37,28 +38,40 @@ export const CreateFAQDialog = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [qaTitle, setQaTitle] = useState("");
   const [voiceflowApiKey, setVoiceflowApiKey] = useState<string | null>(null);
+  const [voiceflowProjectId, setVoiceflowProjectId] = useState<string | null>(null);
   
-  // Fetch Voiceflow API key
+  // Auto-generate title from question
   useEffect(() => {
-    const fetchApiKey = async () => {
+    if (question) {
+      const generatedTitle = question.length > 30 
+        ? `${question.substring(0, 30)}...` 
+        : question;
+      setQaTitle(generatedTitle);
+    }
+  }, [question]);
+  
+  // Fetch Voiceflow credentials
+  useEffect(() => {
+    const fetchCredentials = async () => {
       if (!user?.organization_id) return;
       
       try {
         const { data, error } = await supabase
           .from('organizations')
-          .select('voiceflow_api_key')
+          .select('voiceflow_api_key, voiceflow_project_id')
           .eq('id', user.organization_id)
           .single();
           
         if (error) throw error;
         
         setVoiceflowApiKey(data.voiceflow_api_key);
+        setVoiceflowProjectId(data.voiceflow_project_id);
       } catch (error) {
-        console.error("Error fetching Voiceflow API key:", error);
+        console.error("Error fetching Voiceflow credentials:", error);
       }
     };
     
-    fetchApiKey();
+    fetchCredentials();
   }, [user?.organization_id]);
   
   const handleSubmit = async () => {
@@ -71,8 +84,29 @@ export const CreateFAQDialog = ({
       setIsSubmitting(true);
       
       // Format the Q&A title
-      const title = qaTitle.trim() || "Automatisk opprettet Q&A";
+      const title = qaTitle.trim() || faqQuestion.substring(0, 30);
       const formattedTitle = ensureQATitleSuffix(title);
+      
+      // Check if a Q&A with this title already exists
+      const response = await fetch(
+        `https://api.voiceflow.com/v1/knowledge-base/docs`,
+        {
+          method: 'GET',
+          headers: {
+            'accept': 'application/json',
+            'Authorization': voiceflowApiKey
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Kunne ikke sjekke for eksisterende Q&A');
+      }
+
+      const result = await response.json();
+      const existingQA = result.data.find(
+        (doc: any) => doc.data.name === formattedTitle
+      );
       
       // Create a Q&A pair in the knowledge base
       const qaItems = [
@@ -98,27 +132,23 @@ export const CreateFAQDialog = ({
         })
       };
 
-      const response = await fetch('https://api.voiceflow.com/v1/knowledge-base/docs/upload/table', options);
+      const endpoint = `https://api.voiceflow.com/v1/knowledge-base/docs/upload/table?overwrite=${existingQA ? 'true' : 'false'}`;
       
-      if (!response.ok) {
+      const saveResponse = await fetch(endpoint, options);
+
+      if (!saveResponse.ok) {
         throw new Error('Feil ved opplasting til Voiceflow');
       }
       
       toast.success('Q&A opprettet i kunnskapsbasen');
       onCreated();
+      onOpenChange(false);
     } catch (error) {
       console.error('Error creating Q&A:', error);
       toast.error('Kunne ikke opprette Q&A');
     } finally {
       setIsSubmitting(false);
     }
-  };
-  
-  const ensureQATitleSuffix = (title: string): string => {
-    if (!title.endsWith("- Q&A")) {
-      return `${title} - Q&A`;
-    }
-    return title;
   };
   
   return (
@@ -133,7 +163,7 @@ export const CreateFAQDialog = ({
         
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="qa-title">Tittel (valgfritt)</Label>
+            <Label htmlFor="qa-title">Tittel</Label>
             <Input
               id="qa-title"
               placeholder="Tittel på Q&A-oppføringen"
@@ -176,6 +206,7 @@ export const CreateFAQDialog = ({
           <Button 
             onClick={handleSubmit} 
             disabled={isSubmitting || !faqQuestion.trim() || !faqAnswer.trim() || !voiceflowApiKey}
+            className="bg-primary text-white hover:bg-primary/90"
           >
             {isSubmitting ? 'Oppretter...' : 'Opprett Q&A'}
           </Button>
