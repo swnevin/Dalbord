@@ -92,6 +92,3 @@ export interface MetricsResponse {
     created_at: string;
   }>;
 }
-
-// Data source type
-export type DataSource = 'supabase' | 'voiceflow';
