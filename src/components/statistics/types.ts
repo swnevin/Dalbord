@@ -20,6 +20,11 @@ export interface StatisticsData {
   feedbackTimeSeries?: FeedbackTimeSeriesData[];
   escalationTimeSeries?: TimeSeriesData[];
   successVsFallbackTimeSeries?: SuccessVsFallbackTimeSeriesData[];
+  
+  // Data availability flags
+  hasFeedbackData: boolean;
+  hasEscalationData: boolean;
+  hasSuccessVsFallbackData: boolean;
 }
 
 export interface LoadingState {

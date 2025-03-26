@@ -30,6 +30,9 @@ export const FeedbackPieChart: React.FC<FeedbackPieChartProps> = ({
   // Calculate the number of conversations without feedback
   const reviewedCount = happyFaceCount + neutralFaceCount + sadFaceCount;
   const notReviewedCount = Math.max(0, totalConversations - reviewedCount);
+  
+  // Check if we have any feedback data
+  const hasFeedbackData = reviewedCount > 0;
 
   const data = [
     { name: 'Fornøyde 🙂', value: happyFaceCount, color: '#28483F' }, // Primary Dark Green
@@ -55,7 +58,7 @@ export const FeedbackPieChart: React.FC<FeedbackPieChartProps> = ({
     return null;
   };
 
-  if (isLoading || totalConversations === 0) {
+  if (isLoading) {
     return (
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -78,6 +81,34 @@ export const FeedbackPieChart: React.FC<FeedbackPieChartProps> = ({
           <div className="flex flex-col items-center justify-center h-64">
             <Loader className="mb-4" />
             <p className="text-muted-foreground">Laster tilbakemeldingsdata...</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (totalConversations === 0 || !hasFeedbackData) {
+    return (
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle>Tilbakemeldinger</CardTitle>
+          <TooltipProvider delayDuration={100}>
+            <UITooltip>
+              <TooltipTrigger asChild>
+                <InfoIcon className="h-4 w-4 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <div className="space-y-2 max-w-xs">
+                  <p className="font-medium">Tilbakemeldinger</p>
+                  <p>Fordeling av brukernes tilbakemeldinger på samtaler</p>
+                </div>
+              </TooltipContent>
+            </UITooltip>
+          </TooltipProvider>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col items-center justify-center h-64">
+            <p className="text-muted-foreground">Ingen tilbakemeldingsdata tilgjengelig</p>
           </div>
         </CardContent>
       </Card>

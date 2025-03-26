@@ -24,6 +24,7 @@ export const SuccessVsFallbackPieChart: React.FC<SuccessVsFallbackPieChartProps>
   isLoading
 }) => {
   const total = successfulAnswerCount + fallbackCount;
+  const hasData = total > 0;
 
   const data = [
     { name: 'Vellykkede svar', value: successfulAnswerCount, color: '#28483F' }, // Primary Dark Green
@@ -47,7 +48,7 @@ export const SuccessVsFallbackPieChart: React.FC<SuccessVsFallbackPieChartProps>
     return null;
   };
 
-  if (isLoading || total === 0) {
+  if (isLoading) {
     return (
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -70,6 +71,34 @@ export const SuccessVsFallbackPieChart: React.FC<SuccessVsFallbackPieChartProps>
           <div className="flex flex-col items-center justify-center h-64">
             <Loader className="mb-4" />
             <p className="text-muted-foreground">Laster svar/fallback-data...</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!hasData) {
+    return (
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle>Svar vs Fallback</CardTitle>
+          <TooltipProvider delayDuration={100}>
+            <UITooltip>
+              <TooltipTrigger asChild>
+                <InfoIcon className="h-4 w-4 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <div className="space-y-2 max-w-xs">
+                  <p className="font-medium">Svar vs Fallback</p>
+                  <p>Fordeling av vellykkede svar vs fallback-svar</p>
+                </div>
+              </TooltipContent>
+            </UITooltip>
+          </TooltipProvider>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col items-center justify-center h-64">
+            <p className="text-muted-foreground">Ingen svar/fallback-data tilgjengelig</p>
           </div>
         </CardContent>
       </Card>
