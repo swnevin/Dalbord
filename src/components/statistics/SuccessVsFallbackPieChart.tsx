@@ -34,7 +34,7 @@ export const SuccessVsFallbackPieChart: React.FC<SuccessVsFallbackPieChartProps>
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const item = payload[0].payload;
-      const percentage = total > 0 ? ((item.value / total) * 100).toFixed(1) : '0.0';
+      const percentage = ((item.value / total) * 100).toFixed(1);
       
       return (
         <div className="bg-white p-3 border border-gray-200 rounded-md shadow-md">
@@ -47,7 +47,7 @@ export const SuccessVsFallbackPieChart: React.FC<SuccessVsFallbackPieChartProps>
     return null;
   };
 
-  if (isLoading) {
+  if (isLoading || total === 0) {
     return (
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -70,35 +70,6 @@ export const SuccessVsFallbackPieChart: React.FC<SuccessVsFallbackPieChartProps>
           <div className="flex flex-col items-center justify-center h-64">
             <Loader className="mb-4" />
             <p className="text-muted-foreground">Laster svar/fallback-data...</p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // If there are no successful answers or fallbacks, show a special message
-  if (total === 0) {
-    return (
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle>Svar vs Fallback</CardTitle>
-          <TooltipProvider delayDuration={100}>
-            <UITooltip>
-              <TooltipTrigger asChild>
-                <InfoIcon className="h-4 w-4 text-muted-foreground cursor-help" />
-              </TooltipTrigger>
-              <TooltipContent>
-                <div className="space-y-2 max-w-xs">
-                  <p className="font-medium">Svar vs Fallback</p>
-                  <p>Fordeling av vellykkede svar vs fallback-svar</p>
-                </div>
-              </TooltipContent>
-            </UITooltip>
-          </TooltipProvider>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center h-64">
-            <p className="text-muted-foreground">Ingen svar eller fallback data tilgjengelig i valgt periode</p>
           </div>
         </CardContent>
       </Card>

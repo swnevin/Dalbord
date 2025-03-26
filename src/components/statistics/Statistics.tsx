@@ -12,7 +12,6 @@ import { SavingsCharts } from "./SavingsCharts";
 import { SuccessMetricsCards } from "./SuccessMetricsCards";
 import { SuccessVsFallbackPieChart } from "./SuccessVsFallbackPieChart";
 import { SuccessVsFallbackLineChart } from "./SuccessVsFallbackChart";
-import { EscalatedVsTotalPieChart } from "./EscalatedVsTotalPieChart";
 import { DateRange, TimeRange, SavingsSettings } from "./types";
 import { useStatistics } from "./hooks/useStatistics";
 
@@ -40,13 +39,6 @@ export const Statistics = () => {
       ...settings
     }));
   };
-
-  // Check if there's escalation data to show
-  const showEscalationData = data.totalConversations && data.escalatedCount;
-  // Check if there's feedback data to show
-  const showFeedbackData = data.happyFaceCount || data.neutralFaceCount || data.sadFaceCount;
-  // Check if there's success/fallback data to show
-  const showSuccessFallbackData = data.successfulAnswerCount || data.fallbackCount;
 
   return (
     <div className="p-8 space-y-8">
@@ -79,55 +71,37 @@ export const Statistics = () => {
         </div>
       </div>
 
-      {showEscalationData && (
-        <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
-          <EscalatedVsTotalPieChart
-            escalatedCount={data.escalatedCount ?? 0}
-            totalConversations={data.totalConversations ?? 0}
-            isLoading={loading.feedbackChart || loading.summaryCards}
-          />
-          
-          {showFeedbackData && (
-            <FeedbackPieChart
-              happyFaceCount={data.happyFaceCount ?? 0}
-              neutralFaceCount={data.neutralFaceCount ?? 0}
-              sadFaceCount={data.sadFaceCount ?? 0}
-              totalConversations={data.totalConversations ?? 0}
-              isLoading={loading.feedbackChart || loading.summaryCards}
-            />
-          )}
-        </div>
-      )}
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+        <FeedbackPieChart
+          happyFaceCount={data.happyFaceCount ?? 0}
+          neutralFaceCount={data.neutralFaceCount ?? 0}
+          sadFaceCount={data.sadFaceCount ?? 0}
+          totalConversations={data.totalConversations ?? 0}
+          isLoading={loading.feedbackChart || loading.summaryCards}
+        />
+        
+        <FeedbackLineChart
+          data={data.feedbackTimeSeries ?? []}
+          title="Tilbakemeldinger over tid"
+          description="Utvikling av brukerens tilbakemeldinger over tid"
+          isLoading={loading.feedbackChart}
+          loadingText="Laster tilbakemeldingsdata..."
+        />
+      </div>
 
-      {showFeedbackData && data.feedbackTimeSeries && data.feedbackTimeSeries.length > 0 && (
-        <div className="grid gap-4 grid-cols-1">
-          <FeedbackLineChart
-            data={data.feedbackTimeSeries ?? []}
-            title="Tilbakemeldinger over tid"
-            description="Utvikling av brukerens tilbakemeldinger over tid"
-            isLoading={loading.feedbackChart}
-            loadingText="Laster tilbakemeldingsdata..."
-          />
-        </div>
-      )}
-
-      {showSuccessFallbackData && (
-        <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
-          <SuccessVsFallbackPieChart
-            successfulAnswerCount={data.successfulAnswerCount ?? 0}
-            fallbackCount={data.fallbackCount ?? 0}
-            isLoading={loading.fallbackChart}
-          />
-          
-          {data.successVsFallbackTimeSeries && data.successVsFallbackTimeSeries.length > 0 && (
-            <SuccessVsFallbackLineChart
-              data={data.successVsFallbackTimeSeries ?? []}
-              isLoading={loading.fallbackChart}
-              loadingText="Laster svar/fallback-data..."
-            />
-          )}
-        </div>
-      )}
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+        <SuccessVsFallbackPieChart
+          successfulAnswerCount={data.successfulAnswerCount ?? 0}
+          fallbackCount={data.fallbackCount ?? 0}
+          isLoading={loading.fallbackChart}
+        />
+        
+        <SuccessVsFallbackLineChart
+          data={data.successVsFallbackTimeSeries ?? []}
+          isLoading={loading.fallbackChart}
+          loadingText="Laster svar/fallback-data..."
+        />
+      </div>
 
       <SavingsCharts
         timeSaved={data.timeSaved ?? 0}
