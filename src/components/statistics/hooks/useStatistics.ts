@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,10 +30,7 @@ export const useStatistics = (
     fallbackCount: 0,
     feedbackTimeSeries: [],
     escalationTimeSeries: [],
-    successVsFallbackTimeSeries: [],
-    hasFeedbackData: false,
-    hasEscalationData: false,
-    hasSuccessVsFallbackData: false
+    successVsFallbackTimeSeries: []
   });
   const [loading, setLoading] = useState<LoadingState>({
     summaryCards: true,
@@ -60,58 +56,6 @@ export const useStatistics = (
       }));
     }
   }, [data.totalMessages, savingsSettings]);
-
-  // Helper function to check data availability asynchronously
-  const checkDataAvailability = async () => {
-    if (!user?.organization_id) return;
-
-    try {
-      // Check if there's any feedback data (happy, neutral, sad faces)
-      const { data: feedbackData, error: feedbackError } = await supabase
-        .from('conversation_metrics')
-        .select('id')
-        .eq('organization_id', user.organization_id)
-        .in('metric_type', ['happy_face', 'neutral_face', 'sad_face'])
-        .limit(1);
-
-      // Check if there's any escalation data
-      const { data: escalationData, error: escalationError } = await supabase
-        .from('conversation_metrics')
-        .select('id')
-        .eq('organization_id', user.organization_id)
-        .eq('metric_type', 'escalated_to_human')
-        .limit(1);
-
-      // Check if there's any successful answer data
-      const { data: successData, error: successError } = await supabase
-        .from('conversation_metrics')
-        .select('id')
-        .eq('organization_id', user.organization_id)
-        .eq('metric_type', 'successful_answer')
-        .limit(1);
-
-      // Check if there's any fallback data
-      const { data: fallbackData, error: fallbackError } = await supabase
-        .from('fallback_requests')
-        .select('id')
-        .eq('organization_id', user.organization_id)
-        .limit(1);
-
-      setData(prev => ({
-        ...prev,
-        hasFeedbackData: feedbackData && feedbackData.length > 0,
-        hasEscalationData: escalationData && escalationData.length > 0,
-        hasSuccessVsFallbackData: (successData && successData.length > 0) || (fallbackData && fallbackData.length > 0)
-      }));
-    } catch (error) {
-      console.error('Error checking data availability:', error);
-    }
-  };
-
-  // Run the data availability check once when component mounts
-  useEffect(() => {
-    checkDataAvailability();
-  }, [user?.organization_id]);
 
   // Fetch summary data (total messages, sessions and conversations)
   useEffect(() => {
@@ -523,10 +467,6 @@ export const useStatistics = (
         const sadFaceCount = metricsData.filter(m => m.metric_type === 'sad_face').length;
         const escalatedCount = metricsData.filter(m => m.metric_type === 'escalated_to_human').length;
 
-        // Set flags to determine if we have data for these metrics
-        const hasFeedbackData = (happyFaceCount + neutralFaceCount + sadFaceCount) > 0;
-        const hasEscalationData = escalatedCount > 0;
-
         // Process time series data
         const timeFrames = getTimeFrames(dateRange.from, dateRange.to);
         const feedbackTimeSeries: FeedbackTimeSeriesData[] = [];
@@ -561,6 +501,9 @@ export const useStatistics = (
           });
         }
 
+        // Log for debugging
+        console.log('Feedback time series:', feedbackTimeSeries);
+
         if (isMounted) {
           setData(prev => ({
             ...prev,
@@ -569,9 +512,7 @@ export const useStatistics = (
             sadFaceCount,
             escalatedCount,
             feedbackTimeSeries,
-            escalationTimeSeries,
-            hasFeedbackData,
-            hasEscalationData
+            escalationTimeSeries
           }));
         
           setLoading(prev => ({
@@ -639,9 +580,6 @@ export const useStatistics = (
         // Get counts
         const successfulAnswerCount = metricsData.length;
         const fallbackCount = fallbackData.length;
-        
-        // Determine if we have any data for these metrics
-        const hasSuccessVsFallbackData = (successfulAnswerCount > 0 || fallbackCount > 0);
 
         // Process time series data
         const timeFrames = getTimeFrames(dateRange.from, dateRange.to);
@@ -672,13 +610,15 @@ export const useStatistics = (
           });
         }
 
+        // Debug log
+        console.log('Success vs Fallback time series:', successVsFallbackTimeSeries);
+
         if (isMounted) {
           setData(prev => ({
             ...prev,
             successfulAnswerCount,
             fallbackCount,
-            successVsFallbackTimeSeries,
-            hasSuccessVsFallbackData
+            successVsFallbackTimeSeries
           }));
           
           setLoading(prev => ({
