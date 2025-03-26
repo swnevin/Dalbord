@@ -69,39 +69,39 @@ export const useStatistics = (
       // Check if there's any feedback data (happy, neutral, sad faces)
       const { data: feedbackData, error: feedbackError } = await supabase
         .from('conversation_metrics')
-        .select('count(*)')
+        .select('id')
         .eq('organization_id', user.organization_id)
         .in('metric_type', ['happy_face', 'neutral_face', 'sad_face'])
-        .single();
+        .limit(1);
 
       // Check if there's any escalation data
       const { data: escalationData, error: escalationError } = await supabase
         .from('conversation_metrics')
-        .select('count(*)')
+        .select('id')
         .eq('organization_id', user.organization_id)
         .eq('metric_type', 'escalated_to_human')
-        .single();
+        .limit(1);
 
       // Check if there's any successful answer data
       const { data: successData, error: successError } = await supabase
         .from('conversation_metrics')
-        .select('count(*)')
+        .select('id')
         .eq('organization_id', user.organization_id)
         .eq('metric_type', 'successful_answer')
-        .single();
+        .limit(1);
 
       // Check if there's any fallback data
       const { data: fallbackData, error: fallbackError } = await supabase
         .from('fallback_requests')
-        .select('count(*)')
+        .select('id')
         .eq('organization_id', user.organization_id)
-        .single();
+        .limit(1);
 
       setData(prev => ({
         ...prev,
-        hasFeedbackData: feedbackData?.count > 0,
-        hasEscalationData: escalationData?.count > 0,
-        hasSuccessVsFallbackData: (successData?.count > 0 || fallbackData?.count > 0)
+        hasFeedbackData: feedbackData && feedbackData.length > 0,
+        hasEscalationData: escalationData && escalationData.length > 0,
+        hasSuccessVsFallbackData: (successData && successData.length > 0) || (fallbackData && fallbackData.length > 0)
       }));
     } catch (error) {
       console.error('Error checking data availability:', error);
