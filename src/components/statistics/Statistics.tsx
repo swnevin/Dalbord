@@ -40,6 +40,11 @@ export const Statistics = () => {
     }));
   };
 
+  // Helper function to render only if data exists
+  const renderIfHasData = (hasData: boolean, component: React.ReactNode) => {
+    return hasData ? component : null;
+  };
+
   return (
     <div className="p-8 space-y-8">
       <StatisticsHeader
@@ -50,6 +55,7 @@ export const Statistics = () => {
       />
       
       <div className="grid gap-4 md:grid-cols-6">
+        {/* Voiceflow data - always show */}
         <div className="md:col-span-3">
           <SummaryCards
             totalMessages={data.totalMessages ?? 0}
@@ -58,51 +64,65 @@ export const Statistics = () => {
             isLoading={loading.summaryCards}
           />
         </div>
+        
+        {/* Supabase data - conditionally show */}
         <div className="md:col-span-3 grid grid-cols-3 gap-4">
-          <FeedbackSummaryCards
-            escalatedCount={data.escalatedCount ?? 0}
-            isLoading={loading.feedbackChart}
+          {renderIfHasData(data.hasEscalationData, 
+            <FeedbackSummaryCards
+              escalatedCount={data.escalatedCount ?? 0}
+              isLoading={loading.feedbackChart}
+            />
+          )}
+          
+          {renderIfHasData(data.hasSuccessVsFallbackData, 
+            <SuccessMetricsCards
+              successfulAnswerCount={data.successfulAnswerCount ?? 0}
+              fallbackCount={data.fallbackCount ?? 0}
+              isLoading={loading.fallbackChart}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* Conditionally render feedback charts if data exists */}
+      {data.hasFeedbackData && (
+        <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+          <FeedbackPieChart
+            happyFaceCount={data.happyFaceCount ?? 0}
+            neutralFaceCount={data.neutralFaceCount ?? 0}
+            sadFaceCount={data.sadFaceCount ?? 0}
+            totalConversations={data.totalConversations ?? 0}
+            isLoading={loading.feedbackChart || loading.summaryCards}
           />
-          <SuccessMetricsCards
+          
+          <FeedbackLineChart
+            data={data.feedbackTimeSeries ?? []}
+            title="Tilbakemeldinger over tid"
+            description="Utvikling av brukerens tilbakemeldinger over tid"
+            isLoading={loading.feedbackChart}
+            loadingText="Laster tilbakemeldingsdata..."
+          />
+        </div>
+      )}
+
+      {/* Conditionally render success vs fallback charts if data exists */}
+      {data.hasSuccessVsFallbackData && (
+        <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+          <SuccessVsFallbackPieChart
             successfulAnswerCount={data.successfulAnswerCount ?? 0}
             fallbackCount={data.fallbackCount ?? 0}
             isLoading={loading.fallbackChart}
           />
+          
+          <SuccessVsFallbackLineChart
+            data={data.successVsFallbackTimeSeries ?? []}
+            isLoading={loading.fallbackChart}
+            loadingText="Laster svar/fallback-data..."
+          />
         </div>
-      </div>
+      )}
 
-      <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
-        <FeedbackPieChart
-          happyFaceCount={data.happyFaceCount ?? 0}
-          neutralFaceCount={data.neutralFaceCount ?? 0}
-          sadFaceCount={data.sadFaceCount ?? 0}
-          totalConversations={data.totalConversations ?? 0}
-          isLoading={loading.feedbackChart || loading.summaryCards}
-        />
-        
-        <FeedbackLineChart
-          data={data.feedbackTimeSeries ?? []}
-          title="Tilbakemeldinger over tid"
-          description="Utvikling av brukerens tilbakemeldinger over tid"
-          isLoading={loading.feedbackChart}
-          loadingText="Laster tilbakemeldingsdata..."
-        />
-      </div>
-
-      <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
-        <SuccessVsFallbackPieChart
-          successfulAnswerCount={data.successfulAnswerCount ?? 0}
-          fallbackCount={data.fallbackCount ?? 0}
-          isLoading={loading.fallbackChart}
-        />
-        
-        <SuccessVsFallbackLineChart
-          data={data.successVsFallbackTimeSeries ?? []}
-          isLoading={loading.fallbackChart}
-          loadingText="Laster svar/fallback-data..."
-        />
-      </div>
-
+      {/* Savings charts - related to Voiceflow data, so always show */}
       <SavingsCharts
         timeSaved={data.timeSaved ?? 0}
         moneySaved={data.moneySaved ?? 0}
@@ -113,6 +133,7 @@ export const Statistics = () => {
         totalMessages={data.totalMessages ?? 0}
       />
 
+      {/* Voiceflow charts - always show */}
       <div className="grid gap-8 mt-8">
         <BarChart
           data={data.topIntents}
