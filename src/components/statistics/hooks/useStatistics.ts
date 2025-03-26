@@ -30,10 +30,7 @@ export const useStatistics = (
     fallbackCount: 0,
     feedbackTimeSeries: [],
     escalationTimeSeries: [],
-    successVsFallbackTimeSeries: [],
-    hasFeedbackData: false,
-    hasEscalationData: false,
-    hasSuccessVsFallbackData: false
+    successVsFallbackTimeSeries: []
   });
   const [loading, setLoading] = useState<LoadingState>({
     summaryCards: true,
@@ -470,10 +467,6 @@ export const useStatistics = (
         const sadFaceCount = metricsData.filter(m => m.metric_type === 'sad_face').length;
         const escalatedCount = metricsData.filter(m => m.metric_type === 'escalated_to_human').length;
 
-        // Determine if we have any feedback data
-        const hasFeedbackData = happyFaceCount > 0 || neutralFaceCount > 0 || sadFaceCount > 0;
-        const hasEscalationData = escalatedCount > 0;
-
         // Process time series data
         const timeFrames = getTimeFrames(dateRange.from, dateRange.to);
         const feedbackTimeSeries: FeedbackTimeSeriesData[] = [];
@@ -509,8 +502,7 @@ export const useStatistics = (
         }
 
         // Log for debugging
-        console.log('Feedback metrics retrieved, has data:', hasFeedbackData);
-        console.log('Escalation metrics retrieved, has data:', hasEscalationData);
+        console.log('Feedback time series:', feedbackTimeSeries);
 
         if (isMounted) {
           setData(prev => ({
@@ -520,9 +512,7 @@ export const useStatistics = (
             sadFaceCount,
             escalatedCount,
             feedbackTimeSeries,
-            escalationTimeSeries,
-            hasFeedbackData,
-            hasEscalationData
+            escalationTimeSeries
           }));
         
           setLoading(prev => ({
@@ -590,9 +580,6 @@ export const useStatistics = (
         // Get counts
         const successfulAnswerCount = metricsData.length;
         const fallbackCount = fallbackData.length;
-        
-        // Determine if we have any success/fallback data
-        const hasSuccessVsFallbackData = successfulAnswerCount > 0 || fallbackCount > 0;
 
         // Process time series data
         const timeFrames = getTimeFrames(dateRange.from, dateRange.to);
@@ -624,15 +611,14 @@ export const useStatistics = (
         }
 
         // Debug log
-        console.log('Success/Fallback metrics retrieved, has data:', hasSuccessVsFallbackData);
+        console.log('Success vs Fallback time series:', successVsFallbackTimeSeries);
 
         if (isMounted) {
           setData(prev => ({
             ...prev,
             successfulAnswerCount,
             fallbackCount,
-            successVsFallbackTimeSeries,
-            hasSuccessVsFallbackData
+            successVsFallbackTimeSeries
           }));
           
           setLoading(prev => ({
