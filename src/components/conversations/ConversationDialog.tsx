@@ -261,7 +261,7 @@ export const ConversationDialog = ({
 
         return (
           <div 
-            className={`flex flex-col gap-1 my-2 ${isMessageSelected(message) ? 'message-selected' : ''}`} 
+            className={`flex flex-col gap-1 my-2 ${isMessageSelected(message) ? 'message-selected' : ''} cursor-pointer`} 
             onClick={() => toggleMessageSelection(message)}
           >
             <div className="flex items-end gap-2 max-w-[80%]">
@@ -295,7 +295,7 @@ export const ConversationDialog = ({
         if (!buttons?.length) return null;
         return (
           <div 
-            className={`flex flex-col gap-2 my-2 max-w-[80%] ${isMessageSelected(message) ? 'message-selected' : ''}`}
+            className={`flex flex-col gap-2 my-2 max-w-[80%] ${isMessageSelected(message) ? 'message-selected' : ''} cursor-pointer`}
             onClick={() => toggleMessageSelection(message)}
           >
             <div className="flex flex-col gap-2">
@@ -325,7 +325,7 @@ export const ConversationDialog = ({
         if (!userText) return null;
         return (
           <div 
-            className={`flex flex-col items-end gap-1 my-2 ${isMessageSelected(message) ? 'message-selected' : ''}`}
+            className={`flex flex-col items-end gap-1 my-2 ${isMessageSelected(message) ? 'message-selected' : ''} cursor-pointer`}
             onClick={() => toggleMessageSelection(message)}
           >
             <div className="flex items-end gap-2 max-w-[80%]">
