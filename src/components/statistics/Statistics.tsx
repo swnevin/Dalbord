@@ -14,6 +14,8 @@ import { SuccessVsFallbackPieChart } from "./SuccessVsFallbackPieChart";
 import { SuccessVsFallbackLineChart } from "./SuccessVsFallbackChart";
 import { DateRange, TimeRange, SavingsSettings } from "./types";
 import { useStatistics } from "./hooks/useStatistics";
+import { Separator } from "@/components/ui/separator";
+import { ChartBarIcon, TrendingUpIcon, MessageSquareIcon, UserRoundIcon } from "lucide-react";
 
 export const Statistics = () => {
   const [timeRange, setTimeRange] = useState<TimeRange>('7d');
@@ -48,72 +50,106 @@ export const Statistics = () => {
         onTimeRangeChange={setTimeRange}
         onDateRangeChange={setDateRange}
       />
-      
-      <div className="grid gap-4 md:grid-cols-6">
-        <div className="md:col-span-3">
-          <SummaryCards
-            totalMessages={data.totalMessages ?? 0}
-            totalSessions={data.totalSessions ?? 0}
+
+      {/* Summary Section */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 text-primary">
+          <ChartBarIcon size={20} />
+          <h2 className="text-xl font-semibold">Sammendrag</h2>
+        </div>
+        <Separator className="bg-primary/10" />
+        
+        <div className="grid gap-4 md:grid-cols-6">
+          <div className="md:col-span-3">
+            <SummaryCards
+              totalMessages={data.totalMessages ?? 0}
+              totalSessions={data.totalSessions ?? 0}
+              totalConversations={data.totalConversations ?? 0}
+              isLoading={loading.summaryCards}
+            />
+          </div>
+          <div className="md:col-span-3 grid grid-cols-3 gap-4">
+            <FeedbackSummaryCards
+              escalatedCount={data.escalatedCount ?? 0}
+              isLoading={loading.feedbackChart}
+            />
+            <SuccessMetricsCards
+              successfulAnswerCount={data.successfulAnswerCount ?? 0}
+              fallbackCount={data.fallbackCount ?? 0}
+              isLoading={loading.fallbackChart}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Feedback Section */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 text-primary">
+          <MessageSquareIcon size={20} />
+          <h2 className="text-xl font-semibold">Tilbakemeldinger</h2>
+        </div>
+        <Separator className="bg-primary/10" />
+        
+        <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+          <FeedbackPieChart
+            happyFaceCount={data.happyFaceCount ?? 0}
+            neutralFaceCount={data.neutralFaceCount ?? 0}
+            sadFaceCount={data.sadFaceCount ?? 0}
             totalConversations={data.totalConversations ?? 0}
-            isLoading={loading.summaryCards}
+            isLoading={loading.feedbackChart || loading.summaryCards}
+          />
+          
+          <FeedbackLineChart
+            data={data.feedbackTimeSeries ?? []}
+            title="Tilbakemeldinger over tid"
+            description="Utvikling av brukerens tilbakemeldinger over tid"
+            isLoading={loading.feedbackChart}
+            loadingText="Laster tilbakemeldingsdata..."
           />
         </div>
-        <div className="md:col-span-3 grid grid-cols-3 gap-4">
-          <FeedbackSummaryCards
-            escalatedCount={data.escalatedCount ?? 0}
-            isLoading={loading.feedbackChart}
-          />
-          <SuccessMetricsCards
+
+        <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+          <SuccessVsFallbackPieChart
             successfulAnswerCount={data.successfulAnswerCount ?? 0}
             fallbackCount={data.fallbackCount ?? 0}
             isLoading={loading.fallbackChart}
           />
+          
+          <SuccessVsFallbackLineChart
+            data={data.successVsFallbackTimeSeries ?? []}
+            isLoading={loading.fallbackChart}
+            loadingText="Laster svar/fallback-data..."
+          />
         </div>
       </div>
 
-      <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
-        <FeedbackPieChart
-          happyFaceCount={data.happyFaceCount ?? 0}
-          neutralFaceCount={data.neutralFaceCount ?? 0}
-          sadFaceCount={data.sadFaceCount ?? 0}
-          totalConversations={data.totalConversations ?? 0}
-          isLoading={loading.feedbackChart || loading.summaryCards}
-        />
+      {/* Savings Section */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 text-primary">
+          <TrendingUpIcon size={20} />
+          <h2 className="text-xl font-semibold">Besparelser</h2>
+        </div>
+        <Separator className="bg-primary/10" />
         
-        <FeedbackLineChart
-          data={data.feedbackTimeSeries ?? []}
-          title="Tilbakemeldinger over tid"
-          description="Utvikling av brukerens tilbakemeldinger over tid"
-          isLoading={loading.feedbackChart}
-          loadingText="Laster tilbakemeldingsdata..."
+        <SavingsCharts
+          timeSaved={data.timeSaved ?? 0}
+          moneySaved={data.moneySaved ?? 0}
+          isLoading={loading.summaryCards}
+          timePerMessage={savingsSettings.timePerMessage}
+          hourlyRate={savingsSettings.hourlyRate}
+          onSettingsChange={handleSavingsSettingsChange}
+          totalMessages={data.totalMessages ?? 0}
         />
       </div>
 
-      <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
-        <SuccessVsFallbackPieChart
-          successfulAnswerCount={data.successfulAnswerCount ?? 0}
-          fallbackCount={data.fallbackCount ?? 0}
-          isLoading={loading.fallbackChart}
-        />
+      {/* Detailed Analytics Section */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 text-primary">
+          <UserRoundIcon size={20} />
+          <h2 className="text-xl font-semibold">Detaljert analyse</h2>
+        </div>
+        <Separator className="bg-primary/10" />
         
-        <SuccessVsFallbackLineChart
-          data={data.successVsFallbackTimeSeries ?? []}
-          isLoading={loading.fallbackChart}
-          loadingText="Laster svar/fallback-data..."
-        />
-      </div>
-
-      <SavingsCharts
-        timeSaved={data.timeSaved ?? 0}
-        moneySaved={data.moneySaved ?? 0}
-        isLoading={loading.summaryCards}
-        timePerMessage={savingsSettings.timePerMessage}
-        hourlyRate={savingsSettings.hourlyRate}
-        onSettingsChange={handleSavingsSettingsChange}
-        totalMessages={data.totalMessages ?? 0}
-      />
-
-      <div className="grid gap-8 mt-8">
         <BarChart
           data={data.topIntents}
           title="Temaer"
@@ -124,24 +160,26 @@ export const Statistics = () => {
           limit={10}
           layout="horizontal" 
         />
-        
-        <TimeSeriesChart
-          data={data.userTimeSeries}
-          title="Brukere over tid"
-          description="Antall unike brukere som har interagert med systemet over tid."
-          color="#28483f"
-          isLoading={loading.userChart}
-          loadingText="Laster brukerstatistikk..."
-        />
-        
-        <TimeSeriesChart
-          data={data.sessionTimeSeries}
-          title="Samtaler over tid"
-          description="Totalt antall samtaler (økter) gjennomført i systemet over tid."
-          color="#28483F"
-          isLoading={loading.sessionChart}
-          loadingText="Laster samtalestatistikk..."
-        />
+          
+        <div className="grid gap-8 md:grid-cols-2">
+          <TimeSeriesChart
+            data={data.userTimeSeries}
+            title="Brukere over tid"
+            description="Antall unike brukere som har interagert med systemet over tid."
+            color="#28483f"
+            isLoading={loading.userChart}
+            loadingText="Laster brukerstatistikk..."
+          />
+          
+          <TimeSeriesChart
+            data={data.sessionTimeSeries}
+            title="Samtaler over tid"
+            description="Totalt antall samtaler (økter) gjennomført i systemet over tid."
+            color="#28483F"
+            isLoading={loading.sessionChart}
+            loadingText="Laster samtalestatistikk..."
+          />
+        </div>
         
         <TimeSeriesChart
           data={data.messageTimeSeries}

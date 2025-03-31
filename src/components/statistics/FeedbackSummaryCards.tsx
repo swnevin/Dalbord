@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { InfoIcon, UserRound } from 'lucide-react';
+import { InfoIcon, MessageSquare } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { 
   Tooltip,
@@ -43,7 +43,10 @@ export const FeedbackSummaryCards: React.FC<FeedbackSummaryCardsProps> = ({
         {isLoading ? (
           <Skeleton className="h-8 w-[100px]" />
         ) : (
-          <div className="text-2xl font-bold">{escalatedCount?.toLocaleString('no') ?? 0}</div>
+          <div className="flex items-center gap-2">
+            <MessageSquare className="h-5 w-5 text-primary" />
+            <div className="text-2xl font-bold">{escalatedCount?.toLocaleString('no') ?? 0}</div>
+          </div>
         )}
       </CardContent>
     </Card>
