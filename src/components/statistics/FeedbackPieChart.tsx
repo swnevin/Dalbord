@@ -10,44 +10,41 @@ import {
   TooltipTrigger, 
   TooltipProvider 
 } from '@/components/ui/tooltip';
-import { InfoIcon } from 'lucide-react';
+import { InfoIcon, ThumbsUp, ThumbsDown, HelpCircle } from 'lucide-react';
 
 interface FeedbackPieChartProps {
-  happyFaceCount: number;
-  neutralFaceCount: number;
-  sadFaceCount: number;
-  totalConversations: number;
+  thumbsUpCount: number;
+  thumbsDownCount: number;
+  successfulAnswerCount: number;
   isLoading: boolean;
 }
 
 export const FeedbackPieChart: React.FC<FeedbackPieChartProps> = ({
-  happyFaceCount,
-  neutralFaceCount,
-  sadFaceCount,
-  totalConversations,
+  thumbsUpCount,
+  thumbsDownCount,
+  successfulAnswerCount,
   isLoading
 }) => {
-  // Calculate the number of conversations without feedback
-  const reviewedCount = happyFaceCount + neutralFaceCount + sadFaceCount;
-  const notReviewedCount = Math.max(0, totalConversations - reviewedCount);
+  // Calculate the number of answers without feedback
+  const reviewedCount = thumbsUpCount + thumbsDownCount;
+  const notReviewedCount = Math.max(0, successfulAnswerCount - reviewedCount);
 
   const data = [
-    { name: 'Fornøyde 🙂', value: happyFaceCount, color: '#28483F' }, // Primary Dark Green
-    { name: 'Nøytrale 😐', value: neutralFaceCount, color: '#E2B808' }, // Accent Yellow
-    { name: 'Misfornøyde 🙁', value: sadFaceCount, color: '#8E9196' }, // Neutral Gray
-    { name: 'Ikke vurdert', value: notReviewedCount, color: '#F1F0FB' } // Soft Gray background
+    { name: 'Tommel opp 👍', value: thumbsUpCount, color: '#28483F', icon: ThumbsUp }, // Primary Dark Green
+    { name: 'Tommel ned 👎', value: thumbsDownCount, color: '#8E9196', icon: ThumbsDown }, // Neutral Gray
+    { name: 'Ikke vurdert ❔', value: notReviewedCount, color: '#F1F0FB', icon: HelpCircle } // Soft Gray background
   ];
 
   // Custom tooltip
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const item = payload[0].payload;
-      const percentage = ((item.value / totalConversations) * 100).toFixed(1);
+      const percentage = ((item.value / Math.max(1, successfulAnswerCount)) * 100).toFixed(1);
       
       return (
         <div className="bg-white p-3 border border-gray-200 rounded-md shadow-md">
           <p className="font-medium">{item.name}</p>
-          <p className="text-sm">{item.value} samtaler</p>
+          <p className="text-sm">{item.value} svar</p>
           <p className="text-sm">{percentage}% av totalen</p>
         </div>
       );
@@ -55,11 +52,11 @@ export const FeedbackPieChart: React.FC<FeedbackPieChartProps> = ({
     return null;
   };
 
-  if (isLoading || totalConversations === 0) {
+  if (isLoading || successfulAnswerCount === 0) {
     return (
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle>Tilbakemeldinger</CardTitle>
+          <CardTitle>Tilbakemeldinger på svar</CardTitle>
           <TooltipProvider delayDuration={100}>
             <UITooltip>
               <TooltipTrigger asChild>
@@ -67,8 +64,8 @@ export const FeedbackPieChart: React.FC<FeedbackPieChartProps> = ({
               </TooltipTrigger>
               <TooltipContent>
                 <div className="space-y-2 max-w-xs">
-                  <p className="font-medium">Tilbakemeldinger</p>
-                  <p>Fordeling av brukernes tilbakemeldinger på samtaler</p>
+                  <p className="font-medium">Tilbakemeldinger på svar</p>
+                  <p>Fordeling av brukernes tilbakemeldinger på svar</p>
                 </div>
               </TooltipContent>
             </UITooltip>
@@ -87,7 +84,7 @@ export const FeedbackPieChart: React.FC<FeedbackPieChartProps> = ({
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle>Tilbakemeldinger</CardTitle>
+        <CardTitle>Tilbakemeldinger på svar</CardTitle>
         <TooltipProvider delayDuration={100}>
           <UITooltip>
             <TooltipTrigger asChild>
@@ -95,8 +92,8 @@ export const FeedbackPieChart: React.FC<FeedbackPieChartProps> = ({
             </TooltipTrigger>
             <TooltipContent>
               <div className="space-y-2 max-w-xs">
-                <p className="font-medium">Tilbakemeldinger</p>
-                <p>Fordeling av brukernes tilbakemeldinger på samtaler</p>
+                <p className="font-medium">Tilbakemeldinger på svar</p>
+                <p>Fordeling av brukernes tommel opp/ned tilbakemeldinger på svar</p>
               </div>
             </TooltipContent>
           </UITooltip>
@@ -125,6 +122,14 @@ export const FeedbackPieChart: React.FC<FeedbackPieChartProps> = ({
               <Tooltip content={<CustomTooltip />} />
             </RechartsPieChart>
           </ChartContainer>
+        </div>
+        <div className="flex justify-center gap-6 mt-4">
+          {data.map((entry, index) => (
+            <div key={`legend-${index}`} className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: entry.color }}></div>
+              <span className="text-sm">{entry.name}</span>
+            </div>
+          ))}
         </div>
       </CardContent>
     </Card>

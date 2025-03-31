@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,7 +31,9 @@ export const useStatistics = (
     fallbackCount: 0,
     feedbackTimeSeries: [],
     escalationTimeSeries: [],
-    successVsFallbackTimeSeries: []
+    successVsFallbackTimeSeries: [],
+    thumbsUpCount: 0,
+    thumbsDownCount: 0
   });
   const [loading, setLoading] = useState<LoadingState>({
     summaryCards: true,
@@ -466,6 +469,8 @@ export const useStatistics = (
         const neutralFaceCount = metricsData.filter(m => m.metric_type === 'neutral_face').length;
         const sadFaceCount = metricsData.filter(m => m.metric_type === 'sad_face').length;
         const escalatedCount = metricsData.filter(m => m.metric_type === 'escalated_to_human').length;
+        const thumbsUpCount = metricsData.filter(m => m.metric_type === 'thumbs_up').length;
+        const thumbsDownCount = metricsData.filter(m => m.metric_type === 'thumbs_down').length;
 
         // Process time series data
         const timeFrames = getTimeFrames(dateRange.from, dateRange.to);
@@ -501,9 +506,6 @@ export const useStatistics = (
           });
         }
 
-        // Log for debugging
-        console.log('Feedback time series:', feedbackTimeSeries);
-
         if (isMounted) {
           setData(prev => ({
             ...prev,
@@ -511,6 +513,8 @@ export const useStatistics = (
             neutralFaceCount,
             sadFaceCount,
             escalatedCount,
+            thumbsUpCount,
+            thumbsDownCount,
             feedbackTimeSeries,
             escalationTimeSeries
           }));

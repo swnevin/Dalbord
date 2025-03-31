@@ -20,6 +20,10 @@ export interface StatisticsData {
   feedbackTimeSeries?: FeedbackTimeSeriesData[];
   escalationTimeSeries?: TimeSeriesData[];
   successVsFallbackTimeSeries?: SuccessVsFallbackTimeSeriesData[];
+  
+  // New metrics for thumbs up/down feedback
+  thumbsUpCount?: number;
+  thumbsDownCount?: number;
 }
 
 export interface LoadingState {
@@ -75,6 +79,8 @@ export interface MetricsResponse {
     sad_face: number;
     escalated_to_human: number;
     successful_answer: number;
+    thumbs_up: number;
+    thumbs_down: number;
   };
   timeSeries: Array<{
     date: string;
@@ -83,11 +89,13 @@ export interface MetricsResponse {
     sad_face: number;
     escalated_to_human: number;
     successful_answer: number;
+    thumbs_up: number;
+    thumbs_down: number;
   }>;
   rawMetrics: Array<{
     id: string;
     organization_id: string;
-    metric_type: 'happy_face' | 'neutral_face' | 'sad_face' | 'escalated_to_human' | 'successful_answer';
+    metric_type: 'happy_face' | 'neutral_face' | 'sad_face' | 'escalated_to_human' | 'successful_answer' | 'thumbs_up' | 'thumbs_down';
     timestamp: string;
     created_at: string;
   }>;

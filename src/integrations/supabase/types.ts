@@ -196,6 +196,8 @@ export type Database = {
         | "sad_face"
         | "escalated_to_human"
         | "successful_answer"
+        | "thumbs_up"
+        | "thumbs_down"
       tab_type:
         | "organizations"
         | "conversations"
