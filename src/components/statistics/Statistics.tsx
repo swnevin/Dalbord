@@ -57,16 +57,14 @@ export const Statistics = () => {
         </div>
         <Separator className="bg-primary/10" />
         
-        <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
-          <div>
+        <div className="grid gap-4 grid-cols-1">
+          <div className="grid grid-cols-1 gap-4">
             <SummaryCards
               totalMessages={data.totalMessages ?? 0}
               totalSessions={data.totalSessions ?? 0}
               totalConversations={data.totalConversations ?? 0}
               isLoading={loading.summaryCards}
             />
-          </div>
-          <div className="grid grid-cols-3 gap-4">
             <FeedbackSummaryCards
               escalatedCount={data.escalatedCount ?? 0}
               thumbsUpCount={data.thumbsUpCount ?? 0}

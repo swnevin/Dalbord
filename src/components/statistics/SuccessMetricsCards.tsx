@@ -1,8 +1,7 @@
 
-import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { InfoIcon } from 'lucide-react';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { InfoIcon } from "lucide-react";
+import { Loader } from "@/components/ui/loader";
 import { 
   Tooltip,
   TooltipContent,
@@ -16,13 +15,13 @@ interface SuccessMetricsCardsProps {
   isLoading: boolean;
 }
 
-export const SuccessMetricsCards: React.FC<SuccessMetricsCardsProps> = ({
-  successfulAnswerCount,
-  fallbackCount,
-  isLoading
-}) => {
+export const SuccessMetricsCards = ({ 
+  successfulAnswerCount, 
+  fallbackCount, 
+  isLoading 
+}: SuccessMetricsCardsProps) => {
   return (
-    <>
+    <div className="grid grid-cols-2 gap-4">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">
@@ -36,7 +35,7 @@ export const SuccessMetricsCards: React.FC<SuccessMetricsCardsProps> = ({
               <TooltipContent>
                 <div className="space-y-2 max-w-xs">
                   <p className="font-medium">Vellykkede svar</p>
-                  <p>Hver gang systemet svarer på et spørsmål vellykket</p>
+                  <p>Antall ganger AI-assistenten ga et svar fra kunnskapsbasen.</p>
                 </div>
               </TooltipContent>
             </Tooltip>
@@ -44,9 +43,13 @@ export const SuccessMetricsCards: React.FC<SuccessMetricsCardsProps> = ({
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <Skeleton className="h-8 w-[100px]" />
+            <div className="flex items-center justify-center py-4">
+              <Loader size="sm" text="Laster data..." />
+            </div>
           ) : (
-            <div className="text-2xl font-bold">{successfulAnswerCount?.toLocaleString('no') ?? 0}</div>
+            <div className="text-2xl font-bold">
+              {successfulAnswerCount.toLocaleString('no') ?? 0}
+            </div>
           )}
         </CardContent>
       </Card>
@@ -64,7 +67,7 @@ export const SuccessMetricsCards: React.FC<SuccessMetricsCardsProps> = ({
               <TooltipContent>
                 <div className="space-y-2 max-w-xs">
                   <p className="font-medium">Fallback</p>
-                  <p>Hver gang systemet ikke svarer på et spørsmål og sender en fallback-melding</p>
+                  <p>Antall spørsmål AI-assistenten ikke kunne svare på fordi informasjonen manglet i kunnskapsbasen.</p>
                 </div>
               </TooltipContent>
             </Tooltip>
@@ -72,12 +75,16 @@ export const SuccessMetricsCards: React.FC<SuccessMetricsCardsProps> = ({
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <Skeleton className="h-8 w-[100px]" />
+            <div className="flex items-center justify-center py-4">
+              <Loader size="sm" text="Laster data..." />
+            </div>
           ) : (
-            <div className="text-2xl font-bold">{fallbackCount?.toLocaleString('no') ?? 0}</div>
+            <div className="text-2xl font-bold">
+              {fallbackCount.toLocaleString('no') ?? 0}
+            </div>
           )}
         </CardContent>
       </Card>
-    </>
+    </div>
   );
 };
