@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,6 +18,7 @@ import { FallbackRequestItem } from "./FallbackRequestItem";
 import { CreateFAQDialog } from "./CreateFAQDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader } from "@/components/ui/loader";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface FallbackRequest {
   id: string;
@@ -132,15 +132,17 @@ export const FallbackRequests = () => {
               {isLoading ? (
                 renderLoadingState()
               ) : fallbackRequests.length > 0 ? (
-                <div className="divide-y">
-                  {fallbackRequests.map((request) => (
-                    <FallbackRequestItem 
-                      key={request.id} 
-                      request={request} 
-                      onClick={() => handleRequestClick(request)} 
-                    />
-                  ))}
-                </div>
+                <ScrollArea className="h-[320px]">
+                  <div className="divide-y">
+                    {fallbackRequests.map((request) => (
+                      <FallbackRequestItem 
+                        key={request.id} 
+                        request={request} 
+                        onClick={() => handleRequestClick(request)} 
+                      />
+                    ))}
+                  </div>
+                </ScrollArea>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
                   <p>Hurra! Ingen uløste henvendelser til fallback</p>
@@ -153,16 +155,18 @@ export const FallbackRequests = () => {
                 renderLoadingState()
               ) : resolvedRequests.length > 0 ? (
                 <>
-                  <div className="divide-y">
-                    {displayedResolvedRequests.map((request) => (
-                      <FallbackRequestItem 
-                        key={request.id} 
-                        request={request} 
-                        onClick={() => {}} // Resolved requests don't need to be clicked
-                        isResolved={true}
-                      />
-                    ))}
-                  </div>
+                  <ScrollArea className="h-[320px]">
+                    <div className="divide-y">
+                      {displayedResolvedRequests.map((request) => (
+                        <FallbackRequestItem 
+                          key={request.id} 
+                          request={request} 
+                          onClick={() => {}} // Resolved requests don't need to be clicked
+                          isResolved={true}
+                        />
+                      ))}
+                    </div>
+                  </ScrollArea>
                   
                   {resolvedRequests.length > 3 && (
                     <Button 
