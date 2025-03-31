@@ -22,17 +22,12 @@ enabled = true
 [storage]
 enabled = true
 
-[[functions]]
-name = "add-metrics"
-path = "add-metrics"
+[functions]
+[functions.add-metrics]
 verify_jwt = false
 
-[[functions]]
-name = "get-metrics"
-path = "get-metrics"
+[functions.get-metrics]
 verify_jwt = false
 
-[[functions]]
-name = "get-voiceflow-analytics"
-path = "get-voiceflow-analytics"
+[functions.get-voiceflow-analytics]
 verify_jwt = false
