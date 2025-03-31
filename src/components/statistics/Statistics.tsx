@@ -57,8 +57,8 @@ export const Statistics = () => {
         </div>
         <Separator className="bg-primary/10" />
         
-        <div className="grid gap-4 md:grid-cols-6">
-          <div className="md:col-span-3">
+        <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+          <div>
             <SummaryCards
               totalMessages={data.totalMessages ?? 0}
               totalSessions={data.totalSessions ?? 0}
@@ -66,9 +66,11 @@ export const Statistics = () => {
               isLoading={loading.summaryCards}
             />
           </div>
-          <div className="md:col-span-3 grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <FeedbackSummaryCards
               escalatedCount={data.escalatedCount ?? 0}
+              thumbsUpCount={data.thumbsUpCount ?? 0}
+              thumbsDownCount={data.thumbsDownCount ?? 0}
               isLoading={loading.feedbackChart}
             />
             <SuccessMetricsCards
@@ -80,7 +82,7 @@ export const Statistics = () => {
         </div>
       </div>
 
-      {/* Håndtering av spørsmål Section (renamed from Tilbakemeldinger) */}
+      {/* Håndtering av spørsmål Section */}
       <div className="space-y-4">
         <div className="flex items-center gap-2 text-primary">
           <MessageSquareIcon size={20} />

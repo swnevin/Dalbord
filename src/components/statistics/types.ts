@@ -21,7 +21,7 @@ export interface StatisticsData {
   escalationTimeSeries?: TimeSeriesData[];
   successVsFallbackTimeSeries?: SuccessVsFallbackTimeSeriesData[];
   
-  // New metrics for thumbs up/down feedback
+  // Thumbs up/down feedback metrics
   thumbsUpCount?: number;
   thumbsDownCount?: number;
 }
