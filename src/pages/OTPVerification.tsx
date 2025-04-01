@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -80,7 +79,6 @@ const OTPVerification = () => {
         email,
         options: {
           shouldCreateUser: false,
-          channel: 'email', // Explicitly request OTP
           emailRedirectTo: window.location.origin
         }
       });

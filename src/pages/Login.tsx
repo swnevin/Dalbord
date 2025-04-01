@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,8 +34,6 @@ const Login = () => {
         email,
         options: {
           shouldCreateUser: false,
-          // Explicitly request OTP instead of magic link
-          channel: 'email',
           emailRedirectTo: window.location.origin
         }
       });
