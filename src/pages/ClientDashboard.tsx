@@ -43,7 +43,7 @@ const ClientDashboard = () => {
   const [searchInContent, setSearchInContent] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [itemsPerPage, setItemsPerPage] = useState(100);
   const [preloadingTimerRef, setPreloadingTimerRef] = useState<NodeJS.Timeout | null>(null);
 
   const {
