@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Bookmark, CheckCircle, ChevronLeft, ChevronRight, Search, Trash2, FileText, Info } from "lucide-react";
@@ -58,7 +59,7 @@ export const ConversationList = ({
   getPaginatedConversations
 }: ConversationListProps) => {
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [itemsPerPage, setItemsPerPage] = useState(100);
 
   // Reset to page 1 when filter changes
   useEffect(() => {
@@ -191,13 +192,16 @@ export const ConversationList = ({
             <span className="text-sm text-gray-500">Resultater per side:</span>
             <Select value={String(itemsPerPage)} onValueChange={value => setItemsPerPage(Number(value))}>
               <SelectTrigger className="w-[100px]">
-                <SelectValue placeholder="20" />
+                <SelectValue placeholder="100" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="10">10</SelectItem>
                 <SelectItem value="20">20</SelectItem>
                 <SelectItem value="50">50</SelectItem>
                 <SelectItem value="100">100</SelectItem>
+                <SelectItem value="500">500</SelectItem>
+                <SelectItem value="1000">1000</SelectItem>
+                <SelectItem value="10000">10 000</SelectItem>
               </SelectContent>
             </Select>
           </div>
