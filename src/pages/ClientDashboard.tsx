@@ -1,5 +1,4 @@
-
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Sidebar from "../components/Sidebar";
 import KnowledgeBase from "@/components/KnowledgeBase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -43,8 +42,10 @@ const ClientDashboard = () => {
   const [searchInContent, setSearchInContent] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(20);
-  const [preloadingTimerRef, setPreloadingTimerRef] = useState<NodeJS.Timeout | null>(null);
+  const [itemsPerPage, setItemsPerPage] = useState(100);
+  const preloadingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const preloadingInProgress = useRef<boolean>(false);
+  const preloadingQueue = useRef<string[]>([]);
 
   const {
     dialogCache,
@@ -118,32 +119,55 @@ const ClientDashboard = () => {
       setIsLoadingDialog(true);
     }
     
-    if (preloadingTimerRef) {
-      clearTimeout(preloadingTimerRef);
+    if (preloadingTimerRef.current) {
+      clearTimeout(preloadingTimerRef.current);
+      preloadingTimerRef.current = null;
     }
     
-    const timer = setTimeout(() => {
-      const visibleConversations = getPaginatedConversations(currentPage, itemsPerPage);
-      if (visibleConversations.length > 0) {
-        const conversationIds = visibleConversations
-          .map(conv => conv._id)
-          .filter(id => id !== conversationId && !isConversationPreloaded(id));
-          
-        if (conversationIds.length > 0) {
-          preloadConversations(conversationIds);
-        }
-      }
+    preloadingTimerRef.current = setTimeout(() => {
+      schedulePreloading();
     }, 1000);
+  }, [getCachedDialog]);
+
+  const schedulePreloading = useCallback(() => {
+    if (!user?.organization_id) return;
     
-    setPreloadingTimerRef(timer);
+    const visibleConversations = getPaginatedConversations(currentPage, itemsPerPage);
+    if (visibleConversations.length > 0) {
+      const conversationIds = visibleConversations
+        .map(conv => conv._id)
+        .filter(id => id !== selectedConversation && !isConversationPreloaded(id));
+        
+      if (conversationIds.length > 0) {
+        preloadingQueue.current = [...new Set([...preloadingQueue.current, ...conversationIds])];
+        processPreloadingQueue();
+      }
+    }
   }, [
-    getCachedDialog, 
-    preloadConversations, 
-    isConversationPreloaded,
     currentPage,
     itemsPerPage,
-    preloadingTimerRef
+    selectedConversation,
+    isConversationPreloaded,
+    getPaginatedConversations,
+    user?.organization_id
   ]);
+
+  const processPreloadingQueue = useCallback(() => {
+    if (preloadingInProgress.current || preloadingQueue.current.length === 0) return;
+    
+    preloadingInProgress.current = true;
+    const nextBatch = preloadingQueue.current.slice(0, 5);
+    preloadingQueue.current = preloadingQueue.current.slice(5);
+    
+    preloadConversations(nextBatch)
+      .finally(() => {
+        preloadingInProgress.current = false;
+        
+        if (preloadingQueue.current.length > 0) {
+          setTimeout(() => processPreloadingQueue(), 300);
+        }
+      });
+  }, [preloadConversations]);
 
   const handleDeleteClick = (conversationId: string) => {
     setConversationToDelete(conversationId);
@@ -231,20 +255,33 @@ const ClientDashboard = () => {
 
   useEffect(() => {
     if (activeTab === "conversations") {
-      const visibleConversations = getPaginatedConversations(currentPage, itemsPerPage);
-      if (visibleConversations.length > 0) {
-        const conversationIds = visibleConversations.map(conv => conv._id);
-        preloadConversations(conversationIds);
-      }
+      schedulePreloading();
     }
     
     return () => {
-      if (preloadingTimerRef) {
-        clearTimeout(preloadingTimerRef);
-        setPreloadingTimerRef(null);
+      if (preloadingTimerRef.current) {
+        clearTimeout(preloadingTimerRef.current);
+        preloadingTimerRef.current = null;
       }
     };
-  }, [activeTab, currentPage, itemsPerPage, getPaginatedConversations, preloadConversations, preloadingTimerRef]);
+  }, [activeTab, schedulePreloading]);
+
+  useEffect(() => {
+    if (activeTab === "conversations") {
+      if (preloadingTimerRef.current) {
+        clearTimeout(preloadingTimerRef.current);
+      }
+      preloadingTimerRef.current = setTimeout(() => {
+        schedulePreloading();
+      }, 300);
+    }
+    
+    return () => {
+      if (preloadingTimerRef.current) {
+        clearTimeout(preloadingTimerRef.current);
+      }
+    };
+  }, [currentPage, itemsPerPage, schedulePreloading, activeTab]);
 
   useEffect(() => {
     const fetchConversations = async () => {
@@ -292,6 +329,8 @@ const ClientDashboard = () => {
       if (!selectedConversation || !user?.organization_id) return;
       
       if (getCachedDialog(selectedConversation)) {
+        setDialog(getCachedDialog(selectedConversation) || []);
+        setIsLoadingDialog(false);
         return;
       }
       
@@ -337,11 +376,14 @@ const ClientDashboard = () => {
 
   useEffect(() => {
     return () => {
-      if (preloadingTimerRef) {
-        clearTimeout(preloadingTimerRef);
+      if (preloadingTimerRef.current) {
+        clearTimeout(preloadingTimerRef.current);
+        preloadingTimerRef.current = null;
       }
+      preloadingInProgress.current = false;
+      preloadingQueue.current = [];
     };
-  }, [preloadingTimerRef]);
+  }, []);
 
   const showLoader = useMinimumLoading(isLoading);
   const showDialogLoader = useMinimumLoading(isLoadingDialog);
