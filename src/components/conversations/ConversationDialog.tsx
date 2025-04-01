@@ -1,4 +1,3 @@
-
 import { Loader } from "@/components/ui/loader";
 import { formatTime, filterDialog, formatText, containsIframe, extractIframeAndCleanText } from "@/utils/conversation-utils";
 import { useEffect, useRef, useState } from "react";
@@ -66,14 +65,22 @@ export const ConversationDialog = ({
     answer: ""
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [hasAutoScrolled, setHasAutoScrolled] = useState(false);
 
   useEffect(() => {
-    if (!isLoading && dialog.length > 0 && newestSessionRef.current) {
+    if (selectedConversation) {
+      setHasAutoScrolled(false);
+    }
+  }, [selectedConversation]);
+
+  useEffect(() => {
+    if (!isLoading && dialog.length > 0 && newestSessionRef.current && !hasAutoScrolled) {
       setTimeout(() => {
         newestSessionRef.current?.scrollIntoView({ behavior: 'smooth' });
+        setHasAutoScrolled(true);
       }, 100);
     }
-  }, [dialog, isLoading]);
+  }, [dialog, isLoading, hasAutoScrolled]);
 
   const toggleMessageSelection = (message: DialogMessage) => {
     if (message.type === 'launch' || message.type === 'end') return;
