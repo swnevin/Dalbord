@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from "react";
 import Sidebar from "../components/Sidebar";
 import KnowledgeBase from "@/components/KnowledgeBase";
@@ -56,6 +57,36 @@ const ClientDashboard = () => {
   } = useDialogPreloader({
     organizationId: user?.organization_id
   });
+
+  // Define filteredConversations first to ensure getPaginatedConversations can use it
+  const filteredConversations = useCallback(() => {
+    return conversations.filter(conv => {
+      if (activeFilter === "saved" && !conv.reportTags?.includes("system.saved")) return false;
+      if (activeFilter === "approved" && !conv.reportTags?.includes("system.reviewed")) return false;
+      
+      if (!searchTerm) return true;
+      
+      const searchLower = searchTerm.toLowerCase();
+      
+      const nameMatch = (conv.name || "Ukjent bruker").toLowerCase().includes(searchLower);
+      const dateMatch = conv.updatedAt.toLowerCase().includes(searchLower);
+      const deviceMatch = (conv.device || "").toLowerCase().includes(searchLower);
+      
+      if (searchInContent && isConversationPreloaded(conv._id)) {
+        return nameMatch || dateMatch || deviceMatch || 
+              searchInDialogContent(searchTerm, conv._id);
+      }
+      
+      return nameMatch || dateMatch || deviceMatch;
+    });
+  }, [conversations, searchTerm, activeFilter, searchInContent, isConversationPreloaded, searchInDialogContent]);
+
+  // Now define getPaginatedConversations after filteredConversations
+  const getPaginatedConversations = useCallback((page: number, itemsPerPage: number) => {
+    const filtered = filteredConversations();
+    const startIndex = (page - 1) * itemsPerPage;
+    return filtered.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredConversations]);
 
   const toggleTag = async (conversationId: string, tag: "system.saved" | "system.reviewed") => {
     if (!user?.organization_id) return;
@@ -159,7 +190,8 @@ const ClientDashboard = () => {
     const nextBatch = preloadingQueue.current.slice(0, 5);
     preloadingQueue.current = preloadingQueue.current.slice(5);
     
-    preloadConversations(nextBatch)
+    // Make sure to wrap this in a Promise.resolve() to ensure it can use .finally()
+    Promise.resolve(preloadConversations(nextBatch))
       .finally(() => {
         preloadingInProgress.current = false;
         
@@ -224,34 +256,6 @@ const ClientDashboard = () => {
   const handleSearchTermChange = useCallback((term: string) => {
     setSearchTerm(term);
   }, []);
-
-  const filteredConversations = useCallback(() => {
-    return conversations.filter(conv => {
-      if (activeFilter === "saved" && !conv.reportTags?.includes("system.saved")) return false;
-      if (activeFilter === "approved" && !conv.reportTags?.includes("system.reviewed")) return false;
-      
-      if (!searchTerm) return true;
-      
-      const searchLower = searchTerm.toLowerCase();
-      
-      const nameMatch = (conv.name || "Ukjent bruker").toLowerCase().includes(searchLower);
-      const dateMatch = conv.updatedAt.toLowerCase().includes(searchLower);
-      const deviceMatch = (conv.device || "").toLowerCase().includes(searchLower);
-      
-      if (searchInContent && isConversationPreloaded(conv._id)) {
-        return nameMatch || dateMatch || deviceMatch || 
-               searchInDialogContent(searchTerm, conv._id);
-      }
-      
-      return nameMatch || dateMatch || deviceMatch;
-    });
-  }, [conversations, searchTerm, activeFilter, searchInContent, isConversationPreloaded, searchInDialogContent]);
-
-  const getPaginatedConversations = useCallback((page: number, itemsPerPage: number) => {
-    const filtered = filteredConversations();
-    const startIndex = (page - 1) * itemsPerPage;
-    return filtered.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredConversations]);
 
   useEffect(() => {
     if (activeTab === "conversations") {
