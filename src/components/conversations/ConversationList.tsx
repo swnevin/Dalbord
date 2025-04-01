@@ -1,7 +1,7 @@
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Bookmark, CheckCircle, ChevronLeft, ChevronRight, Search, Trash2, FileText, Info } from "lucide-react";
+import { Bookmark, CheckCircle, ChevronLeft, ChevronRight, Search, Trash2, FileText, Info, Play, Pause } from "lucide-react";
 import { formatDate } from "@/utils/conversation-utils";
 import { Loader } from "@/components/ui/loader";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { PreloadedIndicator } from "./PreloadedIndicator";
+
 interface VoiceflowTranscript {
   _id: string;
   name: string;
@@ -22,6 +23,7 @@ interface VoiceflowTranscript {
     name: string;
   };
 }
+
 interface ConversationListProps {
   conversations: VoiceflowTranscript[];
   collapsed: boolean;
@@ -39,7 +41,11 @@ interface ConversationListProps {
   searchTerm: string;
   onSearchTermChange: (term: string) => void;
   getPaginatedConversations: (page: number, itemsPerPage: number) => VoiceflowTranscript[];
+  autoLoadEnabled: boolean;
+  onToggleAutoLoad: () => void;
+  triggerManualLoad: (conversationId: string) => void;
 }
+
 export const ConversationList = ({
   conversations,
   collapsed,
@@ -56,7 +62,10 @@ export const ConversationList = ({
   onToggleSearchInContent,
   searchTerm,
   onSearchTermChange,
-  getPaginatedConversations
+  getPaginatedConversations,
+  autoLoadEnabled,
+  onToggleAutoLoad,
+  triggerManualLoad
 }: ConversationListProps) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(100);
@@ -72,32 +81,44 @@ export const ConversationList = ({
       onToggleSearchInContent(true);
     }
   }, [searchInContent, onToggleSearchInContent]);
+
   const isConversationReviewed = (conv: VoiceflowTranscript) => {
     return conv.reportTags?.includes("system.reviewed") ?? false;
   };
+
   const isConversationSaved = (conv: VoiceflowTranscript) => {
     return conv.reportTags?.includes("system.saved") ?? false;
   };
+
   const handleConversationClick = (id: string) => {
     onConversationSelect(id);
+  };
+
+  const handleManualLoad = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    triggerManualLoad(id);
   };
 
   // Get paginated conversations for the current page
   const paginatedConversations = useMemo(() => {
     return getPaginatedConversations(currentPage, itemsPerPage);
   }, [getPaginatedConversations, currentPage, itemsPerPage]);
+
   const totalConversations = conversations.length;
   const totalPages = Math.ceil(totalConversations / itemsPerPage);
+
   const handleNextPage = () => {
     if (currentPage < totalPages) {
       setCurrentPage(prev => prev + 1);
     }
   };
+
   const handlePrevPage = () => {
     if (currentPage > 1) {
       setCurrentPage(prev => prev - 1);
     }
   };
+
   return <div className={cn("border-r border-gray-200 bg-white transition-all duration-300 flex flex-col h-screen", collapsed ? "w-20" : "w-96")}>
       <div className="p-4 border-b border-gray-200 flex flex-col gap-4 flex-shrink-0">
         <div className="flex items-center justify-between">
@@ -115,10 +136,33 @@ export const ConversationList = ({
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
                 <Input type="text" placeholder="Søk etter navn, dato..." value={searchTerm} onChange={e => onSearchTermChange(e.target.value)} className="pl-9" />
               </div>
-              
-              
             </div>
             
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex gap-1 items-center">
+                <span className="text-sm text-gray-700">Last inn samtaler automatisk:</span>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className={cn(
+                        "flex items-center gap-1 h-8 px-2",
+                        autoLoadEnabled ? "bg-primary text-white hover:bg-primary/90" : ""
+                      )}
+                      onClick={onToggleAutoLoad}
+                    >
+                      {autoLoadEnabled ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                      <span>{autoLoadEnabled ? "Pause" : "Start"}</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    {autoLoadEnabled ? "Pause automatisk innlasting" : "Start automatisk innlasting"}
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+            </div>
+
             <div className="flex gap-2">
               <Button variant={activeFilter === "all" ? "secondary" : "outline"} onClick={() => onFilterChange("all")} className="flex-1">
                 Alle samtaler
@@ -151,6 +195,16 @@ export const ConversationList = ({
                           {conv.name || "Ukjent bruker"}
                         </h3>
                         {isPreloaded(conv._id) && <PreloadedIndicator isPreloaded={true} />}
+                        {!isPreloaded(conv._id) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 w-5 p-0 ml-1"
+                            onClick={(e) => handleManualLoad(e, conv._id)}
+                          >
+                            <FileText className="h-3 w-3 text-gray-400 hover:text-gray-600" />
+                          </Button>
+                        )}
                       </div>
                       <div className="mt-1 flex justify-between items-center">
                         <span className="text-xs text-gray-500 capitalize">
