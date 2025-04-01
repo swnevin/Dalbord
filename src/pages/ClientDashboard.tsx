@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Sidebar from "../components/Sidebar";
 import KnowledgeBase from "@/components/KnowledgeBase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -43,10 +43,8 @@ const ClientDashboard = () => {
   const [searchInContent, setSearchInContent] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(100);
-  const preloadingTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const preloadingInProgress = useRef<boolean>(false);
-  const preloadingQueue = useRef<string[]>([]);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [preloadingTimerRef, setPreloadingTimerRef] = useState<NodeJS.Timeout | null>(null);
 
   const {
     dialogCache,
@@ -57,36 +55,6 @@ const ClientDashboard = () => {
   } = useDialogPreloader({
     organizationId: user?.organization_id
   });
-
-  // Define filteredConversations first to ensure getPaginatedConversations can use it
-  const filteredConversations = useCallback(() => {
-    return conversations.filter(conv => {
-      if (activeFilter === "saved" && !conv.reportTags?.includes("system.saved")) return false;
-      if (activeFilter === "approved" && !conv.reportTags?.includes("system.reviewed")) return false;
-      
-      if (!searchTerm) return true;
-      
-      const searchLower = searchTerm.toLowerCase();
-      
-      const nameMatch = (conv.name || "Ukjent bruker").toLowerCase().includes(searchLower);
-      const dateMatch = conv.updatedAt.toLowerCase().includes(searchLower);
-      const deviceMatch = (conv.device || "").toLowerCase().includes(searchLower);
-      
-      if (searchInContent && isConversationPreloaded(conv._id)) {
-        return nameMatch || dateMatch || deviceMatch || 
-              searchInDialogContent(searchTerm, conv._id);
-      }
-      
-      return nameMatch || dateMatch || deviceMatch;
-    });
-  }, [conversations, searchTerm, activeFilter, searchInContent, isConversationPreloaded, searchInDialogContent]);
-
-  // Now define getPaginatedConversations after filteredConversations
-  const getPaginatedConversations = useCallback((page: number, itemsPerPage: number) => {
-    const filtered = filteredConversations();
-    const startIndex = (page - 1) * itemsPerPage;
-    return filtered.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredConversations]);
 
   const toggleTag = async (conversationId: string, tag: "system.saved" | "system.reviewed") => {
     if (!user?.organization_id) return;
@@ -150,56 +118,32 @@ const ClientDashboard = () => {
       setIsLoadingDialog(true);
     }
     
-    if (preloadingTimerRef.current) {
-      clearTimeout(preloadingTimerRef.current);
-      preloadingTimerRef.current = null;
+    if (preloadingTimerRef) {
+      clearTimeout(preloadingTimerRef);
     }
     
-    preloadingTimerRef.current = setTimeout(() => {
-      schedulePreloading();
-    }, 1000);
-  }, [getCachedDialog]);
-
-  const schedulePreloading = useCallback(() => {
-    if (!user?.organization_id) return;
-    
-    const visibleConversations = getPaginatedConversations(currentPage, itemsPerPage);
-    if (visibleConversations.length > 0) {
-      const conversationIds = visibleConversations
-        .map(conv => conv._id)
-        .filter(id => id !== selectedConversation && !isConversationPreloaded(id));
-        
-      if (conversationIds.length > 0) {
-        preloadingQueue.current = [...new Set([...preloadingQueue.current, ...conversationIds])];
-        processPreloadingQueue();
+    const timer = setTimeout(() => {
+      const visibleConversations = getPaginatedConversations(currentPage, itemsPerPage);
+      if (visibleConversations.length > 0) {
+        const conversationIds = visibleConversations
+          .map(conv => conv._id)
+          .filter(id => id !== conversationId && !isConversationPreloaded(id));
+          
+        if (conversationIds.length > 0) {
+          preloadConversations(conversationIds);
+        }
       }
-    }
+    }, 1000);
+    
+    setPreloadingTimerRef(timer);
   }, [
+    getCachedDialog, 
+    preloadConversations, 
+    isConversationPreloaded,
     currentPage,
     itemsPerPage,
-    selectedConversation,
-    isConversationPreloaded,
-    getPaginatedConversations,
-    user?.organization_id
+    preloadingTimerRef
   ]);
-
-  const processPreloadingQueue = useCallback(() => {
-    if (preloadingInProgress.current || preloadingQueue.current.length === 0) return;
-    
-    preloadingInProgress.current = true;
-    const nextBatch = preloadingQueue.current.slice(0, 5);
-    preloadingQueue.current = preloadingQueue.current.slice(5);
-    
-    // Make sure to wrap this in a Promise.resolve() to ensure it can use .finally()
-    Promise.resolve(preloadConversations(nextBatch))
-      .finally(() => {
-        preloadingInProgress.current = false;
-        
-        if (preloadingQueue.current.length > 0) {
-          setTimeout(() => processPreloadingQueue(), 300);
-        }
-      });
-  }, [preloadConversations]);
 
   const handleDeleteClick = (conversationId: string) => {
     setConversationToDelete(conversationId);
@@ -257,35 +201,50 @@ const ClientDashboard = () => {
     setSearchTerm(term);
   }, []);
 
-  useEffect(() => {
-    if (activeTab === "conversations") {
-      schedulePreloading();
-    }
-    
-    return () => {
-      if (preloadingTimerRef.current) {
-        clearTimeout(preloadingTimerRef.current);
-        preloadingTimerRef.current = null;
+  const filteredConversations = useCallback(() => {
+    return conversations.filter(conv => {
+      if (activeFilter === "saved" && !conv.reportTags?.includes("system.saved")) return false;
+      if (activeFilter === "approved" && !conv.reportTags?.includes("system.reviewed")) return false;
+      
+      if (!searchTerm) return true;
+      
+      const searchLower = searchTerm.toLowerCase();
+      
+      const nameMatch = (conv.name || "Ukjent bruker").toLowerCase().includes(searchLower);
+      const dateMatch = conv.updatedAt.toLowerCase().includes(searchLower);
+      const deviceMatch = (conv.device || "").toLowerCase().includes(searchLower);
+      
+      if (searchInContent && isConversationPreloaded(conv._id)) {
+        return nameMatch || dateMatch || deviceMatch || 
+               searchInDialogContent(searchTerm, conv._id);
       }
-    };
-  }, [activeTab, schedulePreloading]);
+      
+      return nameMatch || dateMatch || deviceMatch;
+    });
+  }, [conversations, searchTerm, activeFilter, searchInContent, isConversationPreloaded, searchInDialogContent]);
+
+  const getPaginatedConversations = useCallback((page: number, itemsPerPage: number) => {
+    const filtered = filteredConversations();
+    const startIndex = (page - 1) * itemsPerPage;
+    return filtered.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredConversations]);
 
   useEffect(() => {
     if (activeTab === "conversations") {
-      if (preloadingTimerRef.current) {
-        clearTimeout(preloadingTimerRef.current);
+      const visibleConversations = getPaginatedConversations(currentPage, itemsPerPage);
+      if (visibleConversations.length > 0) {
+        const conversationIds = visibleConversations.map(conv => conv._id);
+        preloadConversations(conversationIds);
       }
-      preloadingTimerRef.current = setTimeout(() => {
-        schedulePreloading();
-      }, 300);
     }
     
     return () => {
-      if (preloadingTimerRef.current) {
-        clearTimeout(preloadingTimerRef.current);
+      if (preloadingTimerRef) {
+        clearTimeout(preloadingTimerRef);
+        setPreloadingTimerRef(null);
       }
     };
-  }, [currentPage, itemsPerPage, schedulePreloading, activeTab]);
+  }, [activeTab, currentPage, itemsPerPage, getPaginatedConversations, preloadConversations, preloadingTimerRef]);
 
   useEffect(() => {
     const fetchConversations = async () => {
@@ -333,8 +292,6 @@ const ClientDashboard = () => {
       if (!selectedConversation || !user?.organization_id) return;
       
       if (getCachedDialog(selectedConversation)) {
-        setDialog(getCachedDialog(selectedConversation) || []);
-        setIsLoadingDialog(false);
         return;
       }
       
@@ -380,14 +337,11 @@ const ClientDashboard = () => {
 
   useEffect(() => {
     return () => {
-      if (preloadingTimerRef.current) {
-        clearTimeout(preloadingTimerRef.current);
-        preloadingTimerRef.current = null;
+      if (preloadingTimerRef) {
+        clearTimeout(preloadingTimerRef);
       }
-      preloadingInProgress.current = false;
-      preloadingQueue.current = [];
     };
-  }, []);
+  }, [preloadingTimerRef]);
 
   const showLoader = useMinimumLoading(isLoading);
   const showDialogLoader = useMinimumLoading(isLoadingDialog);
