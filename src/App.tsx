@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import Login from "./pages/Login";
+import OTPVerification from "./pages/OTPVerification";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ClientDashboard from "./pages/ClientDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -22,6 +23,7 @@ const App = () => {
             <Sonner />
             <Routes>
               <Route path="/login" element={<Login />} />
+              <Route path="/verify" element={<OTPVerification />} />
               <Route
                 path="/dashboard"
                 element={

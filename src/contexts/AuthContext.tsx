@@ -12,7 +12,6 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   isLoading: boolean;
 }
@@ -68,7 +67,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const handleSession = async (session: any) => {
     if (!session?.user) {
       setUser(null);
-      return;
+      return false;
     }
 
     try {
@@ -82,9 +81,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       setUser(userData);
 
+      // Don't redirect if on verify page
+      if (location.pathname === '/verify') {
+        return true;
+      }
+
       // Only handle navigation if we're not already on the admin dashboard
       // This prevents the flash when adding new members
-      if (location.pathname !== '/admin') {
+      if (location.pathname !== '/admin' && location.pathname !== '/dashboard') {
         if (profile.organization_type === 'admin') {
           navigate('/admin');
         } else {
@@ -104,8 +108,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (session) {
         handleSession(session).catch((error) => {
           console.error('Session handling error:', error);
-          navigate('/login');
+          if (location.pathname !== '/verify') {
+            navigate('/login');
+          }
         });
+      } else {
+        setIsLoading(false);
+        // Only redirect to login if not already on login or verify page
+        if (location.pathname !== '/login' && location.pathname !== '/verify') {
+          navigate('/login');
+        }
       }
       setIsLoading(false);
     });
@@ -116,41 +128,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (session) {
         handleSession(session).catch((error) => {
           console.error('Auth state change error:', error);
-          navigate('/login');
+          if (location.pathname !== '/verify') {
+            navigate('/login');
+          }
         });
       } else {
         setUser(null);
-        navigate('/login');
+        // Only redirect to login if not already on login or verify page
+        if (location.pathname !== '/login' && location.pathname !== '/verify') {
+          navigate('/login');
+        }
       }
       setIsLoading(false);
     });
 
     return () => subscription.unsubscribe();
-  }, []);
-
-  const login = async (email: string, password: string) => {
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      if (!data.user) {
-        throw new Error('Ingen bruker returnert etter innlogging');
-      }
-
-      await handleSession(data.session);
-      toast.success('Innlogget');
-    } catch (error: any) {
-      console.error('Login error:', error);
-      toast.error(error.message || 'Kunne ikke logge inn');
-      setUser(null);
-    }
-  };
+  }, [location.pathname]);
 
   const logout = async () => {
     try {
@@ -167,7 +160,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, logout, isLoading }}>
       {children}
     </AuthContext.Provider>
   );
