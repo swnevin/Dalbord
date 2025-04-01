@@ -80,6 +80,8 @@ const OTPVerification = () => {
         email,
         options: {
           shouldCreateUser: false,
+          channel: 'email', // Explicitly request OTP
+          emailRedirectTo: window.location.origin
         }
       });
       

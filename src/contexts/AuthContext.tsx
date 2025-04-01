@@ -86,8 +86,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return true;
       }
 
-      // Only handle navigation if we're not already on the admin dashboard
-      // This prevents the flash when adding new members
+      // Only handle navigation if we're not already on the appropriate dashboard
       if (location.pathname !== '/admin' && location.pathname !== '/dashboard') {
         if (profile.organization_type === 'admin') {
           navigate('/admin');

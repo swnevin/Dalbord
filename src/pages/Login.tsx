@@ -35,6 +35,9 @@ const Login = () => {
         email,
         options: {
           shouldCreateUser: false,
+          // Explicitly request OTP instead of magic link
+          channel: 'email',
+          emailRedirectTo: window.location.origin
         }
       });
       
@@ -47,6 +50,7 @@ const Login = () => {
     } catch (error: any) {
       console.error('Login error:', error);
       toast.error(error.message || "Pålogging mislyktes. Vennligst prøv igjen.");
+    } finally {
       setIsLoading(false);
     }
   };
