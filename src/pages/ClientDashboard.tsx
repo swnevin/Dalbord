@@ -45,8 +45,6 @@ const ClientDashboard = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(100);
   const [preloadingTimerRef, setPreloadingTimerRef] = useState<NodeJS.Timeout | null>(null);
-  const [autoLoadEnabled, setAutoLoadEnabled] = useState(true);
-  const [isAutoLoading, setIsAutoLoading] = useState(false);
 
   const {
     dialogCache,
@@ -57,35 +55,6 @@ const ClientDashboard = () => {
   } = useDialogPreloader({
     organizationId: user?.organization_id
   });
-
-  // Define the filteredConversations function before it's used
-  const filteredConversations = useCallback(() => {
-    return conversations.filter(conv => {
-      if (activeFilter === "saved" && !conv.reportTags?.includes("system.saved")) return false;
-      if (activeFilter === "approved" && !conv.reportTags?.includes("system.reviewed")) return false;
-      
-      if (!searchTerm) return true;
-      
-      const searchLower = searchTerm.toLowerCase();
-      
-      const nameMatch = (conv.name || "Ukjent bruker").toLowerCase().includes(searchLower);
-      const dateMatch = conv.updatedAt.toLowerCase().includes(searchLower);
-      const deviceMatch = (conv.device || "").toLowerCase().includes(searchLower);
-      
-      if (searchInContent && isConversationPreloaded(conv._id)) {
-        return nameMatch || dateMatch || deviceMatch || 
-               searchInDialogContent(searchTerm, conv._id);
-      }
-      
-      return nameMatch || dateMatch || deviceMatch;
-    });
-  }, [conversations, searchTerm, activeFilter, searchInContent, isConversationPreloaded, searchInDialogContent]);
-
-  const getPaginatedConversations = useCallback((page: number, itemsPerPage: number) => {
-    const filtered = filteredConversations();
-    const startIndex = (page - 1) * itemsPerPage;
-    return filtered.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredConversations]);
 
   const toggleTag = async (conversationId: string, tag: "system.saved" | "system.reviewed") => {
     if (!user?.organization_id) return;
@@ -147,7 +116,6 @@ const ClientDashboard = () => {
     } else {
       setDialog([]);
       setIsLoadingDialog(true);
-      triggerManualLoad(conversationId);
     }
     
     if (preloadingTimerRef) {
@@ -156,19 +124,13 @@ const ClientDashboard = () => {
     
     const timer = setTimeout(() => {
       const visibleConversations = getPaginatedConversations(currentPage, itemsPerPage);
-      if (visibleConversations.length > 0 && autoLoadEnabled) {
+      if (visibleConversations.length > 0) {
         const conversationIds = visibleConversations
           .map(conv => conv._id)
           .filter(id => id !== conversationId && !isConversationPreloaded(id));
           
         if (conversationIds.length > 0) {
-          const preloadPromise = preloadConversations(conversationIds);
-          // Fix: Check if preloadPromise is a Promise before calling .catch
-          if (preloadPromise && typeof preloadPromise.catch === 'function') {
-            preloadPromise.catch(error => {
-              console.error('Error preloading conversations:', error);
-            });
-          }
+          preloadConversations(conversationIds);
         }
       }
     }, 1000);
@@ -180,117 +142,8 @@ const ClientDashboard = () => {
     isConversationPreloaded,
     currentPage,
     itemsPerPage,
-    preloadingTimerRef,
-    autoLoadEnabled,
-    getPaginatedConversations
+    preloadingTimerRef
   ]);
-
-  const triggerManualLoad = useCallback((conversationId: string) => {
-    if (!user?.organization_id) return;
-    
-    const cachedDialog = getCachedDialog(conversationId);
-    if (cachedDialog) return;
-
-    fetchConversationDialog(conversationId)
-      .then(() => {
-        // Dialog is loaded and cached
-      })
-      .catch((error) => {
-        console.error('Error loading dialog:', error);
-        toast.error('Kunne ikke laste inn samtale');
-      });
-  }, [user?.organization_id, getCachedDialog]);
-
-  const fetchConversationDialog = async (conversationId: string) => {
-    if (!user?.organization_id || !conversationId) return;
-    
-    try {
-      const { data: org, error: orgError } = await supabase
-        .from('organizations')
-        .select('voiceflow_api_key, voiceflow_project_id')
-        .eq('id', user.organization_id)
-        .single();
-
-      if (orgError) throw orgError;
-      if (!org.voiceflow_api_key || !org.voiceflow_project_id) {
-        console.error('Missing Voiceflow credentials');
-        return;
-      }
-
-      const response = await fetch(
-        `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}/${conversationId}`,
-        {
-          headers: {
-            accept: 'application/json',
-            Authorization: org.voiceflow_api_key,
-          },
-        }
-      );
-
-      if (!response.ok) throw new Error('Failed to fetch dialog');
-
-      const data = await response.json();
-      
-      if (selectedConversation === conversationId) {
-        setDialog(data);
-        setIsLoadingDialog(false);
-      }
-      
-      const preloadPromise = preloadConversations([conversationId]);
-      // Return the data for use in other functions
-      return data;
-    } catch (error) {
-      console.error('Error fetching dialog:', error);
-      throw error;
-    }
-  };
-
-  const autoLoadNextBatch = useCallback(async () => {
-    if (!autoLoadEnabled || isAutoLoading || !user?.organization_id) return;
-    
-    try {
-      setIsAutoLoading(true);
-      
-      const visibleConversations = getPaginatedConversations(currentPage, itemsPerPage);
-      if (visibleConversations.length === 0) {
-        return;
-      }
-      
-      // Find first unloaded conversation
-      const conversationsToLoad = visibleConversations
-        .filter(conv => !isConversationPreloaded(conv._id))
-        .slice(0, 3); // Load 3 at a time to be efficient
-        
-      if (conversationsToLoad.length === 0) {
-        return;
-      }
-      
-      const conversationIds = conversationsToLoad.map(conv => conv._id);
-      const preloadPromise = preloadConversations(conversationIds);
-      // Fix: Check if preloadPromise is a Promise before calling .then
-      if (preloadPromise && typeof preloadPromise.then === 'function') {
-        await preloadPromise;
-      }
-      
-    } catch (error) {
-      console.error('Error in auto loading conversations:', error);
-    } finally {
-      setIsAutoLoading(false);
-    }
-  }, [
-    autoLoadEnabled,
-    isAutoLoading, 
-    user?.organization_id, 
-    isConversationPreloaded, 
-    getPaginatedConversations, 
-    currentPage, 
-    itemsPerPage,
-    preloadConversations
-  ]);
-
-  const toggleAutoLoad = useCallback(() => {
-    setAutoLoadEnabled(prev => !prev);
-  }, []);
 
   const handleDeleteClick = (conversationId: string) => {
     setConversationToDelete(conversationId);
@@ -348,43 +201,40 @@ const ClientDashboard = () => {
     setSearchTerm(term);
   }, []);
 
-  useEffect(() => {
-    if (activeTab === "conversations" && autoLoadEnabled && !isAutoLoading) {
-      const timer = setTimeout(() => {
-        autoLoadNextBatch();
-      }, 1000);
+  const filteredConversations = useCallback(() => {
+    return conversations.filter(conv => {
+      if (activeFilter === "saved" && !conv.reportTags?.includes("system.saved")) return false;
+      if (activeFilter === "approved" && !conv.reportTags?.includes("system.reviewed")) return false;
       
-      return () => {
-        clearTimeout(timer);
-      };
-    }
-  }, [
-    activeTab, 
-    autoLoadEnabled, 
-    isAutoLoading, 
-    autoLoadNextBatch,
-    currentPage,
-    filteredConversations
-  ]);
+      if (!searchTerm) return true;
+      
+      const searchLower = searchTerm.toLowerCase();
+      
+      const nameMatch = (conv.name || "Ukjent bruker").toLowerCase().includes(searchLower);
+      const dateMatch = conv.updatedAt.toLowerCase().includes(searchLower);
+      const deviceMatch = (conv.device || "").toLowerCase().includes(searchLower);
+      
+      if (searchInContent && isConversationPreloaded(conv._id)) {
+        return nameMatch || dateMatch || deviceMatch || 
+               searchInDialogContent(searchTerm, conv._id);
+      }
+      
+      return nameMatch || dateMatch || deviceMatch;
+    });
+  }, [conversations, searchTerm, activeFilter, searchInContent, isConversationPreloaded, searchInDialogContent]);
+
+  const getPaginatedConversations = useCallback((page: number, itemsPerPage: number) => {
+    const filtered = filteredConversations();
+    const startIndex = (page - 1) * itemsPerPage;
+    return filtered.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredConversations]);
 
   useEffect(() => {
     if (activeTab === "conversations") {
       const visibleConversations = getPaginatedConversations(currentPage, itemsPerPage);
-      if (visibleConversations.length > 0 && autoLoadEnabled) {
-        const conversationIds = visibleConversations
-          .filter(conv => !isConversationPreloaded(conv._id))
-          .map(conv => conv._id)
-          .slice(0, 3); // Start with loading first 3
-        
-        if (conversationIds.length > 0) {
-          const preloadPromise = preloadConversations(conversationIds);
-          // Fix: Check if preloadPromise is a Promise before calling .catch
-          if (preloadPromise && typeof preloadPromise.catch === 'function') {
-            preloadPromise.catch(error => {
-              console.error('Error preloading initial conversations:', error);
-            });
-          }
-        }
+      if (visibleConversations.length > 0) {
+        const conversationIds = visibleConversations.map(conv => conv._id);
+        preloadConversations(conversationIds);
       }
     }
     
@@ -394,16 +244,7 @@ const ClientDashboard = () => {
         setPreloadingTimerRef(null);
       }
     };
-  }, [
-    activeTab, 
-    currentPage, 
-    itemsPerPage, 
-    getPaginatedConversations, 
-    preloadConversations, 
-    preloadingTimerRef,
-    isConversationPreloaded,
-    autoLoadEnabled
-  ]);
+  }, [activeTab, currentPage, itemsPerPage, getPaginatedConversations, preloadConversations, preloadingTimerRef]);
 
   useEffect(() => {
     const fetchConversations = async () => {
@@ -451,13 +292,38 @@ const ClientDashboard = () => {
       if (!selectedConversation || !user?.organization_id) return;
       
       if (getCachedDialog(selectedConversation)) {
-        setDialog(getCachedDialog(selectedConversation)!);
-        setIsLoadingDialog(false);
         return;
       }
       
       try {
-        await fetchConversationDialog(selectedConversation);
+        const { data: org, error: orgError } = await supabase
+          .from('organizations')
+          .select('voiceflow_api_key, voiceflow_project_id')
+          .eq('id', user.organization_id)
+          .single();
+
+        if (orgError) throw orgError;
+        if (!org.voiceflow_api_key || !org.voiceflow_project_id) {
+          console.error('Missing Voiceflow credentials');
+          return;
+        }
+
+        const response = await fetch(
+          `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}/${selectedConversation}`,
+          {
+            headers: {
+              accept: 'application/json',
+              Authorization: org.voiceflow_api_key,
+            },
+          }
+        );
+
+        if (!response.ok) throw new Error('Failed to fetch dialog');
+
+        const data = await response.json();
+        setDialog(data);
+        
+        preloadConversations([selectedConversation]);
       } catch (error) {
         console.error('Error fetching dialog:', error);
         toast.error('Kunne ikke laste inn samtale');
@@ -467,7 +333,7 @@ const ClientDashboard = () => {
     };
 
     fetchDialog();
-  }, [selectedConversation, user?.organization_id, getCachedDialog, fetchConversationDialog]);
+  }, [selectedConversation, user?.organization_id, getCachedDialog, preloadConversations]);
 
   useEffect(() => {
     return () => {
@@ -508,9 +374,6 @@ const ClientDashboard = () => {
               searchTerm={searchTerm}
               onSearchTermChange={handleSearchTermChange}
               getPaginatedConversations={getPaginatedConversations}
-              autoLoadEnabled={autoLoadEnabled}
-              onToggleAutoLoad={toggleAutoLoad}
-              triggerManualLoad={triggerManualLoad}
             />
             <ConversationDialog
               isLoading={showDialogLoader}
