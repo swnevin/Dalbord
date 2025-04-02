@@ -15,17 +15,9 @@ interface FallbackRequestItemProps {
   request: FallbackRequest;
   onClick: () => void;
   isResolved?: boolean;
-  onContextMenu?: (e: React.MouseEvent) => void;
-  children?: React.ReactNode;
 }
 
-export const FallbackRequestItem = ({ 
-  request, 
-  onClick, 
-  isResolved = false, 
-  onContextMenu,
-  children
-}: FallbackRequestItemProps) => {
+export const FallbackRequestItem = ({ request, onClick, isResolved = false }: FallbackRequestItemProps) => {
   const formattedDate = formatDistanceToNow(new Date(request.created_at), {
     addSuffix: true,
     locale: nb
@@ -35,7 +27,6 @@ export const FallbackRequestItem = ({
     <div 
       className={`py-4 px-2 ${isResolved ? "" : "hover:bg-muted/50 transition-colors cursor-pointer"} rounded-md`}
       onClick={isResolved ? undefined : onClick}
-      onContextMenu={onContextMenu}
     >
       <div className="space-y-1">
         <div className="flex items-start justify-between gap-2">
@@ -48,7 +39,6 @@ export const FallbackRequestItem = ({
         <p className="text-sm text-muted-foreground line-clamp-2">
           {request.response}
         </p>
-        {children}
       </div>
     </div>
   );

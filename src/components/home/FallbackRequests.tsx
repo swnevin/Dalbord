@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,17 +12,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PlusCircle, ChevronDown, ChevronUp, Info, Check } from "lucide-react";
+import { PlusCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import { FallbackRequestItem } from "./FallbackRequestItem";
 import { CreateFAQDialog } from "./CreateFAQDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader } from "@/components/ui/loader";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Switch } from "@/components/ui/switch";
-import { Toggle } from "@/components/ui/toggle";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface FallbackRequest {
   id: string;
@@ -41,7 +36,6 @@ export const FallbackRequests = () => {
   const [selectedRequest, setSelectedRequest] = useState<FallbackRequest | null>(null);
   const [createFAQOpen, setCreateFAQOpen] = useState(false);
   const [showAllResolved, setShowAllResolved] = useState(false);
-  const [hideNotAQuestion, setHideNotAQuestion] = useState(true);
   
   const fetchFallbackRequests = async () => {
     if (!user?.organization_id) return;
@@ -108,28 +102,6 @@ export const FallbackRequests = () => {
     }
   };
 
-  const handleMarkAsResolved = async (request: FallbackRequest) => {
-    try {
-      const { error } = await supabase
-        .from('fallback_requests')
-        .update({ is_resolved: true })
-        .eq('id', request.id);
-        
-      if (error) throw error;
-      
-      fetchFallbackRequests();
-      toast.success('Henvendelse markert som løst');
-    } catch (error) {
-      console.error('Error updating fallback request:', error);
-      toast.error('Kunne ikke markere henvendelsen som løst');
-    }
-  };
-
-  // Filter out "not_a_question" entries if the filter is enabled
-  const filteredUnresolvedRequests = hideNotAQuestion
-    ? fallbackRequests.filter(req => !req.query.toLowerCase().includes('not_a_question'))
-    : fallbackRequests;
-
   const displayedResolvedRequests = showAllResolved 
     ? resolvedRequests 
     : resolvedRequests.slice(0, 3);
@@ -151,92 +123,26 @@ export const FallbackRequests = () => {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="unresolved" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-4 bg-muted/80 p-1 rounded-xl overflow-hidden">
-              <TabsTrigger 
-                value="unresolved" 
-                className="data-[state=active]:bg-secondary data-[state=active]:text-primary font-medium rounded-lg"
-              >
-                Uløste henvendelser
-              </TabsTrigger>
-              <TabsTrigger 
-                value="resolved"
-                className="data-[state=active]:bg-secondary data-[state=active]:text-primary font-medium rounded-lg"
-              >
-                Løste henvendelser
-              </TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2 mb-4">
+              <TabsTrigger value="unresolved">Uløste henvendelser</TabsTrigger>
+              <TabsTrigger value="resolved">Løste henvendelser</TabsTrigger>
             </TabsList>
             
             <TabsContent value="unresolved">
               {isLoading ? (
                 renderLoadingState()
               ) : fallbackRequests.length > 0 ? (
-                <>
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm text-muted-foreground">
-                        Viser {filteredUnresolvedRequests.length} av {fallbackRequests.length} henvendelser
-                      </p>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="h-4 w-4 text-muted-foreground" />
-                        </TooltipTrigger>
-                        <TooltipContent side="top">
-                          Filtrerer bort innlegg med "not_a_question"
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground">Skjul "not_a_question"</span>
-                      <Switch 
-                        checked={hideNotAQuestion} 
-                        onCheckedChange={setHideNotAQuestion}
+                <ScrollArea className="h-[320px]">
+                  <div className="divide-y">
+                    {fallbackRequests.map((request) => (
+                      <FallbackRequestItem 
+                        key={request.id} 
+                        request={request} 
+                        onClick={() => handleRequestClick(request)} 
                       />
-                    </div>
+                    ))}
                   </div>
-
-                  <ScrollArea className="h-[320px]">
-                    <div className="divide-y">
-                      {filteredUnresolvedRequests.map((request) => (
-                        <FallbackRequestItem 
-                          key={request.id} 
-                          request={request} 
-                          onClick={() => handleRequestClick(request)} 
-                          onContextMenu={(e) => {
-                            e.preventDefault();
-                            handleMarkAsResolved(request);
-                          }}
-                        >
-                          <div className="flex gap-2 mt-2">
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              className="flex items-center gap-1"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleRequestClick(request);
-                              }}
-                            >
-                              <PlusCircle className="h-4 w-4" />
-                              Opprett Q&A
-                            </Button>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              className="flex items-center gap-1"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleMarkAsResolved(request);
-                              }}
-                            >
-                              <Check className="h-4 w-4" />
-                              Marker som løst
-                            </Button>
-                          </div>
-                        </FallbackRequestItem>
-                      ))}
-                    </div>
-                  </ScrollArea>
-                </>
+                </ScrollArea>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
                   <p>Hurra! Ingen uløste henvendelser til fallback</p>
