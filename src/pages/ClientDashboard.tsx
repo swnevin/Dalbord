@@ -58,6 +58,29 @@ const ClientDashboard = () => {
     organizationId: user?.organization_id
   });
 
+  // Define the filteredConversations function before it's used
+  const filteredConversations = useCallback(() => {
+    return conversations.filter(conv => {
+      if (activeFilter === "saved" && !conv.reportTags?.includes("system.saved")) return false;
+      if (activeFilter === "approved" && !conv.reportTags?.includes("system.reviewed")) return false;
+      
+      if (!searchTerm) return true;
+      
+      const searchLower = searchTerm.toLowerCase();
+      
+      const nameMatch = (conv.name || "Ukjent bruker").toLowerCase().includes(searchLower);
+      const dateMatch = conv.updatedAt.toLowerCase().includes(searchLower);
+      const deviceMatch = (conv.device || "").toLowerCase().includes(searchLower);
+      
+      if (searchInContent && isConversationPreloaded(conv._id)) {
+        return nameMatch || dateMatch || deviceMatch || 
+               searchInDialogContent(searchTerm, conv._id);
+      }
+      
+      return nameMatch || dateMatch || deviceMatch;
+    });
+  }, [conversations, searchTerm, activeFilter, searchInContent, isConversationPreloaded, searchInDialogContent]);
+
   const getPaginatedConversations = useCallback((page: number, itemsPerPage: number) => {
     const filtered = filteredConversations();
     const startIndex = (page - 1) * itemsPerPage;
@@ -139,10 +162,13 @@ const ClientDashboard = () => {
           .filter(id => id !== conversationId && !isConversationPreloaded(id));
           
         if (conversationIds.length > 0) {
-          preloadConversations(conversationIds)
-            .catch(error => {
+          const preloadPromise = preloadConversations(conversationIds);
+          // Fix: Check if preloadPromise is a Promise before calling .catch
+          if (preloadPromise && typeof preloadPromise.catch === 'function') {
+            preloadPromise.catch(error => {
               console.error('Error preloading conversations:', error);
             });
+          }
         }
       }
     }, 1000);
@@ -210,7 +236,8 @@ const ClientDashboard = () => {
         setIsLoadingDialog(false);
       }
       
-      await preloadConversations([conversationId]);
+      const preloadPromise = preloadConversations([conversationId]);
+      // Return the data for use in other functions
       return data;
     } catch (error) {
       console.error('Error fetching dialog:', error);
@@ -239,7 +266,11 @@ const ClientDashboard = () => {
       }
       
       const conversationIds = conversationsToLoad.map(conv => conv._id);
-      await preloadConversations(conversationIds);
+      const preloadPromise = preloadConversations(conversationIds);
+      // Fix: Check if preloadPromise is a Promise before calling .then
+      if (preloadPromise && typeof preloadPromise.then === 'function') {
+        await preloadPromise;
+      }
       
     } catch (error) {
       console.error('Error in auto loading conversations:', error);
@@ -317,28 +348,6 @@ const ClientDashboard = () => {
     setSearchTerm(term);
   }, []);
 
-  const filteredConversations = useCallback(() => {
-    return conversations.filter(conv => {
-      if (activeFilter === "saved" && !conv.reportTags?.includes("system.saved")) return false;
-      if (activeFilter === "approved" && !conv.reportTags?.includes("system.reviewed")) return false;
-      
-      if (!searchTerm) return true;
-      
-      const searchLower = searchTerm.toLowerCase();
-      
-      const nameMatch = (conv.name || "Ukjent bruker").toLowerCase().includes(searchLower);
-      const dateMatch = conv.updatedAt.toLowerCase().includes(searchLower);
-      const deviceMatch = (conv.device || "").toLowerCase().includes(searchLower);
-      
-      if (searchInContent && isConversationPreloaded(conv._id)) {
-        return nameMatch || dateMatch || deviceMatch || 
-               searchInDialogContent(searchTerm, conv._id);
-      }
-      
-      return nameMatch || dateMatch || deviceMatch;
-    });
-  }, [conversations, searchTerm, activeFilter, searchInContent, isConversationPreloaded, searchInDialogContent]);
-
   useEffect(() => {
     if (activeTab === "conversations" && autoLoadEnabled && !isAutoLoading) {
       const timer = setTimeout(() => {
@@ -368,10 +377,13 @@ const ClientDashboard = () => {
           .slice(0, 3); // Start with loading first 3
         
         if (conversationIds.length > 0) {
-          preloadConversations(conversationIds)
-            .catch(error => {
+          const preloadPromise = preloadConversations(conversationIds);
+          // Fix: Check if preloadPromise is a Promise before calling .catch
+          if (preloadPromise && typeof preloadPromise.catch === 'function') {
+            preloadPromise.catch(error => {
               console.error('Error preloading initial conversations:', error);
             });
+          }
         }
       }
     }
