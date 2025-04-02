@@ -210,8 +210,24 @@ const ClientDashboard = () => {
       
       const searchLower = searchTerm.toLowerCase();
       
+      // Enhanced date search - check for partial matches in day, month, year
+      const date = new Date(conv.updatedAt);
+      const day = date.getDate().toString().padStart(2, '0');
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const year = date.getFullYear().toString();
+      const hour = date.getHours().toString().padStart(2, '0');
+      const minute = date.getMinutes().toString().padStart(2, '0');
+      
+      const dateFormatted = `${day}.${month}.${year}`;
+      const timeFormatted = `${hour}:${minute}`;
+      
       const nameMatch = (conv.name || "Ukjent bruker").toLowerCase().includes(searchLower);
-      const dateMatch = conv.updatedAt.toLowerCase().includes(searchLower);
+      const dateMatch = dateFormatted.includes(searchLower) || 
+                         `${day}.${month}`.includes(searchLower) ||
+                         `${month}.${year}`.includes(searchLower) ||
+                         year.includes(searchLower) ||
+                         timeFormatted.includes(searchLower) ||
+                         conv.updatedAt.toLowerCase().includes(searchLower);
       const deviceMatch = (conv.device || "").toLowerCase().includes(searchLower);
       
       if (searchInContent && isConversationPreloaded(conv._id)) {

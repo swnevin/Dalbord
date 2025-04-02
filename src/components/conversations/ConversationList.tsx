@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Bookmark, CheckCircle, ChevronLeft, ChevronRight, Search, Trash2, FileText, Info } from "lucide-react";
@@ -117,9 +118,27 @@ export const ConversationList = ({
 
       {!collapsed && <>
         <div className="flex flex-col gap-2">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-            <Input type="text" placeholder="Søk etter navn, dato..." value={searchTerm} onChange={e => onSearchTermChange(e.target.value)} className="pl-9" />
+          <div className="relative flex items-center">
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+              <Input 
+                type="text" 
+                placeholder="Søk etter navn, dato eller nøkkelord..." 
+                value={searchTerm} 
+                onChange={e => onSearchTermChange(e.target.value)} 
+                className="pl-9" 
+              />
+            </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="ml-1 text-gray-500 hover:bg-secondary/10">
+                  <Info className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="bg-white p-2 text-sm max-w-xs">
+                Nøkkelord søker kun i lastede samtaler
+              </TooltipContent>
+            </Tooltip>
           </div>
         </div>
 
