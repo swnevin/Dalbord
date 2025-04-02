@@ -52,4 +52,9 @@
   .hover-highlight-active {
     @apply bg-secondary text-primary hover:bg-secondary;
   }
+
+  /* Add custom styles for chat message links */
+  .prose-invert a {
+    @apply text-secondary font-medium hover:text-secondary/90 underline-offset-2;
+  }
 }
