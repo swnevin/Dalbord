@@ -15,9 +15,10 @@ interface FallbackRequestItemProps {
   request: FallbackRequest;
   onClick: () => void;
   isResolved?: boolean;
+  children?: React.ReactNode;
 }
 
-export const FallbackRequestItem = ({ request, onClick, isResolved = false }: FallbackRequestItemProps) => {
+export const FallbackRequestItem = ({ request, onClick, isResolved = false, children }: FallbackRequestItemProps) => {
   const formattedDate = formatDistanceToNow(new Date(request.created_at), {
     addSuffix: true,
     locale: nb
@@ -39,6 +40,11 @@ export const FallbackRequestItem = ({ request, onClick, isResolved = false }: Fa
         <p className="text-sm text-muted-foreground line-clamp-2">
           {request.response}
         </p>
+        {!isResolved && children && (
+          <div className="flex justify-end mt-2 gap-2">
+            {children}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,13 +13,19 @@ import {
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PlusCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { PlusCircle, ChevronDown, ChevronUp, InfoIcon } from "lucide-react";
 import { toast } from "sonner";
 import { FallbackRequestItem } from "./FallbackRequestItem";
 import { CreateFAQDialog } from "./CreateFAQDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader } from "@/components/ui/loader";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { 
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TooltipProvider
+} from "@/components/ui/tooltip";
 
 interface FallbackRequest {
   id: string;
@@ -36,6 +43,16 @@ export const FallbackRequests = () => {
   const [selectedRequest, setSelectedRequest] = useState<FallbackRequest | null>(null);
   const [createFAQOpen, setCreateFAQOpen] = useState(false);
   const [showAllResolved, setShowAllResolved] = useState(false);
+  const [showFilteredResults, setShowFilteredResults] = useState(true);
+  
+  // Filter out "not_a_question" entries
+  const filteredUnresolvedRequests = showFilteredResults 
+    ? fallbackRequests.filter(req => req.query !== "not_a_question")
+    : fallbackRequests;
+  
+  const filteredResolvedRequests = showFilteredResults 
+    ? resolvedRequests.filter(req => req.query !== "not_a_question")
+    : resolvedRequests;
   
   const fetchFallbackRequests = async () => {
     if (!user?.organization_id) return;
@@ -102,9 +119,26 @@ export const FallbackRequests = () => {
     }
   };
 
+  const handleMarkAsResolved = async (requestId: string) => {
+    try {
+      const { error } = await supabase
+        .from('fallback_requests')
+        .update({ is_resolved: true })
+        .eq('id', requestId);
+        
+      if (error) throw error;
+      
+      fetchFallbackRequests();
+      toast.success('Henvendelse markert som løst');
+    } catch (error) {
+      console.error('Error updating fallback request:', error);
+      toast.error('Kunne ikke oppdatere henvendelsen');
+    }
+  };
+
   const displayedResolvedRequests = showAllResolved 
-    ? resolvedRequests 
-    : resolvedRequests.slice(0, 3);
+    ? filteredResolvedRequests 
+    : filteredResolvedRequests.slice(0, 3);
 
   const renderLoadingState = () => (
     <div className="flex justify-center py-4">
@@ -122,6 +156,29 @@ export const FallbackRequests = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-muted-foreground">
+                Viser {filteredUnresolvedRequests.length} av {fallbackRequests.length} uløste henvendelser
+              </p>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <InfoIcon className="h-4 w-4 text-muted-foreground cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Filter skjuler henvendelser med "not_a_question" som spørsmål</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setShowFilteredResults(!showFilteredResults)}
+            >
+              {showFilteredResults ? "Vis alle" : "Vis filtrerte"}
+            </Button>
+          </div>
+          
           <Tabs defaultValue="unresolved" className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-4">
               <TabsTrigger value="unresolved">Uløste henvendelser</TabsTrigger>
@@ -131,15 +188,26 @@ export const FallbackRequests = () => {
             <TabsContent value="unresolved">
               {isLoading ? (
                 renderLoadingState()
-              ) : fallbackRequests.length > 0 ? (
+              ) : filteredUnresolvedRequests.length > 0 ? (
                 <ScrollArea className="h-[320px]">
                   <div className="divide-y">
-                    {fallbackRequests.map((request) => (
+                    {filteredUnresolvedRequests.map((request) => (
                       <FallbackRequestItem 
                         key={request.id} 
                         request={request} 
                         onClick={() => handleRequestClick(request)} 
-                      />
+                      >
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleMarkAsResolved(request.id);
+                          }}
+                        >
+                          Marker som løst uten å opprette Q&A
+                        </Button>
+                      </FallbackRequestItem>
                     ))}
                   </div>
                 </ScrollArea>
@@ -153,7 +221,7 @@ export const FallbackRequests = () => {
             <TabsContent value="resolved">
               {isLoading ? (
                 renderLoadingState()
-              ) : resolvedRequests.length > 0 ? (
+              ) : filteredResolvedRequests.length > 0 ? (
                 <>
                   <ScrollArea className="h-[320px]">
                     <div className="divide-y">
@@ -161,14 +229,14 @@ export const FallbackRequests = () => {
                         <FallbackRequestItem 
                           key={request.id} 
                           request={request} 
-                          onClick={() => {}} // Resolved requests don't need to be clicked
+                          onClick={() => {}} 
                           isResolved={true}
                         />
                       ))}
                     </div>
                   </ScrollArea>
                   
-                  {resolvedRequests.length > 3 && (
+                  {filteredResolvedRequests.length > 3 && (
                     <Button 
                       variant="ghost" 
                       className="w-full mt-2 flex items-center justify-center gap-1" 
@@ -177,7 +245,7 @@ export const FallbackRequests = () => {
                       {showAllResolved ? (
                         <>Vis færre <ChevronUp className="h-4 w-4" /></>
                       ) : (
-                        <>Vis alle ({resolvedRequests.length}) <ChevronDown className="h-4 w-4" /></>
+                        <>Vis alle ({filteredResolvedRequests.length}) <ChevronDown className="h-4 w-4" /></>
                       )}
                     </Button>
                   )}
