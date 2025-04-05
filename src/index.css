@@ -28,11 +28,11 @@
   }
 
   body {
-    @apply bg-cream font-poppins text-primary;
+    @apply bg-cream font-poppins;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    @apply font-montserrat font-bold text-primary;
+    @apply font-montserrat font-bold;
   }
 }
 

@@ -33,11 +33,11 @@ export const DashboardManual = () => {
             </AccordionTrigger>
             <AccordionContent className="text-muted-foreground space-y-2">
               <p>
-                Velkommen til Dalai Dashbordet! Denne manualen vil hjelpe deg med å forstå 
+                Velkommen til DALAI Dashbordet! Denne manualen vil hjelpe deg med å forstå 
                 de ulike funksjonene og verktøyene som er tilgjengelige for deg.
               </p>
               <p>
-                Dalai-dashbordet er delt inn i fem hovedseksjoner: Hjem, Samtaler, Kunnskapsbase, 
+                DALAI-dashbordet er delt inn i fem hovedseksjoner: Hjem, Samtaler, Kunnskapsbase, 
                 Statistikk og Administrator. Hver seksjon gir deg ulike verktøy for å overvåke 
                 og forbedre din chatbot.
               </p>
@@ -213,6 +213,14 @@ export const DashboardManual = () => {
                 <li>Oppdater kunnskapsbasen med ny informasjon når den blir tilgjengelig</li>
                 <li>Test chatboten jevnlig for å sikre at svarene er nøyaktige</li>
                 <li>Bruk statistikk for å måle forbedringer over tid</li>
+              </ul>
+              <p className="mt-2">
+                <strong>Tastaturkjorti:</strong>
+              </p>
+              <ul className="list-disc pl-5">
+                <li><strong>/</strong> - Åpne søk i Samtaler eller Kunnskapsbase</li>
+                <li><strong>ESC</strong> - Lukk åpne dialogbokser</li>
+                <li><strong>Tab</strong> - Naviger mellom elementer</li>
               </ul>
             </AccordionContent>
           </AccordionItem>
