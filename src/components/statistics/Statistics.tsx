@@ -80,6 +80,55 @@ export const Statistics = () => {
         </div>
       </div>
 
+      {/* Detailed Analytics Section - Moved up */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 text-primary">
+          <UserRoundIcon size={20} />
+          <h2 className="text-xl font-semibold">Detaljert analyse</h2>
+        </div>
+        <Separator className="bg-primary/10" />
+        
+        {/* TimeSeriesCharts first */}
+        <TimeSeriesChart
+          data={data.userTimeSeries}
+          title="Brukere over tid"
+          description="Antall unike brukere som har interagert med systemet over tid."
+          color="#28483f"
+          isLoading={loading.userChart}
+          loadingText="Laster brukerstatistikk..."
+        />
+        
+        <TimeSeriesChart
+          data={data.sessionTimeSeries}
+          title="Samtaler over tid"
+          description="Totalt antall samtaler (økter) gjennomført i systemet over tid."
+          color="#28483F"
+          isLoading={loading.sessionChart}
+          loadingText="Laster samtalestatistikk..."
+        />
+        
+        <TimeSeriesChart
+          data={data.messageTimeSeries}
+          title="Meldinger over tid"
+          description="Totalt antall meldinger sendt i systemet over tid."
+          color="#28483F"
+          isLoading={loading.messageChart}
+          loadingText="Laster meldingsstatistikk..."
+        />
+        
+        {/* Bar chart at the bottom */}
+        <BarChart
+          data={data.topIntents}
+          title="Temaer"
+          description="De vanligste temaene brukerne spør om i systemet."
+          color="#28483F"
+          isLoading={loading.intentChart}
+          loadingText="Laster tema-statistikk..."
+          limit={10}
+          layout="horizontal" 
+        />
+      </div>
+
       {/* Håndtering av spørsmål Section */}
       <div className="space-y-4">
         <div className="flex items-center gap-2 text-primary">
@@ -120,55 +169,6 @@ export const Statistics = () => {
           hourlyRate={savingsSettings.hourlyRate}
           onSettingsChange={handleSavingsSettingsChange}
           totalMessages={data.totalMessages ?? 0}
-        />
-      </div>
-
-      {/* Detailed Analytics Section */}
-      <div className="space-y-4">
-        <div className="flex items-center gap-2 text-primary">
-          <UserRoundIcon size={20} />
-          <h2 className="text-xl font-semibold">Detaljert analyse</h2>
-        </div>
-        <Separator className="bg-primary/10" />
-        
-        <BarChart
-          data={data.topIntents}
-          title="Temaer"
-          description="De vanligste temaene brukerne spør om i systemet."
-          color="#28483F"
-          isLoading={loading.intentChart}
-          loadingText="Laster tema-statistikk..."
-          limit={10}
-          layout="horizontal" 
-        />
-          
-        <div className="grid gap-8 md:grid-cols-2">
-          <TimeSeriesChart
-            data={data.userTimeSeries}
-            title="Brukere over tid"
-            description="Antall unike brukere som har interagert med systemet over tid."
-            color="#28483f"
-            isLoading={loading.userChart}
-            loadingText="Laster brukerstatistikk..."
-          />
-          
-          <TimeSeriesChart
-            data={data.sessionTimeSeries}
-            title="Samtaler over tid"
-            description="Totalt antall samtaler (økter) gjennomført i systemet over tid."
-            color="#28483F"
-            isLoading={loading.sessionChart}
-            loadingText="Laster samtalestatistikk..."
-          />
-        </div>
-        
-        <TimeSeriesChart
-          data={data.messageTimeSeries}
-          title="Meldinger over tid"
-          description="Totalt antall meldinger sendt i systemet over tid."
-          color="#28483F"
-          isLoading={loading.messageChart}
-          loadingText="Laster meldingsstatistikk..."
         />
       </div>
     </div>
