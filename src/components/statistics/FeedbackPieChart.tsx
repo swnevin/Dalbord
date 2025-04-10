@@ -56,7 +56,7 @@ export const FeedbackPieChart: React.FC<FeedbackPieChartProps> = ({
     return (
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle>Tilbakemeldinger på svar</CardTitle>
+          <CardTitle className="text-sm font-medium">Tilbakemeldinger på svar</CardTitle>
           <TooltipProvider delayDuration={100}>
             <UITooltip>
               <TooltipTrigger asChild>
@@ -84,7 +84,7 @@ export const FeedbackPieChart: React.FC<FeedbackPieChartProps> = ({
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle>Tilbakemeldinger på svar</CardTitle>
+        <CardTitle className="text-sm font-medium">Tilbakemeldinger på svar</CardTitle>
         <TooltipProvider delayDuration={100}>
           <UITooltip>
             <TooltipTrigger asChild>
@@ -114,19 +114,29 @@ export const FeedbackPieChart: React.FC<FeedbackPieChartProps> = ({
                 innerRadius={40}
                 dataKey="value"
                 labelLine={false}
+                paddingAngle={2}
+                strokeWidth={3}
+                stroke="#ffffff"
               >
                 {data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
+                  <Cell 
+                    key={`cell-${index}`} 
+                    fill={entry.color} 
+                    className="drop-shadow-md"
+                  />
                 ))}
               </Pie>
               <Tooltip content={<CustomTooltip />} />
             </RechartsPieChart>
           </ChartContainer>
         </div>
-        <div className="flex justify-center gap-6 mt-4">
+        <div className="flex justify-center gap-6 mt-6">
           {data.map((entry, index) => (
-            <div key={`legend-${index}`} className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: entry.color }}></div>
+            <div key={`legend-${index}`} className="flex items-center gap-2 bg-white p-1.5 px-3 rounded-full shadow-sm">
+              <div 
+                className="w-3 h-3 rounded-full" 
+                style={{ backgroundColor: entry.color }}
+              ></div>
               <span className="text-sm">{entry.name}</span>
             </div>
           ))}
