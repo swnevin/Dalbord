@@ -1,19 +1,14 @@
 
-import { useState, useEffect } from "react";
-import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+import { useState } from "react";
 import { 
   Card, 
   CardContent, 
   CardHeader, 
   CardTitle,
-  CardDescription,
-  CardFooter
+  CardDescription
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { Skeleton } from "@/components/ui/skeleton";
-import { PlusCircle, ChevronDown, ChevronUp, InfoIcon } from "lucide-react";
+import { ChevronDown, ChevronUp, InfoIcon } from "lucide-react";
 import { toast } from "sonner";
 import { FallbackRequestItem } from "./FallbackRequestItem";
 import { CreateFAQDialog } from "./CreateFAQDialog";
@@ -23,27 +18,24 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   Tooltip,
   TooltipContent,
-  TooltipTrigger,
-  TooltipProvider
+  TooltipTrigger
 } from "@/components/ui/tooltip";
-
-interface FallbackRequest {
-  id: string;
-  query: string;
-  response: string;
-  created_at: string;
-  is_resolved: boolean;
-}
+import { useFallbackRequests, FallbackRequest } from "@/hooks/use-fallback-requests";
 
 export const FallbackRequests = () => {
-  const { user } = useAuth();
-  const [fallbackRequests, setFallbackRequests] = useState<FallbackRequest[]>([]);
-  const [resolvedRequests, setResolvedRequests] = useState<FallbackRequest[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const {
+    fallbackRequests,
+    resolvedRequests,
+    isLoading,
+    showFilteredResults,
+    setShowFilteredResults,
+    fetchFallbackRequests,
+    markAsResolved
+  } = useFallbackRequests();
+  
   const [selectedRequest, setSelectedRequest] = useState<FallbackRequest | null>(null);
   const [createFAQOpen, setCreateFAQOpen] = useState(false);
   const [showAllResolved, setShowAllResolved] = useState(false);
-  const [showFilteredResults, setShowFilteredResults] = useState(true);
   
   // Filter out "not_a_question" entries
   const filteredUnresolvedRequests = showFilteredResults 
@@ -54,44 +46,6 @@ export const FallbackRequests = () => {
     ? resolvedRequests.filter(req => req.query !== "not_a_question")
     : resolvedRequests;
   
-  const fetchFallbackRequests = async () => {
-    if (!user?.organization_id) return;
-    
-    try {
-      setIsLoading(true);
-      
-      const { data: unresolvedData, error: unresolvedError } = await supabase
-        .from('fallback_requests')
-        .select('*')
-        .eq('organization_id', user.organization_id)
-        .eq('is_resolved', false)
-        .order('created_at', { ascending: false });
-        
-      if (unresolvedError) throw unresolvedError;
-      
-      const { data: resolvedData, error: resolvedError } = await supabase
-        .from('fallback_requests')
-        .select('*')
-        .eq('organization_id', user.organization_id)
-        .eq('is_resolved', true)
-        .order('created_at', { ascending: false });
-        
-      if (resolvedError) throw resolvedError;
-      
-      setFallbackRequests(unresolvedData || []);
-      setResolvedRequests(resolvedData || []);
-    } catch (error) {
-      console.error('Error fetching fallback requests:', error);
-      toast.error('Kunne ikke hente henvendelser til fallback');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  useEffect(() => {
-    fetchFallbackRequests();
-  }, [user?.organization_id]);
-  
   const handleRequestClick = (request: FallbackRequest) => {
     setSelectedRequest(request);
     setCreateFAQOpen(true);
@@ -99,41 +53,14 @@ export const FallbackRequests = () => {
   
   const handleFAQCreated = async () => {
     if (!selectedRequest) return;
-    
-    try {
-      const { error } = await supabase
-        .from('fallback_requests')
-        .update({ is_resolved: true })
-        .eq('id', selectedRequest.id);
-        
-      if (error) throw error;
-      
-      fetchFallbackRequests();
-      toast.success('Q&A opprettet og henvendelse markert som løst');
-    } catch (error) {
-      console.error('Error updating fallback request:', error);
-      toast.error('Kunne ikke oppdatere henvendelsen');
-    } finally {
-      setCreateFAQOpen(false);
-      setSelectedRequest(null);
-    }
+    await markAsResolved(selectedRequest.id);
+    setCreateFAQOpen(false);
+    setSelectedRequest(null);
+    toast.success('Q&A opprettet og henvendelse markert som løst');
   };
 
   const handleMarkAsResolved = async (requestId: string) => {
-    try {
-      const { error } = await supabase
-        .from('fallback_requests')
-        .update({ is_resolved: true })
-        .eq('id', requestId);
-        
-      if (error) throw error;
-      
-      fetchFallbackRequests();
-      toast.success('Henvendelse markert som løst');
-    } catch (error) {
-      console.error('Error updating fallback request:', error);
-      toast.error('Kunne ikke oppdatere henvendelsen');
-    }
+    await markAsResolved(requestId);
   };
 
   const displayedResolvedRequests = showAllResolved 
