@@ -92,6 +92,7 @@ const sectionLabels: Record<string, string> = {
 
 export const ProjectSettingsSheet = ({ organizationId, organizationName }: ProjectSettingsSheetProps) => {
   const [preferences, setPreferences] = useState<ChartPreference[]>([]);
+  const [sectionVisibility, setSectionVisibility] = useState<Record<string, boolean>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -107,6 +108,17 @@ export const ProjectSettingsSheet = ({ organizationId, organizationName }: Proje
 
       if (error) throw error;
       setPreferences(data || []);
+      
+      // Initialize section visibility based on chart visibility
+      const sections: Record<string, boolean> = {};
+      Object.keys(chartGroups).forEach(section => {
+        const sectionCharts = chartGroups[section];
+        const allChartsInSection = sectionCharts.map(chartType => 
+          data?.find(pref => pref.chart_type === chartType)?.is_visible || false
+        );
+        sections[section] = allChartsInSection.some(isVisible => isVisible);
+      });
+      setSectionVisibility(sections);
     } catch (error) {
       console.error("Error fetching statistics preferences:", error);
       toast.error("Kunne ikke hente statistikkinnstillinger");
@@ -139,6 +151,50 @@ export const ProjectSettingsSheet = ({ organizationId, organizationName }: Proje
     }
   };
 
+  // Toggle visibility for an entire section
+  const updateSectionVisibility = async (sectionKey: string, isVisible: boolean) => {
+    setSectionVisibility(prev => ({
+      ...prev,
+      [sectionKey]: isVisible
+    }));
+
+    const sectionCharts = chartGroups[sectionKey];
+    const updatedPreferences = [...preferences];
+    
+    // Update all charts in this section
+    for (const chartType of sectionCharts) {
+      const prefIndex = updatedPreferences.findIndex(p => p.chart_type === chartType);
+      if (prefIndex >= 0) {
+        updatedPreferences[prefIndex] = {
+          ...updatedPreferences[prefIndex],
+          is_visible: isVisible
+        };
+      }
+    }
+    
+    setPreferences(updatedPreferences);
+    
+    try {
+      // Update all charts in the section at once
+      const updates = sectionCharts.map(chartType => ({
+        organization_id: organizationId,
+        chart_type: chartType,
+        is_visible: isVisible
+      }));
+      
+      const { error } = await supabase
+        .from("statistics_preferences")
+        .upsert(updates, { onConflict: 'organization_id,chart_type' });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error("Error updating section visibility:", error);
+      toast.error("Kunne ikke oppdatere seksjonens innstillinger");
+      // Revert the local state change on error
+      fetchPreferences();
+    }
+  };
+
   // Save all preferences at once
   const saveAllPreferences = async () => {
     setIsSaving(true);
@@ -150,7 +206,7 @@ export const ProjectSettingsSheet = ({ organizationId, organizationName }: Proje
           preferences.map(pref => ({
             id: pref.id,
             organization_id: pref.organization_id,
-            chart_type: pref.chart_type,
+            chart_type: pref.chart_type as ChartType,
             is_visible: pref.is_visible,
             display_order: pref.display_order
           }))
@@ -173,9 +229,8 @@ export const ProjectSettingsSheet = ({ organizationId, organizationName }: Proje
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button variant="outline" size="icon" className="ml-2">
+        <Button variant="outline" size="icon" title="Prosjektinnstillinger">
           <Settings className="h-4 w-4" />
-          Prosjektinnstillinger
         </Button>
       </SheetTrigger>
       <SheetContent className="w-[400px] sm:w-[540px] overflow-y-auto">
@@ -190,7 +245,7 @@ export const ProjectSettingsSheet = ({ organizationId, organizationName }: Proje
           <CardHeader>
             <CardTitle>Rediger Statistikk-fanen</CardTitle>
             <CardDescription>
-              Velg hvilke diagrammer som skal vises i statistikk-fanen.
+              Velg hvilke diagrammer og seksjoner som skal vises i statistikk-fanen.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -203,7 +258,22 @@ export const ProjectSettingsSheet = ({ organizationId, organizationName }: Proje
                 {Object.entries(chartGroups).map(([sectionKey, chartTypes]) => (
                   <AccordionItem key={sectionKey} value={sectionKey}>
                     <AccordionTrigger className="text-primary font-medium">
-                      {sectionLabels[sectionKey]}
+                      <div className="flex items-center justify-between w-full pr-4">
+                        <span>{sectionLabels[sectionKey]}</span>
+                        <div className="flex items-center space-x-2" onClick={(e) => e.stopPropagation()}>
+                          <Label 
+                            htmlFor={`section-${sectionKey}`}
+                            className="text-sm font-normal mr-2"
+                          >
+                            Vis seksjon
+                          </Label>
+                          <Switch
+                            id={`section-${sectionKey}`}
+                            checked={sectionVisibility[sectionKey] || false}
+                            onCheckedChange={(checked) => updateSectionVisibility(sectionKey, checked)}
+                          />
+                        </div>
+                      </div>
                     </AccordionTrigger>
                     <AccordionContent>
                       <div className="space-y-4 pt-2">
@@ -223,6 +293,7 @@ export const ProjectSettingsSheet = ({ organizationId, organizationName }: Proje
                                 id={`chart-${chartType}`}
                                 checked={preference.is_visible}
                                 onCheckedChange={(checked) => updateChartVisibility(chartType, checked)}
+                                disabled={!sectionVisibility[sectionKey]}
                               />
                             </div>
                           );

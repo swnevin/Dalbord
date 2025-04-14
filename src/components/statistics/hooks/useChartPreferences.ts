@@ -19,6 +19,33 @@ export const useChartPreferences = () => {
   const [preferences, setPreferences] = useState<ChartPreference[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  
+  // Group chart types by section
+  const chartGroups: Record<string, ChartType[]> = {
+    summary: [
+      "total_messages", 
+      "total_sessions", 
+      "total_conversations", 
+      "escalated_count", 
+      "thumbs_up", 
+      "thumbs_down", 
+      "success_metrics"
+    ],
+    detailed_analysis: [
+      "users_over_time", 
+      "sessions_over_time", 
+      "messages_over_time", 
+      "topics"
+    ],
+    question_handling: [
+      "feedback_pie", 
+      "success_vs_fallback"
+    ],
+    savings: [
+      "savings_time", 
+      "savings_money"
+    ]
+  };
 
   useEffect(() => {
     const fetchPreferences = async () => {
@@ -53,11 +80,17 @@ export const useChartPreferences = () => {
     const preference = preferences.find(p => p.chart_type === chartType);
     return preference ? preference.is_visible : true; // Default to visible if preference not found
   };
+  
+  const isSectionVisible = (sectionKey: string): boolean => {
+    const sectionCharts = chartGroups[sectionKey] || [];
+    return sectionCharts.some(chartType => isChartVisible(chartType));
+  };
 
   return {
     preferences,
     isLoading,
     error,
-    isChartVisible
+    isChartVisible,
+    isSectionVisible
   };
 };

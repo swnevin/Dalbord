@@ -19,6 +19,10 @@ interface SavingsChartsProps {
   hourlyRate: number; // in NOK
   onSettingsChange: (settings: { timePerMessage: number; hourlyRate: number }) => void;
   totalMessages: number;
+  visibleCharts?: {
+    time: boolean;
+    money: boolean;
+  };
 }
 
 export const SavingsCharts = ({
@@ -29,6 +33,7 @@ export const SavingsCharts = ({
   hourlyRate,
   onSettingsChange,
   totalMessages,
+  visibleCharts = { time: true, money: true }
 }: SavingsChartsProps) => {
   const [localTimePerMessage, setLocalTimePerMessage] = useState(timePerMessage.toString());
   const [localHourlyRate, setLocalHourlyRate] = useState(hourlyRate.toString());
@@ -101,89 +106,99 @@ export const SavingsCharts = ({
     </div>
   );
 
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">
-            Timer spart
-          </CardTitle>
-          <TooltipProvider delayDuration={100}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <InfoIcon className="h-4 w-4 text-muted-foreground cursor-help" />
-              </TooltipTrigger>
-              <TooltipContent>{timeTooltipContent}</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex items-center justify-center py-4">
-              <Loader size="sm" />
-            </div>
-          ) : (
-            <>
-              <div className="text-2xl font-bold">
-                {formatTime(timeSaved)}
-              </div>
-              <div className="text-xs text-muted-foreground flex items-center gap-2 mt-1">
-                <span>Per melding:</span>
-                <Input
-                  type="number" 
-                  value={localTimePerMessage}
-                  onChange={handleTimeChange}
-                  className="h-6 w-16 text-xs"
-                  min="0.1"
-                  step="0.1"
-                />
-                <span>min</span>
-              </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
+  // Determine the grid class based on which charts are visible
+  const gridClassName = 
+    (visibleCharts.time && visibleCharts.money) 
+      ? "grid grid-cols-1 md:grid-cols-2 gap-4" 
+      : "grid grid-cols-1 gap-4";
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">
-            Penger spart
-          </CardTitle>
-          <TooltipProvider delayDuration={100}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <InfoIcon className="h-4 w-4 text-muted-foreground cursor-help" />
-              </TooltipTrigger>
-              <TooltipContent>{moneyTooltipContent}</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex items-center justify-center py-4">
-              <Loader size="sm" />
-            </div>
-          ) : (
-            <>
-              <div className="text-2xl font-bold">
-                {formatMoney(moneySaved)}
+  return (
+    <div className={gridClassName}>
+      {visibleCharts.time && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Timer spart
+            </CardTitle>
+            <TooltipProvider delayDuration={100}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <InfoIcon className="h-4 w-4 text-muted-foreground cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent>{timeTooltipContent}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader size="sm" />
               </div>
-              <div className="text-xs text-muted-foreground flex items-center gap-2 mt-1">
-                <span>Timelønn:</span>
-                <Input
-                  type="number"
-                  value={localHourlyRate}
-                  onChange={handleRateChange}
-                  className="h-6 w-16 text-xs"
-                  min="1"
-                  step="1"
-                />
-                <span>kr/t</span>
+            ) : (
+              <>
+                <div className="text-2xl font-bold">
+                  {formatTime(timeSaved)}
+                </div>
+                <div className="text-xs text-muted-foreground flex items-center gap-2 mt-1">
+                  <span>Per melding:</span>
+                  <Input
+                    type="number" 
+                    value={localTimePerMessage}
+                    onChange={handleTimeChange}
+                    className="h-6 w-16 text-xs"
+                    min="0.1"
+                    step="0.1"
+                  />
+                  <span>min</span>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {visibleCharts.money && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Penger spart
+            </CardTitle>
+            <TooltipProvider delayDuration={100}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <InfoIcon className="h-4 w-4 text-muted-foreground cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent>{moneyTooltipContent}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader size="sm" />
               </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
+            ) : (
+              <>
+                <div className="text-2xl font-bold">
+                  {formatMoney(moneySaved)}
+                </div>
+                <div className="text-xs text-muted-foreground flex items-center gap-2 mt-1">
+                  <span>Timelønn:</span>
+                  <Input
+                    type="number"
+                    value={localHourlyRate}
+                    onChange={handleRateChange}
+                    className="h-6 w-16 text-xs"
+                    min="1"
+                    step="1"
+                  />
+                  <span>kr/t</span>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

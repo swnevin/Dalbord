@@ -1,7 +1,6 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, Bot, Trash2, Clipboard } from "lucide-react";
+import { Plus, Bot, Trash2, Clipboard, Settings } from "lucide-react";
 import { Database } from "@/integrations/supabase/types";
 import {
   Sheet,
