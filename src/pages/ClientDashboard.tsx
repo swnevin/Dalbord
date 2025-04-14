@@ -1,6 +1,6 @@
-
 import { useState, useEffect, useCallback } from "react";
 import Sidebar from "../components/Sidebar";
+import Topbar from "../components/Topbar";
 import KnowledgeBase from "@/components/KnowledgeBase";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,6 +30,7 @@ type FilterType = "all" | "approved" | "saved";
 
 const ClientDashboard = () => {
   const [activeTab, setActiveTab] = useState("home");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const { user } = useAuth();
   const [conversations, setConversations] = useState<VoiceflowTranscript[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
@@ -363,13 +364,15 @@ const ClientDashboard = () => {
   const showDialogLoader = useMinimumLoading(isLoadingDialog);
 
   return (
-    <div className="flex h-screen bg-cream">
+    <div className="flex flex-col h-screen bg-cream">
       <Sidebar 
         role="client" 
         activeTab={activeTab} 
-        onTabChange={setActiveTab} 
+        onTabChange={setActiveTab}
+        onCollapsedChange={setSidebarCollapsed}
       />
-      <div className="flex-1 overflow-auto">
+      <Topbar sidebarCollapsed={sidebarCollapsed} />
+      <div className={`flex-1 overflow-auto transition-all duration-300 ${sidebarCollapsed ? 'ml-20' : 'ml-64'}`}>
         {activeTab === "home" && <Home />}
         {activeTab === "conversations" && (
           <div className="flex flex-1">

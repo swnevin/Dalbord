@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   Users,
-  LogOut,
   MessageSquare,
   BookOpen,
   LineChart,
@@ -18,13 +17,14 @@ interface SidebarProps {
   role: "admin" | "client";
   onTabChange: (tab: string) => void;
   activeTab: string;
+  onCollapsedChange: (collapsed: boolean) => void;
 }
 
 type TabName = "organizations" | "conversations" | "knowledge" | "statistics" | "home" | "administrator";
 
-const Sidebar = ({ role, onTabChange, activeTab }: SidebarProps) => {
+const Sidebar = ({ role, onTabChange, activeTab, onCollapsedChange }: SidebarProps) => {
   const [collapsed, setCollapsed] = useState(true);
-  const { logout, user } = useAuth();
+  const { user } = useAuth();
   const [permittedTabs, setPermittedTabs] = useState<TabName[]>([]);
 
   const adminLinks = [
@@ -71,38 +71,25 @@ const Sidebar = ({ role, onTabChange, activeTab }: SidebarProps) => {
 
   const handleMouseEnter = () => {
     setCollapsed(false);
+    onCollapsedChange(false);
   };
 
   const handleMouseLeave = () => {
     setCollapsed(true);
+    onCollapsedChange(true);
   };
 
   return (
     <div
       className={cn(
-        "h-screen bg-primary text-white transition-all duration-300 flex flex-col",
+        "h-screen bg-primary text-white transition-all duration-300 flex flex-col fixed left-0 top-0 z-10",
         collapsed ? "w-20" : "w-64"
       )}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      <div className="flex items-center justify-between border-b border-white/10">
-        <div className={cn("flex-1 flex justify-center", collapsed && "hidden")}>
-          <img 
-            src="/lovable-uploads/aa3840d0-81a7-407e-95be-f1f48868b7c6.png" 
-            alt="DALAI Logo" 
-            className="h-28"
-          />
-        </div>
-        {collapsed ? (
-          <div className="w-full flex justify-center py-4">
-            <img 
-              src="/lovable-uploads/aa3840d0-81a7-407e-95be-f1f48868b7c6.png" 
-              alt="DALAI Logo" 
-              className="h-12"
-            />
-          </div>
-        ) : null}
+      <div className="h-16 border-b border-white/10">
+        {/* Empty space to match topbar height */}
       </div>
 
       <div className="flex-1 p-4">
@@ -124,21 +111,6 @@ const Sidebar = ({ role, onTabChange, activeTab }: SidebarProps) => {
             </Button>
           ))}
         </nav>
-      </div>
-
-      <div className="p-4 border-t border-white/10">
-        <Button
-          variant="ghost"
-          className={cn(
-            "w-full flex items-center gap-2 text-white hover:bg-white/10 active:bg-white/20",
-            collapsed && "px-0 justify-center"
-          )}
-          onClick={logout}
-          title={collapsed ? "Logg ut" : undefined}
-        >
-          <LogOut size={20} />
-          {!collapsed && <span>Logg ut</span>}
-        </Button>
       </div>
     </div>
   );
