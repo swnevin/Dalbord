@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Bookmark, CheckCircle, ChevronLeft, ChevronRight, Search, Trash2, FileText, Info } from "lucide-react";
@@ -172,7 +173,13 @@ export const ConversationList = ({
         <Loader size="lg" text="Laster samtaler..." />
       </div> : paginatedConversations.length === 0 ? <div className="h-full flex flex-col items-center justify-center p-4 text-center text-gray-500">
         {searchTerm ? <p>Ingen samtaler matchet søket ditt.</p> : <p>Ingen samtaler funnet for gjeldende filter.</p>}
-      </div> : paginatedConversations.map(conv => <div key={conv._id} className={cn("p-4 border-b border-gray-100 cursor-pointer transition-all duration-100", selectedId === conv._id ? "bg-secondary text-primary" : "hover:bg-gray-50 active:bg-gray-100", collapsed && "px-2")} onClick={() => handleConversationClick(conv._id)}>
+      </div> : paginatedConversations.map(conv => <div key={conv._id} className={cn(
+        "p-4 border-b border-gray-100 cursor-pointer transition-all duration-100", 
+        selectedId === conv._id 
+          ? "bg-white border-l-4 border-l-primary text-primary" 
+          : "hover:bg-gray-50 active:bg-gray-100", 
+        collapsed && "px-2"
+      )} onClick={() => handleConversationClick(conv._id)}>
         <div className="flex justify-between items-start">
           <div className="flex-1">
             {collapsed ? <div className="text-center">

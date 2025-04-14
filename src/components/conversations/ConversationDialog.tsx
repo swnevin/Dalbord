@@ -336,7 +336,7 @@ export const ConversationDialog = ({
             onClick={() => toggleMessageSelection(message)}
           >
             <div className="flex items-end gap-2 max-w-[80%]">
-              <div className={`bg-secondary text-secondary-foreground p-3 rounded-2xl rounded-br-none transition-all 
+              <div className={`bg-dalai-yellow text-primary p-3 rounded-2xl rounded-br-none transition-all 
                 ${isMessageSelected(message) ? 'ring-2 ring-primary ring-offset-2' : 'hover:ring-1 hover:ring-primary/50 hover:ring-offset-1'}`}>
                 {userText}
               </div>
