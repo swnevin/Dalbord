@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { useConversations } from "@/hooks/use-conversations";
 import { useConversationDialog } from "@/hooks/use-conversation-dialog";
@@ -54,12 +55,15 @@ export const ConversationsTab = () => {
   });
 
   const handleSelectConversation = useCallback((conversationId: string) => {
+    console.log(`Selecting conversation ${conversationId}`);
     setSelectedConversation(conversationId);
     
+    // Clear previous timer if exists
     if (preloadingTimerRef) {
       clearTimeout(preloadingTimerRef);
     }
     
+    // Set a timer to preload other visible conversations after a delay
     const timer = setTimeout(() => {
       const visibleConversations = getPaginatedConversations(currentPage, itemsPerPage);
       if (visibleConversations.length > 0) {
@@ -68,6 +72,7 @@ export const ConversationsTab = () => {
           .filter(id => id !== conversationId && !isConversationPreloaded(id));
           
         if (conversationIds.length > 0) {
+          console.log(`Preloading ${conversationIds.length} other visible conversations`);
           preloadConversations(conversationIds);
         }
       }
@@ -75,7 +80,6 @@ export const ConversationsTab = () => {
     
     setPreloadingTimerRef(timer);
   }, [
-    getCachedDialog, 
     preloadConversations, 
     isConversationPreloaded,
     currentPage,
@@ -103,11 +107,11 @@ export const ConversationsTab = () => {
 
   const handleToggleSearchInContent = useCallback((value: boolean) => {
     setSearchInContent(value);
-  }, []);
+  }, [setSearchInContent]);
 
   const handleSearchTermChange = useCallback((term: string) => {
     setSearchTerm(term);
-  }, []);
+  }, [setSearchTerm]);
 
   useEffect(() => {
     if (error) {
@@ -119,12 +123,12 @@ export const ConversationsTab = () => {
     const filtered = filteredConversations();
     
     if (searchTerm && searchInContent) {
-      // Add the dialog content search here
+      // Also search in dialog content for preloaded conversations
       return filtered.filter(conv => {
         if (isConversationPreloaded(conv._id)) {
-          return searchInDialogContent(searchTerm, conv._id) || true; // Return true if found in dialog, or if already matched by other criteria
+          return searchInDialogContent(searchTerm, conv._id) || true;
         }
-        return true; // Keep all other conversations that matched the basic filter
+        return true; // Keep all other conversations that matched basic filters
       });
     }
     
@@ -137,12 +141,15 @@ export const ConversationsTab = () => {
     return filtered.slice(startIndex, startIndex + itemsPerPage);
   }, [filteredConversationsWithSearch]);
 
+  // Initial preloading of visible conversations
   useEffect(() => {
     console.log("Loading visible conversations for preloading");
-    const visibleConversations = getPaginatedConversations(currentPage, itemsPerPage);
-    if (visibleConversations.length > 0) {
-      const conversationIds = visibleConversations.map(conv => conv._id);
-      preloadConversations(conversationIds);
+    if (user?.organization_id) {
+      const visibleConversations = getPaginatedConversations(currentPage, itemsPerPage);
+      if (visibleConversations.length > 0) {
+        const conversationIds = visibleConversations.map(conv => conv._id);
+        preloadConversations(conversationIds);
+      }
     }
     
     return () => {
@@ -151,7 +158,7 @@ export const ConversationsTab = () => {
         setPreloadingTimerRef(null);
       }
     };
-  }, [currentPage, itemsPerPage, getPaginatedConversations, preloadConversations]);
+  }, [currentPage, itemsPerPage, getPaginatedConversations, preloadConversations, user?.organization_id]);
 
   const showLoader = useMinimumLoading(isLoadingConversations);
   const showDialogLoader = useMinimumLoading(isLoadingDialog);

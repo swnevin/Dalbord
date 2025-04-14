@@ -106,6 +106,16 @@ export const ConversationDialog = ({
     );
   }
 
+  if (dialog.length === 0) {
+    return (
+      <div className="flex-1 bg-white flex items-center justify-center h-screen">
+        <div className="text-gray-500">
+          Ingen meldinger funnet i denne samtalen
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex-1 bg-white flex flex-col h-screen relative">
       <ScrollArea 

@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useRef, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -21,8 +22,9 @@ export const useDialogPreloader = ({
   const processingRef = useRef<boolean>(false);
   const lastRequestTime = useRef<number>(0);
   const queueTimer = useRef<number | null>(null);
-  const cacheRef = useRef<DialogCache>(dialogCache);
-
+  const cacheRef = useRef<DialogCache>({});
+  
+  // Sync the state to the ref
   useEffect(() => {
     cacheRef.current = dialogCache;
   }, [dialogCache]);
@@ -72,7 +74,9 @@ export const useDialogPreloader = ({
       const nextId = pendingQueue.current.values().next().value;
       pendingQueue.current.delete(nextId);
       
+      // Skip if already cached
       if (cacheRef.current[nextId]) {
+        console.log(`Conversation ${nextId} already cached, skipping`);
         processingRef.current = false;
         queueTimer.current = window.setTimeout(processQueue, 0);
         return;
@@ -81,6 +85,8 @@ export const useDialogPreloader = ({
       setIsPreloading(true);
       
       abortControllerRef.current = new AbortController();
+      
+      console.log(`Preloading dialog for conversation ${nextId} with org ID ${organizationId}`);
       
       const { data: org, error: orgError } = await supabase
         .from('organizations')
@@ -112,6 +118,8 @@ export const useDialogPreloader = ({
         ...item,
         accessedAt: Date.now()
       }));
+      
+      console.log(`Successfully preloaded dialog for conversation ${nextId}`);
       
       setDialogCache(prev => {
         const updated = {...prev, [nextId]: dataWithTimestamp};
@@ -174,13 +182,22 @@ export const useDialogPreloader = ({
   }, [processQueue, cleanupCache, organizationId]);
 
   const getCachedDialog = useCallback((conversationId: string) => {
-    if (!cacheRef.current[conversationId]) return undefined;
+    console.log(`Checking cache for dialog ${conversationId}`, Object.keys(cacheRef.current));
     
+    if (!cacheRef.current[conversationId]) {
+      console.log(`Dialog ${conversationId} not found in cache`);
+      return undefined;
+    }
+    
+    console.log(`Dialog ${conversationId} found in cache`);
+    
+    // Update the access timestamp
     const updatedDialog = cacheRef.current[conversationId].map((item: any) => ({
       ...item,
       accessedAt: Date.now()
     }));
     
+    // Update the cache with the new timestamps
     setDialogCache(prev => {
       const updated = {...prev, [conversationId]: updatedDialog};
       cacheRef.current = updated;
@@ -191,7 +208,9 @@ export const useDialogPreloader = ({
   }, []);
 
   const isConversationPreloaded = useCallback((conversationId: string) => {
-    return preloadedConversations.has(conversationId);
+    const isPreloaded = preloadedConversations.has(conversationId);
+    console.log(`Is conversation ${conversationId} preloaded?`, isPreloaded);
+    return isPreloaded;
   }, [preloadedConversations]);
 
   const searchInDialogContent = useCallback((searchTerm: string, conversationId: string) => {
