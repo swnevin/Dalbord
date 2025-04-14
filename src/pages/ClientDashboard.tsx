@@ -365,14 +365,14 @@ const ClientDashboard = () => {
 
   return (
     <div className="flex flex-col h-screen bg-cream">
-      <Topbar />
       <Sidebar 
         role="client" 
         activeTab={activeTab} 
         onTabChange={setActiveTab}
         onCollapsedChange={setSidebarCollapsed}
       />
-      <div className={`flex-1 overflow-auto transition-all duration-300 pt-16 ${sidebarCollapsed ? 'ml-14' : 'ml-56'}`}>
+      <Topbar sidebarCollapsed={sidebarCollapsed} />
+      <div className={`flex-1 overflow-auto transition-all duration-300 ${sidebarCollapsed ? 'ml-20' : 'ml-64'}`}>
         {activeTab === "home" && <Home />}
         {activeTab === "conversations" && (
           <div className="flex flex-1">

@@ -12,12 +12,6 @@ import {
   Shield,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 
 interface SidebarProps {
   role: "admin" | "client";
@@ -88,39 +82,34 @@ const Sidebar = ({ role, onTabChange, activeTab, onCollapsedChange }: SidebarPro
   return (
     <div
       className={cn(
-        "fixed top-12 left-0 bottom-0 bg-primary text-white transition-all duration-300 flex flex-col z-10",
-        collapsed ? "w-14" : "w-56"
+        "h-screen bg-primary text-white transition-all duration-300 flex flex-col fixed left-0 top-0 z-10",
+        collapsed ? "w-20" : "w-64"
       )}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      <div className="flex-1 pt-4">
-        <nav className="flex flex-col space-y-1 px-2">
-          <TooltipProvider delayDuration={300}>
-            {links.map((link) => (
-              <Tooltip key={link.value}>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className={cn(
-                      "w-full justify-start gap-3 text-white hover:bg-white/10 active:bg-white/20 h-9",
-                      activeTab === link.value && "bg-secondary text-primary hover:bg-secondary",
-                      collapsed && "px-0 justify-center"
-                    )}
-                    onClick={() => onTabChange(link.value)}
-                  >
-                    <link.icon size={18} />
-                    {!collapsed && <span className="text-sm">{link.label}</span>}
-                  </Button>
-                </TooltipTrigger>
-                {collapsed && (
-                  <TooltipContent side="right">
-                    {link.label}
-                  </TooltipContent>
-                )}
-              </Tooltip>
-            ))}
-          </TooltipProvider>
+      <div className="h-16 border-b border-white/10">
+        {/* Empty space to match topbar height */}
+      </div>
+
+      <div className="flex-1 p-4">
+        <nav className="flex flex-col space-y-2">
+          {links.map((link) => (
+            <Button
+              key={link.value}
+              variant="ghost"
+              className={cn(
+                "w-full justify-start gap-3 text-white hover:bg-white/10 active:bg-white/20",
+                activeTab === link.value && "bg-secondary text-primary hover:bg-secondary",
+                collapsed && "px-0 justify-center"
+              )}
+              onClick={() => onTabChange(link.value)}
+              title={collapsed ? link.label : undefined}
+            >
+              <link.icon size={20} />
+              {!collapsed && <span>{link.label}</span>}
+            </Button>
+          ))}
         </nav>
       </div>
     </div>
