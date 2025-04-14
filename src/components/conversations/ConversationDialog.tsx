@@ -353,13 +353,10 @@ export const ConversationDialog = ({
 
   return (
     <div className="flex-1 bg-white flex flex-col h-screen relative">
-      <ScrollArea 
-        className="flex-1"
-        ref={dialogContainerRef}
-      >
+      <ScrollArea className="flex-1">
         <div className="p-4">
           {isLoading ? (
-            <div className="h-full flex flex-col items-center justify-center">
+            <div className="h-full flex flex-col items-center justify-center absolute inset-0">
               <Loader size="lg" />
               <p className="mt-4 text-gray-500 text-sm">Laster samtale...</p>
             </div>
