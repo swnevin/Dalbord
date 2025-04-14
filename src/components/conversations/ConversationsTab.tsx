@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { useConversations } from "@/hooks/use-conversations";
 import { useConversationDialog } from "@/hooks/use-conversation-dialog";
@@ -7,8 +6,11 @@ import { useDialogPreloader } from "@/hooks/use-dialog-preloader";
 import { ConversationList } from "./ConversationList";
 import { ConversationDialog } from "./ConversationDialog";
 import { DeleteDialog } from "./DeleteDialog";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 export const ConversationsTab = () => {
+  const { user } = useAuth();
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [conversationsCollapsed, setConversationsCollapsed] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -17,9 +19,17 @@ export const ConversationsTab = () => {
   const [itemsPerPage, setItemsPerPage] = useState(100);
   const [preloadingTimerRef, setPreloadingTimerRef] = useState<NodeJS.Timeout | null>(null);
 
+  useEffect(() => {
+    if (!user?.organization_id) {
+      toast.error("Ingen organisasjon funnet. Vennligst kontakt en administrator.");
+      console.error("No organization ID found for user");
+    }
+  }, [user]);
+
   const {
     conversations,
     isLoading: isLoadingConversations,
+    error,
     toggleTag,
     deleteConversation,
     activeFilter,
@@ -40,7 +50,7 @@ export const ConversationsTab = () => {
     isConversationPreloaded,
     searchInDialogContent
   } = useDialogPreloader({
-    organizationId: null // This will be filled by the hook
+    organizationId: user?.organization_id
   });
 
   const handleSelectConversation = useCallback((conversationId: string) => {
@@ -99,6 +109,12 @@ export const ConversationsTab = () => {
     setSearchTerm(term);
   }, []);
 
+  useEffect(() => {
+    if (error) {
+      console.error("Error loading conversations:", error);
+    }
+  }, [error]);
+
   const filteredConversationsWithSearch = useCallback(() => {
     const filtered = filteredConversations();
     
@@ -122,6 +138,7 @@ export const ConversationsTab = () => {
   }, [filteredConversationsWithSearch]);
 
   useEffect(() => {
+    console.log("Loading visible conversations for preloading");
     const visibleConversations = getPaginatedConversations(currentPage, itemsPerPage);
     if (visibleConversations.length > 0) {
       const conversationIds = visibleConversations.map(conv => conv._id);

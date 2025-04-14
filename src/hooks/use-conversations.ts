@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -25,47 +24,61 @@ export const useConversations = () => {
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [searchInContent, setSearchInContent] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchConversations = useCallback(async () => {
+    if (!user?.organization_id) return;
+
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const { data: org, error: orgError } = await supabase
+        .from('organizations')
+        .select('voiceflow_api_key, voiceflow_project_id')
+        .eq('id', user.organization_id)
+        .single();
+
+      if (orgError) throw orgError;
+      
+      if (!org.voiceflow_api_key || !org.voiceflow_project_id) {
+        const errorMsg = 'Mangler Voiceflow-legitimasjon';
+        setError(errorMsg);
+        console.error(errorMsg);
+        return;
+      }
+
+      const response = await fetch(
+        `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}`,
+        {
+          headers: {
+            accept: 'application/json',
+            Authorization: org.voiceflow_api_key,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch transcripts: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setConversations(data);
+      console.log(`Loaded ${data.length} conversations successfully`);
+    } catch (error: any) {
+      const errorMsg = `Feil ved henting av samtaler: ${error.message || 'Ukjent feil'}`;
+      setError(errorMsg);
+      console.error(errorMsg, error);
+      toast.error(errorMsg);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user?.organization_id]);
 
   useEffect(() => {
-    const fetchConversations = async () => {
-      if (!user?.organization_id) return;
-
-      try {
-        const { data: org, error: orgError } = await supabase
-          .from('organizations')
-          .select('voiceflow_api_key, voiceflow_project_id')
-          .eq('id', user.organization_id)
-          .single();
-
-        if (orgError) throw orgError;
-        if (!org.voiceflow_api_key || !org.voiceflow_project_id) {
-          console.error('Missing Voiceflow credentials');
-          return;
-        }
-
-        const response = await fetch(
-          `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}`,
-          {
-            headers: {
-              accept: 'application/json',
-              Authorization: org.voiceflow_api_key,
-            },
-          }
-        );
-
-        if (!response.ok) throw new Error('Failed to fetch transcripts');
-
-        const data = await response.json();
-        setConversations(data);
-      } catch (error) {
-        console.error('Error fetching conversations:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
+    console.log("Initiating conversation fetch");
     fetchConversations();
-  }, [user?.organization_id]);
+  }, [fetchConversations]);
 
   const toggleTag = async (conversationId: string, tag: "system.saved" | "system.reviewed") => {
     if (!user?.organization_id) return;
@@ -195,6 +208,7 @@ export const useConversations = () => {
   return {
     conversations,
     isLoading,
+    error,
     toggleTag,
     deleteConversation,
     activeFilter,
@@ -203,6 +217,7 @@ export const useConversations = () => {
     setSearchTerm,
     searchInContent,
     setSearchInContent,
-    filteredConversations
+    filteredConversations,
+    refreshConversations: fetchConversations
   };
 };

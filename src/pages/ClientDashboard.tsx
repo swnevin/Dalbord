@@ -8,17 +8,25 @@ import { Statistics } from "@/components/statistics/Statistics";
 import { Home } from "@/components/home/Home";
 import { AdministratorTab } from "@/components/administrator/AdministratorTab";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const ClientDashboard = () => {
   const [activeTab, setActiveTab] = useState("home");
   const { user } = useAuth();
   const [hasAdminAccess, setHasAdminAccess] = useState(false);
+  const [isCheckingAccess, setIsCheckingAccess] = useState(true);
   
   useEffect(() => {
     const checkAdminAccess = async () => {
-      if (!user) return;
+      if (!user) {
+        setIsCheckingAccess(false);
+        return;
+      }
       
       try {
+        setIsCheckingAccess(true);
+        console.log("Checking admin access for user", user.id);
+        
         const { data, error } = await supabase
           .from('user_tab_permissions')
           .select('tab_name')
@@ -27,10 +35,17 @@ const ClientDashboard = () => {
           .maybeSingle();
           
         if (!error && data) {
+          console.log("User has admin access");
           setHasAdminAccess(true);
+        } else {
+          console.log("User does not have admin access");
+          setHasAdminAccess(false);
         }
       } catch (error) {
         console.error('Error checking admin access:', error);
+        toast.error('Feil ved sjekking av administratortilgang');
+      } finally {
+        setIsCheckingAccess(false);
       }
     };
     
@@ -62,7 +77,16 @@ const ClientDashboard = () => {
         onTabChange={setActiveTab} 
       />
       <div className="flex-1 overflow-auto">
-        {renderActiveTab()}
+        {isCheckingAccess ? (
+          <div className="h-full flex items-center justify-center">
+            <div className="text-center">
+              <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"></div>
+              <p className="mt-4 text-gray-600">Laster...</p>
+            </div>
+          </div>
+        ) : (
+          renderActiveTab()
+        )}
       </div>
     </div>
   );

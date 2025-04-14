@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useRef, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -23,6 +22,11 @@ export const useDialogPreloader = ({
   const lastRequestTime = useRef<number>(0);
   const queueTimer = useRef<number | null>(null);
   
+  // Debug useEffect to track organization ID changes
+  useEffect(() => {
+    console.log("DialogPreloader: organization ID =", organizationId);
+  }, [organizationId]);
+
   // Clean up cache when it exceeds maximum size
   const cleanupCache = useCallback(() => {
     if (Object.keys(dialogCache).length <= maxCacheSize) return;
@@ -145,6 +149,11 @@ export const useDialogPreloader = ({
 
   // Add conversations to preloading queue
   const preloadConversations = useCallback((conversationIds: string[]) => {
+    if (!organizationId) {
+      console.warn("Cannot preload conversations: missing organization ID");
+      return;
+    }
+    
     // Cancel any ongoing requests
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -156,6 +165,8 @@ export const useDialogPreloader = ({
       window.clearTimeout(queueTimer.current);
       queueTimer.current = null;
     }
+    
+    console.log(`Adding ${conversationIds.length} conversations to preload queue`);
     
     // Add to pending queue
     conversationIds.forEach(id => {
@@ -169,7 +180,7 @@ export const useDialogPreloader = ({
     
     // Clean up cache if needed
     cleanupCache();
-  }, [processQueue, dialogCache, cleanupCache]);
+  }, [processQueue, dialogCache, cleanupCache, organizationId]);
 
   // Get dialog from cache or return undefined if not cached
   const getCachedDialog = useCallback((conversationId: string) => {
@@ -216,6 +227,7 @@ export const useDialogPreloader = ({
   // Clean up aborted requests on unmount
   useEffect(() => {
     return () => {
+      console.log("Cleaning up dialog preloader resources");
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
