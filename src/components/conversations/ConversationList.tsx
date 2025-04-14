@@ -2,7 +2,7 @@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Bookmark, CheckCircle, ChevronLeft, ChevronRight, Search, Trash2, FileText, Info } from "lucide-react";
-import { formatDate } from "@/utils/conversation-utils";
+import { formatDate, formatTime } from "@/utils/conversation-utils";
 import { Loader } from "@/components/ui/loader";
 import { Input } from "@/components/ui/input";
 import { useState, useEffect, useMemo } from "react";
@@ -11,7 +11,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { PreloadedIndicator } from "./PreloadedIndicator";
-import { FilterType } from "@/hooks/use-conversations";
 
 interface VoiceflowTranscript {
   _id: string;
@@ -34,19 +33,14 @@ interface ConversationListProps {
   onConversationSelect: (id: string) => void;
   onToggleTag: (id: string, tag: "system.saved" | "system.reviewed") => void;
   onDeleteClick: (id: string) => void;
-  activeFilter: FilterType;
-  onFilterChange: (filter: FilterType) => void;
+  activeFilter: "all" | "approved" | "saved";
+  onFilterChange: (filter: "all" | "approved" | "saved") => void;
   isPreloaded: (id: string) => boolean;
   searchInContent: boolean;
   onToggleSearchInContent: (value: boolean) => void;
   searchTerm: string;
   onSearchTermChange: (term: string) => void;
   getPaginatedConversations: (page: number, itemsPerPage: number) => VoiceflowTranscript[];
-  currentPage: number;
-  setCurrentPage: (page: number) => void;
-  itemsPerPage: number;
-  setItemsPerPage: (count: number) => void;
-  totalItems: number;
 }
 
 export const ConversationList = ({
@@ -65,16 +59,14 @@ export const ConversationList = ({
   onToggleSearchInContent,
   searchTerm,
   onSearchTermChange,
-  getPaginatedConversations,
-  currentPage,
-  setCurrentPage,
-  itemsPerPage,
-  setItemsPerPage,
-  totalItems
+  getPaginatedConversations
 }: ConversationListProps) => {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(100);
+
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeFilter, searchTerm, itemsPerPage, setCurrentPage]);
+  }, [activeFilter, searchTerm, itemsPerPage]);
 
   useEffect(() => {
     if (!searchInContent) {
@@ -98,17 +90,18 @@ export const ConversationList = ({
     return getPaginatedConversations(currentPage, itemsPerPage);
   }, [getPaginatedConversations, currentPage, itemsPerPage]);
 
-  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const totalConversations = conversations.length;
+  const totalPages = Math.ceil(totalConversations / itemsPerPage);
 
   const handleNextPage = () => {
     if (currentPage < totalPages) {
-      setCurrentPage(currentPage + 1);
+      setCurrentPage(prev => prev + 1);
     }
   };
 
   const handlePrevPage = () => {
     if (currentPage > 1) {
-      setCurrentPage(currentPage - 1);
+      setCurrentPage(prev => prev - 1);
     }
   };
 
@@ -116,7 +109,7 @@ export const ConversationList = ({
     <div className="p-4 border-b border-gray-200 flex flex-col gap-4 flex-shrink-0">
       <div className="flex items-center justify-between">
         <h2 className={cn("text-xl font-semibold text-primary", collapsed ? "hidden" : "text-primary")}>
-          Samtaler ({totalItems})
+          Samtaler ({conversations.length})
         </h2>
         <Button variant="ghost" size="icon" onClick={() => onCollapsedChange(!collapsed)} className="hover:bg-secondary/10 active:bg-secondary/20">
           {collapsed ? <ChevronRight /> : <ChevronLeft />}
