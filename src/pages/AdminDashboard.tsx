@@ -11,14 +11,14 @@ const AdminDashboard = () => {
 
   return (
     <div className="flex flex-col h-screen bg-cream">
+      <Topbar />
       <Sidebar 
         role="admin" 
         activeTab={activeTab}
         onTabChange={setActiveTab}
         onCollapsedChange={setSidebarCollapsed}
       />
-      <Topbar sidebarCollapsed={sidebarCollapsed} />
-      <main className={`flex-1 overflow-auto p-8 transition-all duration-300 ${sidebarCollapsed ? 'ml-20' : 'ml-64'}`}>
+      <main className={`flex-1 overflow-auto p-8 transition-all duration-300 pt-16 ${sidebarCollapsed ? 'ml-14' : 'ml-56'}`}>
         <Tabs 
           value={activeTab} 
           onValueChange={setActiveTab}
