@@ -12,7 +12,7 @@ import { SuccessMetricsCards } from "./SuccessMetricsCards";
 import { SuccessVsFallbackPieChart } from "./SuccessVsFallbackPieChart";
 import { DateRange, TimeRange, SavingsSettings } from "./types";
 import { useStatistics } from "./hooks/useStatistics";
-import { useChartPreferences } from "./hooks/useChartPreferences";
+import { useChartPreferences, ChartType } from "./hooks/useChartPreferences";
 import { Separator } from "@/components/ui/separator";
 import { ChartBarIcon, TrendingUpIcon, MessageSquareIcon, UserRoundIcon } from "lucide-react";
 
@@ -61,7 +61,7 @@ export const Statistics = () => {
         
         <div className="grid gap-4 grid-cols-1">
           <div className="grid grid-cols-1 gap-4">
-            {isChartVisible('total_messages') && (
+            {isChartVisible('total_messages' as ChartType) && (
               <SummaryCards
                 totalMessages={data.totalMessages ?? 0}
                 totalSessions={data.totalSessions ?? 0}
@@ -70,7 +70,7 @@ export const Statistics = () => {
               />
             )}
             
-            {isChartVisible('thumbs_up') && (
+            {isChartVisible('thumbs_up' as ChartType) && (
               <FeedbackSummaryCards
                 escalatedCount={data.escalatedCount ?? 0}
                 thumbsUpCount={data.thumbsUpCount ?? 0}
@@ -79,7 +79,7 @@ export const Statistics = () => {
               />
             )}
             
-            {isChartVisible('success_metrics') && (
+            {isChartVisible('success_metrics' as ChartType) && (
               <SuccessMetricsCards
                 successfulAnswerCount={data.successfulAnswerCount ?? 0}
                 fallbackCount={data.fallbackCount ?? 0}
@@ -99,7 +99,7 @@ export const Statistics = () => {
         <Separator className="bg-primary/10" />
         
         {/* TimeSeriesCharts */}
-        {isChartVisible('users_over_time') && (
+        {isChartVisible('users_over_time' as ChartType) && (
           <TimeSeriesChart
             data={data.userTimeSeries}
             title="Brukere over tid"
@@ -110,7 +110,7 @@ export const Statistics = () => {
           />
         )}
         
-        {isChartVisible('sessions_over_time') && (
+        {isChartVisible('sessions_over_time' as ChartType) && (
           <TimeSeriesChart
             data={data.sessionTimeSeries}
             title="Samtaler over tid"
@@ -121,7 +121,7 @@ export const Statistics = () => {
           />
         )}
         
-        {isChartVisible('messages_over_time') && (
+        {isChartVisible('messages_over_time' as ChartType) && (
           <TimeSeriesChart
             data={data.messageTimeSeries}
             title="Meldinger over tid"
@@ -133,7 +133,7 @@ export const Statistics = () => {
         )}
         
         {/* Bar chart */}
-        {isChartVisible('topics') && (
+        {isChartVisible('topics' as ChartType) && (
           <BarChart
             data={data.topIntents}
             title="Temaer"
@@ -156,7 +156,7 @@ export const Statistics = () => {
         <Separator className="bg-primary/10" />
         
         <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
-          {isChartVisible('feedback_pie') && (
+          {isChartVisible('feedback_pie' as ChartType) && (
             <FeedbackPieChart
               thumbsUpCount={data.thumbsUpCount ?? 0}
               thumbsDownCount={data.thumbsDownCount ?? 0}
@@ -165,7 +165,7 @@ export const Statistics = () => {
             />
           )}
           
-          {isChartVisible('success_vs_fallback') && (
+          {isChartVisible('success_vs_fallback' as ChartType) && (
             <SuccessVsFallbackPieChart
               successfulAnswerCount={data.successfulAnswerCount ?? 0}
               fallbackCount={data.fallbackCount ?? 0}
@@ -183,7 +183,7 @@ export const Statistics = () => {
         </div>
         <Separator className="bg-primary/10" />
         
-        {(isChartVisible('savings_time') || isChartVisible('savings_money')) && (
+        {(isChartVisible('savings_time' as ChartType) || isChartVisible('savings_money' as ChartType)) && (
           <SavingsCharts
             timeSaved={data.timeSaved ?? 0}
             moneySaved={data.moneySaved ?? 0}

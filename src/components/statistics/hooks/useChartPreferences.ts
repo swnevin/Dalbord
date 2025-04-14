@@ -2,10 +2,13 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { Database } from "@/integrations/supabase/types";
+
+export type ChartType = Database["public"]["Enums"]["chart_type"];
 
 export interface ChartPreference {
   id: string;
-  chart_type: string;
+  chart_type: ChartType;
   is_visible: boolean;
   display_order: number;
   organization_id: string;
@@ -46,7 +49,7 @@ export const useChartPreferences = () => {
     fetchPreferences();
   }, [user?.organization_id]);
 
-  const isChartVisible = (chartType: string): boolean => {
+  const isChartVisible = (chartType: ChartType): boolean => {
     const preference = preferences.find(p => p.chart_type === chartType);
     return preference ? preference.is_visible : true; // Default to visible if preference not found
   };

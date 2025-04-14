@@ -28,14 +28,8 @@ import {
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Loader } from "@/components/ui/loader";
-
-interface ChartPreference {
-  id: string;
-  chart_type: string;
-  is_visible: boolean;
-  display_order: number;
-  organization_id: string;
-}
+import { Database } from "@/integrations/supabase/types";
+import { ChartPreference, ChartType } from "../statistics/hooks/useChartPreferences";
 
 interface ProjectSettingsSheetProps {
   organizationId: string;
@@ -43,7 +37,7 @@ interface ProjectSettingsSheetProps {
 }
 
 // Maps chart types to human-readable names
-const chartLabels: Record<string, string> = {
+const chartLabels: Record<ChartType, string> = {
   total_messages: "Antall meldinger",
   total_sessions: "Antall samtaler",
   total_conversations: "Antall brukere",
@@ -62,7 +56,7 @@ const chartLabels: Record<string, string> = {
 };
 
 // Group chart types by section
-const chartGroups = {
+const chartGroups: Record<string, ChartType[]> = {
   summary: [
     "total_messages", 
     "total_sessions", 
@@ -122,7 +116,7 @@ export const ProjectSettingsSheet = ({ organizationId, organizationName }: Proje
   };
 
   // Update a single preference
-  const updateChartVisibility = async (chartType: string, isVisible: boolean) => {
+  const updateChartVisibility = async (chartType: ChartType, isVisible: boolean) => {
     const updatedPreferences = preferences.map(pref => 
       pref.chart_type === chartType ? { ...pref, is_visible: isVisible } : pref
     );
@@ -149,6 +143,7 @@ export const ProjectSettingsSheet = ({ organizationId, organizationName }: Proje
   const saveAllPreferences = async () => {
     setIsSaving(true);
     try {
+      // We need to type-cast the array properly for the upsert operation
       const { error } = await supabase
         .from("statistics_preferences")
         .upsert(
@@ -178,8 +173,8 @@ export const ProjectSettingsSheet = ({ organizationId, organizationName }: Proje
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button variant="outline" size="sm" className="ml-2">
-          <Settings className="h-4 w-4 mr-2" />
+        <Button variant="outline" size="icon" className="ml-2">
+          <Settings className="h-4 w-4" />
           Prosjektinnstillinger
         </Button>
       </SheetTrigger>
