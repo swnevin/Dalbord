@@ -12,7 +12,8 @@ export const useConversationDialog = (selectedConversationId: string | null) => 
   
   const {
     getCachedDialog,
-    preloadConversations
+    preloadConversations,
+    isConversationPreloaded
   } = useDialogPreloader({
     organizationId: user?.organization_id
   });
@@ -21,13 +22,16 @@ export const useConversationDialog = (selectedConversationId: string | null) => 
     const fetchDialog = async () => {
       if (!selectedConversationId || !user?.organization_id) return;
       
+      // Check if the dialog is already cached
       const cachedDialog = getCachedDialog(selectedConversationId);
       if (cachedDialog) {
+        console.log(`Using cached dialog for conversation ${selectedConversationId}`);
         setDialog(cachedDialog);
         return;
       }
       
       try {
+        console.log(`Fetching dialog for conversation ${selectedConversationId}`);
         setIsLoadingDialog(true);
         
         const { data: org, error: orgError } = await supabase
@@ -57,6 +61,7 @@ export const useConversationDialog = (selectedConversationId: string | null) => 
         const data = await response.json();
         setDialog(data);
         
+        // After loading, update the preloaded data
         preloadConversations([selectedConversationId]);
       } catch (error) {
         console.error('Error fetching dialog:', error);
@@ -67,7 +72,7 @@ export const useConversationDialog = (selectedConversationId: string | null) => 
     };
 
     fetchDialog();
-  }, [selectedConversationId, user?.organization_id, getCachedDialog, preloadConversations]);
+  }, [selectedConversationId, user?.organization_id, getCachedDialog, preloadConversations, isConversationPreloaded]);
 
   return {
     dialog,

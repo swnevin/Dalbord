@@ -21,17 +21,19 @@ export const useDialogPreloader = ({
   const processingRef = useRef<boolean>(false);
   const lastRequestTime = useRef<number>(0);
   const queueTimer = useRef<number | null>(null);
+  const cacheRef = useRef<DialogCache>(dialogCache);
+
+  useEffect(() => {
+    cacheRef.current = dialogCache;
+  }, [dialogCache]);
   
-  // Debug useEffect to track organization ID changes
   useEffect(() => {
     console.log("DialogPreloader: organization ID =", organizationId);
   }, [organizationId]);
 
-  // Clean up cache when it exceeds maximum size
   const cleanupCache = useCallback(() => {
     if (Object.keys(dialogCache).length <= maxCacheSize) return;
     
-    // Simple LRU implementation - remove oldest entries
     const entries = Object.entries(dialogCache);
     const sortedEntries = entries.sort((a, b) => {
       const aAccessed = a[1][0]?.accessedAt || 0;
@@ -54,14 +56,12 @@ export const useDialogPreloader = ({
     setDialogCache(newCache);
   }, [dialogCache, maxCacheSize]);
 
-  // Process the queue of conversations to preload
   const processQueue = useCallback(async () => {
     if (!organizationId || processingRef.current || pendingQueue.current.size === 0) return;
     
     processingRef.current = true;
     
     try {
-      // Rate limiting - ensure at least 300ms between requests
       const now = Date.now();
       const timeSinceLastRequest = now - lastRequestTime.current;
       
@@ -72,8 +72,7 @@ export const useDialogPreloader = ({
       const nextId = pendingQueue.current.values().next().value;
       pendingQueue.current.delete(nextId);
       
-      // If already cached, skip
-      if (dialogCache[nextId]) {
+      if (cacheRef.current[nextId]) {
         processingRef.current = false;
         queueTimer.current = window.setTimeout(processQueue, 0);
         return;
@@ -81,7 +80,6 @@ export const useDialogPreloader = ({
       
       setIsPreloading(true);
       
-      // Create new abort controller for this request
       abortControllerRef.current = new AbortController();
       
       const { data: org, error: orgError } = await supabase
@@ -110,16 +108,16 @@ export const useDialogPreloader = ({
 
       const data = await response.json();
       
-      // Add accessedAt timestamp for LRU cache
       const dataWithTimestamp = data.map((item: any) => ({
         ...item,
         accessedAt: Date.now()
       }));
       
-      setDialogCache(prev => ({
-        ...prev,
-        [nextId]: dataWithTimestamp
-      }));
+      setDialogCache(prev => {
+        const updated = {...prev, [nextId]: dataWithTimestamp};
+        cacheRef.current = updated;
+        return updated;
+      });
       
       setPreloadedConversations(prev => {
         const updated = new Set(prev);
@@ -130,7 +128,6 @@ export const useDialogPreloader = ({
       lastRequestTime.current = Date.now();
       
     } catch (error) {
-      // Ignore aborted requests
       if (error instanceof DOMException && error.name === 'AbortError') {
         console.log('Preloading request aborted');
       } else {
@@ -145,22 +142,19 @@ export const useDialogPreloader = ({
         setIsPreloading(false);
       }
     }
-  }, [organizationId, dialogCache]);
+  }, [organizationId]);
 
-  // Add conversations to preloading queue
   const preloadConversations = useCallback((conversationIds: string[]) => {
     if (!organizationId) {
       console.warn("Cannot preload conversations: missing organization ID");
       return;
     }
     
-    // Cancel any ongoing requests
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
     
-    // Clear existing timer if any
     if (queueTimer.current !== null) {
       window.clearTimeout(queueTimer.current);
       queueTimer.current = null;
@@ -168,50 +162,44 @@ export const useDialogPreloader = ({
     
     console.log(`Adding ${conversationIds.length} conversations to preload queue`);
     
-    // Add to pending queue
     conversationIds.forEach(id => {
-      if (!dialogCache[id] && !pendingQueue.current.has(id)) {
+      if (!cacheRef.current[id] && !pendingQueue.current.has(id)) {
         pendingQueue.current.add(id);
       }
     });
     
-    // Start processing queue
     queueTimer.current = window.setTimeout(processQueue, 0);
     
-    // Clean up cache if needed
     cleanupCache();
-  }, [processQueue, dialogCache, cleanupCache, organizationId]);
+  }, [processQueue, cleanupCache, organizationId]);
 
-  // Get dialog from cache or return undefined if not cached
   const getCachedDialog = useCallback((conversationId: string) => {
-    if (!dialogCache[conversationId]) return undefined;
+    if (!cacheRef.current[conversationId]) return undefined;
     
-    // Update access timestamp
-    const updatedDialog = dialogCache[conversationId].map((item: any) => ({
+    const updatedDialog = cacheRef.current[conversationId].map((item: any) => ({
       ...item,
       accessedAt: Date.now()
     }));
     
-    setDialogCache(prev => ({
-      ...prev,
-      [conversationId]: updatedDialog
-    }));
+    setDialogCache(prev => {
+      const updated = {...prev, [conversationId]: updatedDialog};
+      cacheRef.current = updated;
+      return updated;
+    });
     
     return updatedDialog;
-  }, [dialogCache]);
+  }, []);
 
-  // Check if a conversation is preloaded
   const isConversationPreloaded = useCallback((conversationId: string) => {
     return preloadedConversations.has(conversationId);
   }, [preloadedConversations]);
 
-  // Search within dialog content
   const searchInDialogContent = useCallback((searchTerm: string, conversationId: string) => {
-    if (!dialogCache[conversationId]) return false;
+    if (!cacheRef.current[conversationId]) return false;
     
     const searchLower = searchTerm.toLowerCase();
     
-    return dialogCache[conversationId].some(msg => {
+    return cacheRef.current[conversationId].some(msg => {
       if (msg.type === 'text' && msg.payload?.payload?.message) {
         return msg.payload.payload.message.toLowerCase().includes(searchLower);
       }
@@ -222,9 +210,8 @@ export const useDialogPreloader = ({
       }
       return false;
     });
-  }, [dialogCache]);
+  }, []);
 
-  // Clean up aborted requests on unmount
   useEffect(() => {
     return () => {
       console.log("Cleaning up dialog preloader resources");
