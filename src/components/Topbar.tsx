@@ -27,7 +27,7 @@ const Topbar = () => {
       <div className="flex items-center">
         <img alt="DALAI Logo" className="h-5" src="/lovable-uploads/166e945b-e972-4aa1-8425-8d0c13edc80f.png" />
         {orgName && <div className="flex items-center ml-2">
-            <span className="text-muted-foreground mx-1">/ </span>
+            <span className="text-muted-foreground mx-1">/‎ ‎ </span>
             <span className="text-sm font-medium text-primary">{orgName}</span>
           </div>}
       </div>
