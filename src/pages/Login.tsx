@@ -20,19 +20,19 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-cream">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center space-y-2">
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <Card className="w-full max-w-md shadow-lg border-0">
+        <CardHeader className="text-center space-y-2 pb-2">
           <img 
             src="/lovable-uploads/83daf21e-b819-4f65-9aed-581fdf00778c.png" 
             alt="DALAI Logo" 
-            className="h-56 mx-auto"
+            className="h-40 mx-auto"
           />
           <CardTitle className="text-xl text-primary/80">
             Logg inn for å se statistikk og samtaler
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-4">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <label htmlFor="email" className="text-sm font-medium text-primary">
@@ -62,7 +62,7 @@ const Login = () => {
                 placeholder="Ditt passord"
               />
             </div>
-            <Button type="submit" className="w-full bg-secondary hover:bg-secondary/90 text-primary">
+            <Button type="submit" className="w-full bg-dalai-yellow hover:bg-dalai-yellow/90 text-primary">
               Logg inn
             </Button>
           </form>

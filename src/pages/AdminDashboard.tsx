@@ -10,7 +10,7 @@ const AdminDashboard = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
 
   return (
-    <div className="flex flex-col h-screen bg-cream">
+    <div className="flex flex-col h-screen bg-background">
       <Topbar />
       <Sidebar 
         role="admin" 
@@ -18,7 +18,7 @@ const AdminDashboard = () => {
         onTabChange={setActiveTab}
         onCollapsedChange={setSidebarCollapsed}
       />
-      <main className={`flex-1 overflow-auto p-6 pt-16 transition-all duration-300 ${sidebarCollapsed ? 'ml-14' : 'ml-48'}`}>
+      <main className={`flex-1 overflow-auto p-6 pt-14 transition-all duration-300 ${sidebarCollapsed ? 'ml-12' : 'ml-48'}`}>
         <Tabs 
           value={activeTab} 
           onValueChange={setActiveTab}

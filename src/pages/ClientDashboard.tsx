@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
@@ -364,7 +365,7 @@ const ClientDashboard = () => {
   const showDialogLoader = useMinimumLoading(isLoadingDialog);
 
   return (
-    <div className="flex flex-col h-screen bg-cream">
+    <div className="flex flex-col h-screen bg-background">
       <Topbar />
       <Sidebar 
         role="client" 
@@ -372,7 +373,7 @@ const ClientDashboard = () => {
         onTabChange={setActiveTab}
         onCollapsedChange={setSidebarCollapsed}
       />
-      <div className={`flex-1 overflow-auto pt-16 transition-all duration-300 ${sidebarCollapsed ? 'ml-14' : 'ml-48'}`}>
+      <div className={`flex-1 overflow-auto pt-14 transition-all duration-300 ${sidebarCollapsed ? 'ml-12' : 'ml-48'}`}>
         {activeTab === "home" && <Home />}
         {activeTab === "conversations" && (
           <div className="flex flex-1">

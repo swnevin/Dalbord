@@ -28,24 +28,24 @@ const Topbar = () => {
   }, [user?.organization_id]);
   
   return (
-    <header className="h-12 border-b border-white/10 bg-primary text-white fixed top-0 left-0 w-full z-20 flex items-center justify-between px-2">
+    <header className="h-10 border-b bg-white fixed top-0 left-0 w-full z-20 flex items-center justify-between px-4 shadow-sm">
       <div className="flex items-center">
         <img 
           src="/lovable-uploads/aa3840d0-81a7-407e-95be-f1f48868b7c6.png" 
           alt="DALAI Logo" 
-          className="h-8"
+          className="h-5"
         />
         {orgName && (
           <div className="flex items-center ml-2">
-            <span className="text-white/40 mx-1">/</span>
-            <span className="text-sm font-medium">{orgName}</span>
+            <span className="text-muted-foreground mx-1">/</span>
+            <span className="text-sm font-medium text-primary">{orgName}</span>
           </div>
         )}
       </div>
       
       <div className="flex items-center gap-3">
         {user && (
-          <span className="text-xs opacity-80">
+          <span className="text-xs text-muted-foreground">
             {user.email}
           </span>
         )}
@@ -53,9 +53,9 @@ const Topbar = () => {
           variant="ghost"
           size="sm"
           onClick={logout}
-          className="flex items-center gap-2 text-white hover:bg-white/10 active:bg-white/20 h-8 px-2"
+          className="flex items-center gap-1 text-primary hover:bg-muted h-7 px-2"
         >
-          <LogOut size={16} />
+          <LogOut size={14} />
           <span className="text-xs">Logg ut</span>
         </Button>
       </div>

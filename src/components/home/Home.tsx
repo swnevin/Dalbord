@@ -37,7 +37,7 @@ export const Home = () => {
   return (
     <div className="container max-w-7xl mx-auto p-6 space-y-8">
       <header className="space-y-2">
-        <h1 className="text-3xl font-bold font-montserrat text-primary">
+        <h1 className="text-2xl font-semibold text-primary">
           Hei, {userName || "bruker"}! 👋
         </h1>
         <p className="text-muted-foreground">
@@ -45,8 +45,8 @@ export const Home = () => {
         </p>
       </header>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="space-y-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-6">
           <ServerStatus />
           <FallbackRequests />
         </div>

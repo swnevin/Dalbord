@@ -82,8 +82,8 @@ const Sidebar = ({ role, onTabChange, activeTab, onCollapsedChange }: SidebarPro
   return (
     <div
       className={cn(
-        "h-[calc(100vh-3rem)] bg-primary text-white transition-all duration-300 flex flex-col fixed left-0 top-12 z-10",
-        collapsed ? "w-14" : "w-48"
+        "h-[calc(100vh-2.5rem)] bg-white border-r text-primary transition-all duration-300 flex flex-col fixed left-0 top-10 z-10",
+        collapsed ? "w-12" : "w-48"
       )}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -95,14 +95,14 @@ const Sidebar = ({ role, onTabChange, activeTab, onCollapsedChange }: SidebarPro
               key={link.value}
               variant="ghost"
               className={cn(
-                "w-full justify-start gap-2 text-white hover:bg-white/10 active:bg-white/20 h-9",
-                activeTab === link.value && "bg-secondary text-primary hover:bg-secondary",
+                "w-full justify-start gap-2 text-primary hover:bg-muted/50 active:bg-muted h-9",
+                activeTab === link.value && "bg-muted font-medium",
                 collapsed && "px-0 justify-center"
               )}
               onClick={() => onTabChange(link.value)}
               title={collapsed ? link.label : undefined}
             >
-              <link.icon size={18} />
+              <link.icon size={16} />
               {!collapsed && <span className="text-sm">{link.label}</span>}
             </Button>
           ))}

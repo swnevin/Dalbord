@@ -26,36 +26,37 @@ export default {
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         primary: {
-          DEFAULT: '#28483F',
-          foreground: '#ffffff'
+          DEFAULT: '#1E293B',
+          foreground: '#ffffff',
+          light: '#334155'
         },
         secondary: {
           DEFAULT: '#E2B808',
-          foreground: '#28483F'
+          foreground: '#1E293B'
         },
-        cream: {
-          DEFAULT: '#f2efeb',
-          foreground: '#28483F'
+        dalai: {
+          green: '#28483F',
+          yellow: '#E2B808'
         },
         destructive: {
           DEFAULT: 'hsl(var(--destructive))',
           foreground: 'hsl(var(--destructive-foreground))'
         },
         muted: {
-          DEFAULT: 'hsl(var(--muted))',
-          foreground: 'hsl(var(--muted-foreground))'
+          DEFAULT: '#F1F5F9',
+          foreground: '#64748B'
         },
         accent: {
-          DEFAULT: 'hsl(var(--accent))',
-          foreground: 'hsl(var(--accent-foreground))'
+          DEFAULT: '#F8FAFC',
+          foreground: '#0F172A'
         },
         popover: {
           DEFAULT: 'hsl(var(--popover))',
           foreground: 'hsl(var(--popover-foreground))'
         },
         card: {
-          DEFAULT: 'hsl(var(--card))',
-          foreground: 'hsl(var(--card-foreground))'
+          DEFAULT: '#FFFFFF',
+          foreground: '#1E293B'
         }
       },
       fontFamily: {
@@ -85,6 +86,11 @@ export default {
         "accordion-up": "accordion-up 0.2s ease-out",
         "fade-in": "fade-in 0.3s ease-out",
         "slide-in": "slide-in 0.3s ease-out"
+      },
+      borderRadius: {
+        lg: 'var(--radius)',
+        md: 'calc(var(--radius) - 2px)',
+        sm: 'calc(var(--radius) - 4px)',
       },
     },
   },
