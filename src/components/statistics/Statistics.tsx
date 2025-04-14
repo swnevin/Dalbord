@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { updateDateRange } from "./utils/dateUtils";
 import { StatisticsHeader } from "./StatisticsHeader";
 import { SummaryCards } from "./SummaryCards";
@@ -24,11 +23,9 @@ export const Statistics = () => {
     hourlyRate: 300    // default: 300 NOK per hour
   });
 
-  // Fetch statistics data using our custom hooks
   const { data, loading } = useStatistics(dateRange, timeRange, savingsSettings);
   const { isChartVisible, isSectionVisible, isLoading: isLoadingPreferences } = useChartPreferences();
 
-  // Update date range when time range changes
   useEffect(() => {
     if (timeRange !== 'custom') {
       setDateRange(updateDateRange(timeRange));
@@ -102,7 +99,6 @@ export const Statistics = () => {
           <Separator className="bg-primary/10" />
           
           <div className="grid gap-4 grid-cols-1">
-            {/* TimeSeriesCharts */}
             {isChartVisible('users_over_time' as ChartType) && (
               <TimeSeriesChart
                 data={data.userTimeSeries}
@@ -136,7 +132,6 @@ export const Statistics = () => {
               />
             )}
             
-            {/* Bar chart */}
             {isChartVisible('topics' as ChartType) && (
               <BarChart
                 data={data.topIntents}
