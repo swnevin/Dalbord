@@ -25,6 +25,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { AddMemberForm } from "./AddMemberForm";
 import { MemberList } from "./MemberList";
+import { ProjectSettingsSheet } from "./ProjectSettingsSheet";
 import { toast } from "sonner";
 
 type TabName = Database["public"]["Enums"]["tab_type"];
@@ -75,6 +76,8 @@ export const OrganizationCard = ({
     projectId: organization.voiceflow_project_id || ""
   });
 
+  const isDalaiOrg = organization.name === "Dalai";
+
   useEffect(() => {
     setBotConfig({
       apiKey: organization.voiceflow_api_key || "",
@@ -113,6 +116,14 @@ export const OrganizationCard = ({
             >
               <Clipboard className="h-4 w-4" />
             </Button>
+            
+            {!isDalaiOrg && (
+              <ProjectSettingsSheet 
+                organizationId={organization.id} 
+                organizationName={organization.name}
+              />
+            )}
+            
             <Sheet>
               <SheetTrigger asChild>
                 <Button variant="outline" size="icon">

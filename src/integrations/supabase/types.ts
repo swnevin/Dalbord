@@ -138,6 +138,44 @@ export type Database = {
           },
         ]
       }
+      statistics_preferences: {
+        Row: {
+          chart_type: Database["public"]["Enums"]["chart_type"]
+          created_at: string
+          display_order: number
+          id: string
+          is_visible: boolean
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          chart_type: Database["public"]["Enums"]["chart_type"]
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_visible?: boolean
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          chart_type?: Database["public"]["Enums"]["chart_type"]
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_visible?: boolean
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "statistics_preferences_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_tab_permissions: {
         Row: {
           created_at: string | null
@@ -185,8 +223,28 @@ export type Database = {
         Args: { user_id: string }
         Returns: undefined
       }
+      initialize_statistics_preferences: {
+        Args: { org_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
+      chart_type:
+        | "total_messages"
+        | "total_sessions"
+        | "total_conversations"
+        | "escalated_count"
+        | "thumbs_up"
+        | "thumbs_down"
+        | "success_metrics"
+        | "users_over_time"
+        | "sessions_over_time"
+        | "messages_over_time"
+        | "topics"
+        | "feedback_pie"
+        | "success_vs_fallback"
+        | "savings_time"
+        | "savings_money"
       custom_tab_icon: "default"
       metric_type:
         | "happy_face"
@@ -196,6 +254,11 @@ export type Database = {
         | "successful_answer"
         | "thumbs_up"
         | "thumbs_down"
+      statistics_section:
+        | "summary"
+        | "detailed_analysis"
+        | "question_handling"
+        | "savings"
       tab_type:
         | "organizations"
         | "conversations"
@@ -318,6 +381,23 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      chart_type: [
+        "total_messages",
+        "total_sessions",
+        "total_conversations",
+        "escalated_count",
+        "thumbs_up",
+        "thumbs_down",
+        "success_metrics",
+        "users_over_time",
+        "sessions_over_time",
+        "messages_over_time",
+        "topics",
+        "feedback_pie",
+        "success_vs_fallback",
+        "savings_time",
+        "savings_money",
+      ],
       custom_tab_icon: ["default"],
       metric_type: [
         "happy_face",
@@ -327,6 +407,12 @@ export const Constants = {
         "successful_answer",
         "thumbs_up",
         "thumbs_down",
+      ],
+      statistics_section: [
+        "summary",
+        "detailed_analysis",
+        "question_handling",
+        "savings",
       ],
       tab_type: [
         "organizations",
