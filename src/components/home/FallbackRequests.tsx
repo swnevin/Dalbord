@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { 
@@ -45,7 +44,6 @@ export const FallbackRequests = () => {
   const [showAllResolved, setShowAllResolved] = useState(false);
   const [showFilteredResults, setShowFilteredResults] = useState(true);
   
-  // Filter out "not_a_question" entries
   const filteredUnresolvedRequests = showFilteredResults 
     ? fallbackRequests.filter(req => req.query !== "not_a_question")
     : fallbackRequests;
@@ -180,9 +178,19 @@ export const FallbackRequests = () => {
           </div>
           
           <Tabs defaultValue="unresolved" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-4">
-              <TabsTrigger value="unresolved">Uløste henvendelser</TabsTrigger>
-              <TabsTrigger value="resolved">Løste henvendelser</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2 mb-4 bg-muted">
+              <TabsTrigger 
+                value="unresolved" 
+                className="data-[state=active]:bg-primary data-[state=active]:text-white"
+              >
+                Uløste henvendelser
+              </TabsTrigger>
+              <TabsTrigger 
+                value="resolved" 
+                className="data-[state=active]:bg-primary data-[state=active]:text-white"
+              >
+                Løste henvendelser
+              </TabsTrigger>
             </TabsList>
             
             <TabsContent value="unresolved">

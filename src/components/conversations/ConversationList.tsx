@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Bookmark, CheckCircle, ChevronLeft, ChevronRight, Search, Trash2, FileText, Info } from "lucide-react";
@@ -143,13 +142,25 @@ export const ConversationList = ({
         </div>
 
         <div className="flex gap-2">
-          <Button variant={activeFilter === "all" ? "secondary" : "outline"} onClick={() => onFilterChange("all")} className="flex-1">
+          <Button 
+            variant={activeFilter === "all" ? "default" : "outline"} 
+            onClick={() => onFilterChange("all")} 
+            className="flex-1"
+          >
             Alle samtaler
           </Button>
-          <Button variant={activeFilter === "approved" ? "secondary" : "outline"} onClick={() => onFilterChange("approved")} className="flex-1">
+          <Button 
+            variant={activeFilter === "approved" ? "default" : "outline"} 
+            onClick={() => onFilterChange("approved")} 
+            className="flex-1"
+          >
             Gjennomgåtte
           </Button>
-          <Button variant={activeFilter === "saved" ? "secondary" : "outline"} onClick={() => onFilterChange("saved")} className="flex-1">
+          <Button 
+            variant={activeFilter === "saved" ? "default" : "outline"} 
+            onClick={() => onFilterChange("saved")} 
+            className="flex-1"
+          >
             Lagrede
           </Button>
         </div>

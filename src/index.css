@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -6,15 +5,15 @@
 @layer base {
   :root {
     --background: 210 40% 98%;
-    --foreground: 222 47% 11%;
+    --foreground: 240 47% 11%;
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 240 47% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 222 47% 11%;
+    --popover-foreground: 240 47% 11%;
+    --primary: 160 41% 18%; /* HSL for #28483F */
     --primary-foreground: 210 40% 98%;
-    --secondary: 45 90% 46%;
-    --secondary-foreground: 222 47% 11%;
+    --secondary: 160 41% 18%; /* Same as primary */
+    --secondary-foreground: 210 40% 98%;
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
     --accent: 210 40% 96.1%;
@@ -42,7 +41,7 @@
   }
 
   .sidebar-link.active {
-    @apply bg-muted text-primary font-medium;
+    @apply bg-primary/10 text-primary font-medium;
   }
   
   .hover-highlight {
@@ -53,7 +52,6 @@
     @apply bg-dalai-yellow text-primary font-medium;
   }
 
-  /* Add custom styles for chat message links */
   .prose-invert a {
     @apply text-dalai-yellow font-medium hover:text-dalai-yellow/90 underline-offset-2;
   }

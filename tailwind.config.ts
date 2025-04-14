@@ -1,4 +1,3 @@
-
 import type { Config } from "tailwindcss";
 
 export default {
@@ -13,10 +12,10 @@ export default {
   theme: {
     container: {
       center: true,
-      padding: '2rem',
+      padding: "2rem",
       screens: {
-        '2xl': '1400px'
-      }
+        "2xl": "1400px",
+      },
     },
     extend: {
       colors: {
@@ -26,13 +25,13 @@ export default {
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         primary: {
-          DEFAULT: '#1E293B',
+          DEFAULT: '#28483F',
           foreground: '#ffffff',
           light: '#334155'
         },
         secondary: {
-          DEFAULT: '#E2B808',
-          foreground: '#1E293B'
+          DEFAULT: '#28483F',
+          foreground: '#ffffff'
         },
         dalai: {
           green: '#28483F',
