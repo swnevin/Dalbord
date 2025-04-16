@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePreview } from "@/contexts/PreviewContext";
@@ -682,9 +681,7 @@ export const useStatistics = (
             const { data: fallbackData, error: fallbackError } = await supabase
               .from('fallback_requests')
               .select('*')
-              .eq('organization_id', organizationId)
-              .gte('created_at', dateRange.from.toISOString())
-              .lte('created_at', dateRange.to.toISOString());
+              .eq('organization_id', organizationId);
 
             if (fallbackError) {
               console.error("[useStatistics] Error fetching fallbacks:", fallbackError);

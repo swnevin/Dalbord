@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -37,25 +36,35 @@ export const FallbackRequests = () => {
       try {
         console.log("[FallbackRequests] Fetching fallback requests for org:", organizationId);
         
-        const { data, error } = await supabase
+        let { data: fallbacks, error: fallbackError } = await supabase
           .from('fallback_requests')
           .select('*')
-          .eq('organization_id', organizationId)
-          .order('created_at', { ascending: false })
-          .limit(5);
+          .eq('organization_id', organizationId);
 
-        if (error) {
-          console.error("[FallbackRequests] Error fetching fallback requests:", error);
-          throw error;
+        if (fallbackError) {
+          console.error("[FallbackRequests] Error fetching fallback requests:", fallbackError);
+          throw fallbackError;
         }
 
-        console.log("[FallbackRequests] Fetched fallback requests:", data?.length || 0);
+        if (preview.isPreviewMode) {
+          console.log("[FallbackRequests] Preview mode active, got fallbacks:", fallbacks?.length || 0);
+        }
+
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        fallbacks = fallbacks?.filter(request => {
+          const requestDate = new Date(request.created_at);
+          return requestDate >= thirtyDaysAgo;
+        }) || [];
+
+        console.log("[FallbackRequests] Filtered fallback requests:", fallbacks.length);
         
-        if (data && data.length > 0) {
-          console.log("[FallbackRequests] First fallback request:", data[0]);
+        if (fallbacks && fallbacks.length > 0) {
+          console.log("[FallbackRequests] First fallback request:", fallbacks[0]);
         }
         
-        setFallbackRequests(data || []);
+        setFallbackRequests(fallbacks || []);
       } catch (error) {
         console.error("[FallbackRequests] Error:", error);
       } finally {
@@ -64,7 +73,7 @@ export const FallbackRequests = () => {
     };
 
     fetchFallbackRequests();
-  }, [organizationId]);
+  }, [organizationId, preview.isPreviewMode]);
 
   const handleViewAll = () => {
     navigate('/dashboard');
