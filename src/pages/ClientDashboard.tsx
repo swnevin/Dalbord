@@ -12,9 +12,8 @@ import { ConversationDialog } from "@/components/conversations/ConversationDialo
 import { DeleteDialog } from "@/components/conversations/DeleteDialog";
 import { Statistics } from "@/components/statistics/Statistics";
 import { Home } from "@/components/home/Home";
-import OrganizationsTab from "@/components/administrator/AdministratorTab";
+import { AdministratorTab } from "@/components/administrator/AdministratorTab";
 import { useDialogPreloader } from "@/hooks/use-dialog-preloader";
-import { usePreview } from "@/contexts/PreviewContext";
 
 interface VoiceflowTranscript {
   _id: string;
@@ -34,7 +33,6 @@ const ClientDashboard = () => {
   const [activeTab, setActiveTab] = useState("home");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const { user } = useAuth();
-  const { preview } = usePreview();
   const [conversations, setConversations] = useState<VoiceflowTranscript[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [conversationsCollapsed, setConversationsCollapsed] = useState(false);
@@ -50,15 +48,6 @@ const ClientDashboard = () => {
   const [itemsPerPage, setItemsPerPage] = useState(100);
   const [preloadingTimerRef, setPreloadingTimerRef] = useState<NodeJS.Timeout | null>(null);
 
-  const organizationId = preview.isPreviewMode ? preview.previewOrgId : user?.organization_id;
-
-  useEffect(() => {
-    console.log("[ClientDashboard] Using organization ID:", organizationId);
-    console.log("[ClientDashboard] Preview mode:", preview.isPreviewMode);
-    console.log("[ClientDashboard] Preview org ID:", preview.previewOrgId);
-    console.log("[ClientDashboard] Preview tabs:", preview.previewTabs);
-  }, [organizationId, preview]);
-
   const {
     dialogCache,
     preloadConversations,
@@ -66,17 +55,17 @@ const ClientDashboard = () => {
     isConversationPreloaded,
     searchInDialogContent
   } = useDialogPreloader({
-    organizationId
+    organizationId: user?.organization_id
   });
 
   const toggleTag = async (conversationId: string, tag: "system.saved" | "system.reviewed") => {
-    if (!organizationId) return;
+    if (!user?.organization_id) return;
 
     try {
       const { data: org, error: orgError } = await supabase
         .from('organizations')
         .select('voiceflow_api_key, voiceflow_project_id')
-        .eq('id', organizationId)
+        .eq('id', user.organization_id)
         .single();
 
       if (orgError) throw orgError;
@@ -223,6 +212,7 @@ const ClientDashboard = () => {
       
       const searchLower = searchTerm.toLowerCase();
       
+      // Enhanced date search - check for partial matches in day, month, year
       const date = new Date(conv.updatedAt);
       const day = date.getDate().toString().padStart(2, '0');
       const month = (date.getMonth() + 1).toString().padStart(2, '0');
@@ -276,34 +266,21 @@ const ClientDashboard = () => {
 
   useEffect(() => {
     const fetchConversations = async () => {
-      if (!organizationId) {
-        console.log("[ClientDashboard] No organization ID available, skipping fetch");
-        return;
-      }
+      if (!user?.organization_id) return;
 
       try {
-        console.log("[ClientDashboard] Fetching conversations for organization:", organizationId);
-        
         const { data: org, error: orgError } = await supabase
           .from('organizations')
           .select('voiceflow_api_key, voiceflow_project_id')
-          .eq('id', organizationId)
+          .eq('id', user.organization_id)
           .single();
 
-        if (orgError) {
-          console.error("[ClientDashboard] Error fetching org:", orgError);
-          throw orgError;
-        }
-        
-        if (!org?.voiceflow_api_key || !org?.voiceflow_project_id) {
-          console.error("[ClientDashboard] Missing Voiceflow credentials for org:", organizationId);
-          console.log("[ClientDashboard] VF API Key exists:", !!org?.voiceflow_api_key);
-          console.log("[ClientDashboard] VF Project ID exists:", !!org?.voiceflow_project_id);
+        if (orgError) throw orgError;
+        if (!org.voiceflow_api_key || !org.voiceflow_project_id) {
+          console.error('Missing Voiceflow credentials');
           return;
         }
 
-        console.log("[ClientDashboard] Using Voiceflow project ID:", org.voiceflow_project_id);
-        
         const response = await fetch(
           `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}`,
           {
@@ -314,29 +291,23 @@ const ClientDashboard = () => {
           }
         );
 
-        if (!response.ok) {
-          console.error("[ClientDashboard] Voiceflow API error:", response.status);
-          throw new Error('Failed to fetch transcripts');
-        }
+        if (!response.ok) throw new Error('Failed to fetch transcripts');
 
         const data = await response.json();
-        console.log("[ClientDashboard] Fetched conversations:", data.length);
         setConversations(data);
       } catch (error) {
-        console.error('[ClientDashboard] Error fetching conversations:', error);
+        console.error('Error fetching conversations:', error);
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchConversations();
-  }, [organizationId]);
+  }, [user?.organization_id]);
 
   useEffect(() => {
     const fetchDialog = async () => {
-      if (!selectedConversation) return;
-      
-      if (!organizationId) return;
+      if (!selectedConversation || !user?.organization_id) return;
       
       if (getCachedDialog(selectedConversation)) {
         return;
@@ -346,7 +317,7 @@ const ClientDashboard = () => {
         const { data: org, error: orgError } = await supabase
           .from('organizations')
           .select('voiceflow_api_key, voiceflow_project_id')
-          .eq('id', organizationId)
+          .eq('id', user.organization_id)
           .single();
 
         if (orgError) throw orgError;
@@ -380,7 +351,7 @@ const ClientDashboard = () => {
     };
 
     fetchDialog();
-  }, [selectedConversation, organizationId, getCachedDialog, preloadConversations]);
+  }, [selectedConversation, user?.organization_id, getCachedDialog, preloadConversations]);
 
   useEffect(() => {
     return () => {
@@ -435,7 +406,7 @@ const ClientDashboard = () => {
           <KnowledgeBase />
         )}
         {activeTab === "statistics" && <Statistics />}
-        {activeTab === "administrator" && <OrganizationsTab />}
+        {activeTab === "administrator" && <AdministratorTab />}
       </div>
 
       <DeleteDialog

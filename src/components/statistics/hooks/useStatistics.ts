@@ -1,6 +1,6 @@
+
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { usePreview } from "@/contexts/PreviewContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { differenceInDays } from "date-fns";
@@ -13,7 +13,6 @@ export const useStatistics = (
   savingsSettings: SavingsSettings
 ) => {
   const { user } = useAuth();
-  const { preview } = usePreview();
   const [data, setData] = useState<StatisticsData>({
     totalMessages: 0,
     totalConversations: 0,
@@ -47,14 +46,7 @@ export const useStatistics = (
     fallbackChart: true
   });
 
-  const organizationId = preview.isPreviewMode ? preview.previewOrgId : user?.organization_id;
-
-  useEffect(() => {
-    console.log("[useStatistics] Using organization ID:", organizationId);
-    console.log("[useStatistics] Preview mode:", preview.isPreviewMode);
-    console.log("[useStatistics] Preview org ID:", preview.previewOrgId);
-  }, [organizationId, preview.isPreviewMode, preview.previewOrgId]);
-
+  // Calculate savings whenever total messages or settings change
   useEffect(() => {
     if (data.totalMessages) {
       const timeSaved = data.totalMessages * savingsSettings.timePerMessage;
@@ -68,65 +60,48 @@ export const useStatistics = (
     }
   }, [data.totalMessages, savingsSettings]);
 
+  // Fetch summary data (total messages, sessions and conversations)
   useEffect(() => {
     let isMounted = true;
     const abortController = new AbortController();
 
     const fetchSummaryData = async () => {
-      if (!organizationId) {
-        console.log("[useStatistics] No organization ID available, skipping fetch");
-        return;
-      }
-      
+      if (!user?.organization_id) return;
+
       setLoading(prev => ({ ...prev, summaryCards: true }));
 
       try {
-        console.log("[useStatistics] Fetching summary data for organization:", organizationId);
-        
+        // Fetch message counts
         const { data: messageData, error: messageError } = await supabase.functions
           .invoke('get-voiceflow-analytics', {
             body: {
               startDate: dateRange.from.toISOString(),
               endDate: dateRange.to.toISOString(),
-              queryType: 'interactions',
-              previewMode: preview.isPreviewMode,
-              previewOrgId: preview.previewOrgId
+              queryType: 'interactions'
             },
           });
 
-        if (messageError) {
-          console.error("[useStatistics] Message data error:", messageError);
-          throw messageError;
-        }
+        if (messageError) throw messageError;
 
+        // Fetch session counts
         const { data: sessionData, error: sessionError } = await supabase.functions
           .invoke('get-voiceflow-analytics', {
             body: {
               startDate: dateRange.from.toISOString(),
               endDate: dateRange.to.toISOString(),
-              queryType: 'sessions',
-              previewMode: preview.isPreviewMode,
-              previewOrgId: preview.previewOrgId
+              queryType: 'sessions'
             },
           });
 
-        if (sessionError) {
-          console.error("[useStatistics] Session data error:", sessionError);
-          throw sessionError;
-        }
+        if (sessionError) throw sessionError;
 
         const { data: org, error: orgError } = await supabase
           .from('organizations')
           .select('voiceflow_api_key, voiceflow_project_id')
-          .eq('id', organizationId)
-          .maybeSingle();
+          .eq('id', user.organization_id)
+          .single();
 
-        if (orgError) {
-          console.error("[useStatistics] Error fetching org:", orgError);
-          throw orgError;
-        }
-
-        console.log("[useStatistics] Got org data:", org ? "yes" : "no", "VF project ID:", org?.voiceflow_project_id?.substring(0, 5) + "...");
+        if (orgError) throw orgError;
 
         const conversationsResponse = await fetch(
           `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}`,
@@ -174,14 +149,15 @@ export const useStatistics = (
       isMounted = false;
       abortController.abort();
     };
-  }, [organizationId, dateRange, timeRange, preview.isPreviewMode, preview.previewOrgId]);
+  }, [user?.organization_id, dateRange, timeRange]);
 
+  // Fetch message time series data
   useEffect(() => {
     let isMounted = true;
     const abortController = new AbortController();
 
     const fetchMessageTimeSeries = async () => {
-      if (!organizationId) return;
+      if (!user?.organization_id) return;
 
       setLoading(prev => ({ ...prev, messageChart: true }));
 
@@ -202,9 +178,7 @@ export const useStatistics = (
                 body: {
                   startDate: startOfDay.toISOString(),
                   endDate: endOfDay.toISOString(),
-                  queryType: 'interactions',
-                  previewMode: preview.isPreviewMode,
-                  previewOrgId: preview.previewOrgId
+                  queryType: 'interactions'
                 },
               });
 
@@ -220,9 +194,7 @@ export const useStatistics = (
                 body: {
                   startDate: frame.start.toISOString(),
                   endDate: frame.end.toISOString(),
-                  queryType: 'interactions',
-                  previewMode: preview.isPreviewMode,
-                  previewOrgId: preview.previewOrgId
+                  queryType: 'interactions'
                 },
               });
 
@@ -253,14 +225,15 @@ export const useStatistics = (
     return () => {
       isMounted = false;
     };
-  }, [organizationId, dateRange, timeRange, preview.isPreviewMode, preview.previewOrgId]);
+  }, [user?.organization_id, dateRange, timeRange]);
 
+  // Fetch session time series data
   useEffect(() => {
     let isMounted = true;
     const abortController = new AbortController();
 
     const fetchSessionTimeSeries = async () => {
-      if (!organizationId) return;
+      if (!user?.organization_id) return;
 
       setLoading(prev => ({ ...prev, sessionChart: true }));
 
@@ -281,9 +254,7 @@ export const useStatistics = (
                 body: {
                   startDate: startOfDay.toISOString(),
                   endDate: endOfDay.toISOString(),
-                  queryType: 'sessions',
-                  previewMode: preview.isPreviewMode,
-                  previewOrgId: preview.previewOrgId
+                  queryType: 'sessions'
                 },
               });
 
@@ -299,9 +270,7 @@ export const useStatistics = (
                 body: {
                   startDate: frame.start.toISOString(),
                   endDate: frame.end.toISOString(),
-                  queryType: 'sessions',
-                  previewMode: preview.isPreviewMode,
-                  previewOrgId: preview.previewOrgId
+                  queryType: 'sessions'
                 },
               });
 
@@ -332,14 +301,15 @@ export const useStatistics = (
     return () => {
       isMounted = false;
     };
-  }, [organizationId, dateRange, timeRange, preview.isPreviewMode, preview.previewOrgId]);
+  }, [user?.organization_id, dateRange, timeRange]);
 
+  // Fetch user time series data
   useEffect(() => {
     let isMounted = true;
     const abortController = new AbortController();
 
     const fetchUserTimeSeries = async () => {
-      if (!organizationId) return;
+      if (!user?.organization_id) return;
 
       setLoading(prev => ({ ...prev, userChart: true }));
 
@@ -347,7 +317,7 @@ export const useStatistics = (
         const { data: org, error: orgError } = await supabase
           .from('organizations')
           .select('voiceflow_api_key, voiceflow_project_id')
-          .eq('id', organizationId)
+          .eq('id', user.organization_id)
           .single();
 
         if (orgError) throw orgError;
@@ -420,31 +390,32 @@ export const useStatistics = (
       isMounted = false;
       abortController.abort();
     };
-  }, [organizationId, dateRange, timeRange, preview.isPreviewMode, preview.previewOrgId]);
+  }, [user?.organization_id, dateRange, timeRange]);
 
+  // Fetch top intents data
   useEffect(() => {
     let isMounted = true;
     const abortController = new AbortController();
 
     const fetchTopIntents = async () => {
-      if (!organizationId) return;
+      if (!user?.organization_id) return;
 
       setLoading(prev => ({ ...prev, intentChart: true }));
 
       try {
+        // Fetch top intents data
         const { data: intentData, error: intentError } = await supabase.functions
           .invoke('get-voiceflow-analytics', {
             body: {
               startDate: dateRange.from.toISOString(),
               endDate: dateRange.to.toISOString(),
-              queryType: 'top_intents',
-              previewMode: preview.isPreviewMode,
-              previewOrgId: preview.previewOrgId
+              queryType: 'top_intents'
             },
           });
 
         if (intentError) throw intentError;
 
+        // Extract intents from the response and filter out VF prefixed ones
         const topIntents: IntentData[] = intentData?.result?.[0]?.intents || [];
 
         if (isMounted) {
@@ -466,14 +437,15 @@ export const useStatistics = (
       isMounted = false;
       abortController.abort();
     };
-  }, [organizationId, dateRange, timeRange, preview.isPreviewMode, preview.previewOrgId]);
+  }, [user?.organization_id, dateRange, timeRange]);
 
+  // Fetch feedback and escalation metrics
   useEffect(() => {
     let isMounted = true;
     const abortController = new AbortController();
 
     const fetchFeedbackMetrics = async () => {
-      if (!organizationId) return;
+      if (!user?.organization_id) return;
 
       setLoading(prev => ({ 
         ...prev, 
@@ -482,90 +454,17 @@ export const useStatistics = (
       }));
 
       try {
-        console.log("[useStatistics] Fetching feedback metrics for organization:", organizationId);
-        
-        // Try to directly fetch from the get-metrics edge function first
-        try {
-          const { data: metricsResponse, error: functionError } = await supabase.functions
-            .invoke('get-metrics', {
-              body: {
-                organization_id: organizationId,
-                start_date: dateRange.from.toISOString(),
-                end_date: dateRange.to.toISOString(),
-                metrics: ['happy_face', 'neutral_face', 'sad_face', 'escalated_to_human', 'thumbs_up', 'thumbs_down']
-              },
-            });
-
-          if (functionError) throw functionError;
-          
-          if (metricsResponse) {
-            console.log("[useStatistics] Successfully fetched metrics from edge function:", metricsResponse);
-            
-            const happyFaceCount = metricsResponse.totals.happy_face || 0;
-            const neutralFaceCount = metricsResponse.totals.neutral_face || 0;
-            const sadFaceCount = metricsResponse.totals.sad_face || 0;
-            const escalatedCount = metricsResponse.totals.escalated_to_human || 0;
-            const thumbsUpCount = metricsResponse.totals.thumbs_up || 0;
-            const thumbsDownCount = metricsResponse.totals.thumbs_down || 0;
-            
-            // Process time series data
-            const feedbackTimeSeries: FeedbackTimeSeriesData[] = metricsResponse.timeSeries.map(item => ({
-              date: item.date,
-              happy_face: item.happy_face || 0,
-              neutral_face: item.neutral_face || 0,
-              sad_face: item.sad_face || 0
-            }));
-            
-            const escalationTimeSeries: TimeSeriesData[] = metricsResponse.timeSeries.map(item => ({
-              date: item.date,
-              value: item.escalated_to_human || 0
-            }));
-            
-            if (isMounted) {
-              setData(prev => ({
-                ...prev,
-                happyFaceCount,
-                neutralFaceCount,
-                sadFaceCount,
-                escalatedCount,
-                thumbsUpCount,
-                thumbsDownCount,
-                feedbackTimeSeries,
-                escalationTimeSeries
-              }));
-              
-              setLoading(prev => ({
-                ...prev,
-                feedbackChart: false,
-                escalationChart: false
-              }));
-            }
-            
-            return;
-          }
-        } catch (functionError) {
-          console.error("[useStatistics] Edge function error, falling back to direct query:", functionError);
-        }
-        
-        // Fallback to direct query if edge function fails
+        // Query the database directly for metrics
         const { data: metricsData, error: metricsError } = await supabase
           .from('conversation_metrics')
           .select('*')
-          .eq('organization_id', organizationId)
+          .eq('organization_id', user.organization_id)
           .gte('timestamp', dateRange.from.toISOString())
           .lte('timestamp', dateRange.to.toISOString());
 
-        if (metricsError) {
-          console.error("[useStatistics] Error fetching metrics:", metricsError);
-          throw metricsError;
-        }
+        if (metricsError) throw metricsError;
 
-        console.log("[useStatistics] Fetched metrics directly:", metricsData?.length || 0);
-        
-        if (metricsData) {
-          console.log("[useStatistics] Metrics sample:", metricsData.slice(0, 2));
-        }
-
+        // Process metrics data
         const happyFaceCount = metricsData.filter(m => m.metric_type === 'happy_face').length;
         const neutralFaceCount = metricsData.filter(m => m.metric_type === 'neutral_face').length;
         const sadFaceCount = metricsData.filter(m => m.metric_type === 'sad_face').length;
@@ -573,6 +472,7 @@ export const useStatistics = (
         const thumbsUpCount = metricsData.filter(m => m.metric_type === 'thumbs_up').length;
         const thumbsDownCount = metricsData.filter(m => m.metric_type === 'thumbs_down').length;
 
+        // Process time series data
         const timeFrames = getTimeFrames(dateRange.from, dateRange.to);
         const feedbackTimeSeries: FeedbackTimeSeriesData[] = [];
         const escalationTimeSeries: TimeSeriesData[] = [];
@@ -590,6 +490,7 @@ export const useStatistics = (
           const sad = frameMetrics.filter(m => m.metric_type === 'sad_face').length;
           const escalated = frameMetrics.filter(m => m.metric_type === 'escalated_to_human').length;
 
+          // Format the date for display
           const dateLabel = formatDateLabel(frame.start, daysDiff);
         
           feedbackTimeSeries.push({
@@ -625,8 +526,8 @@ export const useStatistics = (
           }));
         }
       } catch (error) {
-        console.error('[useStatistics] Error fetching feedback metrics:', error);
-        if (isMounted) {
+        if (isMounted && !abortController.signal.aborted) {
+          console.error('Error fetching feedback metrics:', error);
           toast.error('Kunne ikke hente tilbakemeldingsdata');
           setLoading(prev => ({
             ...prev,
@@ -643,14 +544,15 @@ export const useStatistics = (
       isMounted = false;
       abortController.abort();
     };
-  }, [organizationId, dateRange, timeRange]);
+  }, [user?.organization_id, dateRange, timeRange]);
 
+  // Fetch successful answers metrics and fallback requests
   useEffect(() => {
     let isMounted = true;
     const abortController = new AbortController();
 
     const fetchSuccessMetrics = async () => {
-      if (!organizationId) return;
+      if (!user?.organization_id) return;
 
       setLoading(prev => ({ 
         ...prev, 
@@ -658,145 +560,51 @@ export const useStatistics = (
       }));
 
       try {
-        console.log("[useStatistics] Fetching success metrics for organization:", organizationId);
-        
-        // Try to get successful_answer from the edge function first
-        try {
-          const { data: metricsResponse, error: functionError } = await supabase.functions
-            .invoke('get-metrics', {
-              body: {
-                organization_id: organizationId,
-                start_date: dateRange.from.toISOString(),
-                end_date: dateRange.to.toISOString(),
-                metrics: ['successful_answer'],
-                previewMode: preview.isPreviewMode,
-                previewOrgId: preview.previewOrgId
-              },
-            });
-
-          if (functionError) throw functionError;
-          
-          if (metricsResponse) {
-            console.log("[useStatistics] Successfully fetched successful_answer metrics from edge function");
-            
-            // Get fallback data directly
-            const { data: fallbackData, error: fallbackError } = await supabase
-              .from('fallback_requests')
-              .select('*')
-              .eq('organization_id', organizationId);
-
-            if (fallbackError) {
-              console.error("[useStatistics] Error fetching fallbacks:", fallbackError);
-              throw fallbackError;
-            }
-
-            console.log("[useStatistics] Successfully fetched fallback data:", fallbackData?.length || 0);
-            
-            if (fallbackData) {
-              console.log("[useStatistics] Fallback sample:", fallbackData.slice(0, 2));
-            }
-            
-            const successfulAnswerCount = metricsResponse.totals.successful_answer || 0;
-            const fallbackCount = fallbackData.length;
-            
-            // Process time series data
-            const timeFrames = getTimeFrames(dateRange.from, dateRange.to);
-            const successVsFallbackTimeSeries: SuccessVsFallbackTimeSeriesData[] = [];
-            const daysDiff = differenceInDays(dateRange.to, dateRange.from);
-            
-            for (const frame of timeFrames) {
-              const successfulAnswers = metricsResponse.timeSeries
-                .find(item => item.date === frame.start.toISOString().split('T')[0])?.successful_answer || 0;
-              
-              const fallbacks = fallbackData.filter(f => {
-                const date = new Date(f.created_at);
-                return date >= frame.start && date <= frame.end;
-              }).length;
-
-              const dateLabel = formatDateLabel(frame.start, daysDiff);
-              
-              successVsFallbackTimeSeries.push({
-                date: dateLabel,
-                successful_answer: successfulAnswers,
-                fallback: fallbacks
-              });
-            }
-            
-            if (isMounted) {
-              setData(prev => ({
-                ...prev,
-                successfulAnswerCount,
-                fallbackCount,
-                successVsFallbackTimeSeries
-              }));
-              
-              setLoading(prev => ({
-                ...prev,
-                fallbackChart: false
-              }));
-            }
-            
-            return;
-          }
-        } catch (functionError) {
-          console.error("[useStatistics] Edge function error for success metrics, falling back to direct query:", functionError);
-        }
-        
+        // Query metrics for successful answers
         const { data: metricsData, error: metricsError } = await supabase
           .from('conversation_metrics')
           .select('*')
-          .eq('organization_id', organizationId)
+          .eq('organization_id', user.organization_id)
           .eq('metric_type', 'successful_answer')
           .gte('timestamp', dateRange.from.toISOString())
           .lte('timestamp', dateRange.to.toISOString());
 
-        if (metricsError) {
-          console.error("[useStatistics] Error fetching metrics:", metricsError);
-          throw metricsError;
-        }
+        if (metricsError) throw metricsError;
 
+        // Query fallback requests
         const { data: fallbackData, error: fallbackError } = await supabase
           .from('fallback_requests')
           .select('*')
-          .eq('organization_id', organizationId)
+          .eq('organization_id', user.organization_id)
           .gte('created_at', dateRange.from.toISOString())
           .lte('created_at', dateRange.to.toISOString());
 
-        if (fallbackError) {
-          console.error("[useStatistics] Error fetching fallbacks:", fallbackError);
-          throw fallbackError;
-        }
+        if (fallbackError) throw fallbackError;
 
-        console.log("[useStatistics] Fetched metrics:", metricsData?.length || 0);
-        console.log("[useStatistics] Fetched fallbacks:", fallbackData?.length || 0);
-        
-        if (metricsData) {
-          console.log("[useStatistics] Metrics sample:", metricsData.slice(0, 2));
-        }
-        
-        if (fallbackData) {
-          console.log("[useStatistics] Fallback sample:", fallbackData.slice(0, 2));
-        }
-
+        // Get counts
         const successfulAnswerCount = metricsData.length;
         const fallbackCount = fallbackData.length;
 
+        // Process time series data
         const timeFrames = getTimeFrames(dateRange.from, dateRange.to);
         const successVsFallbackTimeSeries: SuccessVsFallbackTimeSeriesData[] = [];
         
         const daysDiff = differenceInDays(dateRange.to, dateRange.from);
         
         for (const frame of timeFrames) {
+          // Count successful answers in this timeframe
           const successfulAnswers = metricsData.filter(m => {
             const date = new Date(m.timestamp);
             return date >= frame.start && date <= frame.end;
           }).length;
 
+          // Count fallbacks in this timeframe
           const fallbacks = fallbackData.filter(f => {
             const date = new Date(f.created_at);
             return date >= frame.start && date <= frame.end;
           }).length;
 
+          // Format the date for display
           const dateLabel = formatDateLabel(frame.start, daysDiff);
           
           successVsFallbackTimeSeries.push({
@@ -805,6 +613,9 @@ export const useStatistics = (
             fallback: fallbacks
           });
         }
+
+        // Debug log
+        console.log('Success vs Fallback time series:', successVsFallbackTimeSeries);
 
         if (isMounted) {
           setData(prev => ({
@@ -820,8 +631,8 @@ export const useStatistics = (
           }));
         }
       } catch (error) {
-        console.error('[useStatistics] Error fetching success metrics:', error);
-        if (isMounted) {
+        if (isMounted && !abortController.signal.aborted) {
+          console.error('Error fetching success metrics:', error);
           toast.error('Kunne ikke hente svar/fallback-data');
           setLoading(prev => ({
             ...prev,
@@ -837,7 +648,7 @@ export const useStatistics = (
       isMounted = false;
       abortController.abort();
     };
-  }, [organizationId, dateRange, timeRange, preview.isPreviewMode, preview.previewOrgId]);
+  }, [user?.organization_id, dateRange, timeRange]);
 
   return { data, loading };
 };
