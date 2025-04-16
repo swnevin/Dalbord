@@ -82,6 +82,8 @@ serve(async (req) => {
       queryName = 'sessions';
     } else if (queryType === 'top_intents') {
       queryName = 'top_intents';
+    } else if (queryType === 'summary') {
+      queryName = 'summary';
     }
 
     const options = {

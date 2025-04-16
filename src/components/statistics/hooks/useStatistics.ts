@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { format, parse, subDays } from "date-fns";
 import { nb } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
-import { DateRange, TimeRange, SavingsSettings, TimeSeriesDataPoint, ChartDataPoint } from "../types";
+import { DateRange, TimeRange, SavingsSettings, TimeSeriesData, ChartDataPoint } from "../types";
 
 interface StatisticsData {
   // Summary metrics
@@ -19,13 +19,13 @@ interface StatisticsData {
   moneySaved: number | null;
 
   // Time series data
-  userTimeSeries: TimeSeriesDataPoint[];
-  sessionTimeSeries: TimeSeriesDataPoint[];
-  messageTimeSeries: TimeSeriesDataPoint[];
+  userTimeSeries: TimeSeriesData[];
+  sessionTimeSeries: TimeSeriesData[];
+  messageTimeSeries: TimeSeriesData[];
   topIntents: ChartDataPoint[];
   
   // For any other calculated metrics
-  successVsFallbackTimeSeries: TimeSeriesDataPoint[];
+  successVsFallbackTimeSeries: TimeSeriesData[];
   timeRange: DateRange;
 }
 
@@ -91,18 +91,26 @@ export const useStatistics = (
 
   // Generate success vs fallback time series
   const generateSuccessVsFallbackTimeSeries = useCallback(() => {
+    // Get the from/to values from the dateRange, with fallback to start/end if needed
+    const fromDate = dateRange.from || dateRange.start;
+    const toDate = dateRange.to || dateRange.end;
+    
+    if (!fromDate || !toDate) {
+      console.error("Invalid date range provided");
+      return [];
+    }
+    
     // Generate sample dates from date range
-    const days = Math.ceil((dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24));
-    const result: TimeSeriesDataPoint[] = [];
+    const days = Math.ceil((toDate.getTime() - fromDate.getTime()) / (1000 * 60 * 60 * 24));
+    const result: TimeSeriesData[] = [];
 
     for (let i = 0; i < days; i++) {
-      const date = new Date(dateRange.start);
+      const date = new Date(fromDate);
       date.setDate(date.getDate() + i);
       
       result.push({
         date: formatDateForDisplay(date.toISOString()),
-        successful_answer: 0,
-        fallback: 0
+        value: 0
       });
     }
 
@@ -119,8 +127,8 @@ export const useStatistics = (
     try {
       const { data: response, error } = await supabase.functions.invoke('get-voiceflow-analytics', {
         body: {
-          startDate: dateRange.start.toISOString(),
-          endDate: dateRange.end.toISOString(),
+          startDate: (dateRange.from || dateRange.start)?.toISOString(),
+          endDate: (dateRange.to || dateRange.end)?.toISOString(),
           queryType: 'summary',
           organizationId
         }
@@ -169,8 +177,8 @@ export const useStatistics = (
       const { data: metrics, error } = await supabase.functions.invoke('get-metrics', {
         body: {
           organization_id: organizationId,
-          start_date: dateRange.start.toISOString(),
-          end_date: dateRange.end.toISOString(),
+          start_date: (dateRange.from || dateRange.start)?.toISOString(),
+          end_date: (dateRange.to || dateRange.end)?.toISOString(),
           metrics: ['thumbs_up', 'thumbs_down', 'escalated_to_human']
         }
       });
@@ -212,8 +220,8 @@ export const useStatistics = (
       const { data: metrics, error } = await supabase.functions.invoke('get-metrics', {
         body: {
           organization_id: organizationId,
-          start_date: dateRange.start.toISOString(),
-          end_date: dateRange.end.toISOString(),
+          start_date: (dateRange.from || dateRange.start)?.toISOString(),
+          end_date: (dateRange.to || dateRange.end)?.toISOString(),
           metrics: ['successful_answer', 'fallback']
         }
       });
@@ -253,8 +261,8 @@ export const useStatistics = (
     try {
       const { data: response, error } = await supabase.functions.invoke('get-voiceflow-analytics', {
         body: {
-          startDate: dateRange.start.toISOString(),
-          endDate: dateRange.end.toISOString(),
+          startDate: (dateRange.from || dateRange.start)?.toISOString(),
+          endDate: (dateRange.to || dateRange.end)?.toISOString(),
           queryType: 'interactions',
           organizationId
         }
@@ -280,7 +288,7 @@ export const useStatistics = (
       });
       
       // Convert to array format for the chart
-      const timeSeries: TimeSeriesDataPoint[] = Object.keys(dataByDay).map(day => ({
+      const timeSeries: TimeSeriesData[] = Object.keys(dataByDay).map(day => ({
         date: day,
         value: dataByDay[day]
       }));
@@ -310,8 +318,8 @@ export const useStatistics = (
     try {
       const { data: response, error } = await supabase.functions.invoke('get-voiceflow-analytics', {
         body: {
-          startDate: dateRange.start.toISOString(),
-          endDate: dateRange.end.toISOString(),
+          startDate: (dateRange.from || dateRange.start)?.toISOString(),
+          endDate: (dateRange.to || dateRange.end)?.toISOString(),
           queryType: 'sessions',
           organizationId
         }
@@ -337,7 +345,7 @@ export const useStatistics = (
       });
       
       // Convert to array format for the chart
-      const timeSeries: TimeSeriesDataPoint[] = Object.keys(dataByDay).map(day => ({
+      const timeSeries: TimeSeriesData[] = Object.keys(dataByDay).map(day => ({
         date: day,
         value: dataByDay[day]
       }));
@@ -408,7 +416,7 @@ export const useStatistics = (
       });
       
       // Convert to array format for the chart
-      const timeSeries: TimeSeriesDataPoint[] = Object.keys(usersByDay).map(day => ({
+      const timeSeries: TimeSeriesData[] = Object.keys(usersByDay).map(day => ({
         date: day,
         value: usersByDay[day].size
       }));
@@ -438,8 +446,8 @@ export const useStatistics = (
     try {
       const { data: response, error } = await supabase.functions.invoke('get-voiceflow-analytics', {
         body: {
-          startDate: dateRange.start.toISOString(),
-          endDate: dateRange.end.toISOString(),
+          startDate: (dateRange.from || dateRange.start)?.toISOString(),
+          endDate: (dateRange.to || dateRange.end)?.toISOString(),
           queryType: 'top_intents',
           organizationId
         }
