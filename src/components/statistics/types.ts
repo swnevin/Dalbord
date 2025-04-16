@@ -1,3 +1,4 @@
+
 export interface StatisticsData {
   totalMessages?: number;
   totalConversations?: number;
@@ -103,16 +104,14 @@ export interface MetricsResponse {
   }>;
 }
 
-// Highcharts specific types
-export interface HighchartsSeriesData {
-  name: string;
-  data: number[] | [number | string, number][];
-  color?: string;
-  type?: 'line' | 'spline' | 'area' | 'areaspline' | 'column' | 'bar' | 'pie';
+// Chart-related types
+export interface TimeSeriesDataPoint {
+  date: string;
+  value: number;
 }
 
 export interface ChartDataPoint {
   name: string;
   value: number;
-  count?: number;
+  count?: number; // Make count optional to be compatible with IntentData
 }
