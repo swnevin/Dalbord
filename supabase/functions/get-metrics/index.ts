@@ -56,10 +56,10 @@ serve(async (req) => {
       })
     }
 
-    // Get the user's organization_id
+    // Get the user's profile data including role and organization_id
     const { data: profileData, error: profileError } = await supabaseClient
       .from('profiles')
-      .select('organization_id')
+      .select('organization_id, role')
       .eq('id', userData.user.id)
       .single()
 
@@ -73,19 +73,13 @@ serve(async (req) => {
     // Parse the request body
     const body: MetricsRequest = await req.json()
     
-    // Default to the user's organization if not specified
+    // Use the specified organization_id if provided or default to the user's organization
     const organizationId = body.organization_id || profileData.organization_id
     
     // Verify the user has access to the requested organization
     if (organizationId !== profileData.organization_id) {
-      // Additional check required for admins only
-      const { data: isAdmin, error: adminError } = await supabaseClient
-        .from('profiles')
-        .select('role')
-        .eq('id', userData.user.id)
-        .single()
-      
-      if (adminError || isAdmin.role !== 'admin') {
+      // Only admins can access other organizations' data
+      if (profileData.role !== 'admin') {
         return new Response(JSON.stringify({ error: 'Access denied to organization data' }), {
           status: 403,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },

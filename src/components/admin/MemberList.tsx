@@ -1,7 +1,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Trash2, Pencil, UserRound } from "lucide-react";
+import { Trash2, Pencil, Eye } from "lucide-react";
 import { Database } from "@/integrations/supabase/types";
 import {
   AlertDialog,
@@ -175,11 +175,11 @@ export const MemberList = ({
                       className="text-[#E2B808] hover:text-[#E2B808]/80 hover:bg-[#E2B808]/10"
                       onClick={() => handlePreviewClick(profile)}
                     >
-                      <UserRound className="h-4 w-4" />
+                      <Eye className="h-4 w-4" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Logg inn som medlem</p>
+                    <p>Forhåndsvisning som medlem</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>

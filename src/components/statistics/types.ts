@@ -60,9 +60,12 @@ export interface IntentData {
   count: number;
 }
 
+// DateRange type with both variants of date properties
 export type DateRange = {
-  from: Date;
-  to: Date;
+  from?: Date;
+  to?: Date;
+  start?: Date;
+  end?: Date;
 };
 
 export type TimeRange = '7d' | '30d' | '90d' | '365d' | 'all' | 'custom';
@@ -99,4 +102,16 @@ export interface MetricsResponse {
     timestamp: string;
     created_at: string;
   }>;
+}
+
+// Chart-related types
+export interface TimeSeriesDataPoint {
+  date: string;
+  value: number;
+}
+
+export interface ChartDataPoint {
+  name: string;
+  value: number;
+  count?: number; // Make count optional to be compatible with IntentData
 }
