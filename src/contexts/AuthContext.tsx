@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,6 +28,8 @@ interface AuthContextType {
   isInPreviewMode: boolean;
 }
 
+const ORG_ID_SEPARATOR = "::preview::";
+
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export const useAuth = () => {
@@ -48,6 +49,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [originalOrgId, setOriginalOrgId] = useState<string | undefined>(undefined);
   const navigate = useNavigate();
   const location = useLocation();
+
+  const getConcatenatedOrgId = (adminOrgId: string, clientOrgId: string) => {
+    return `${adminOrgId}${ORG_ID_SEPARATOR}${clientOrgId}`;
+  };
+
+  const extractOrgIds = (concatenatedId: string) => {
+    if (!concatenatedId.includes(ORG_ID_SEPARATOR)) {
+      return { adminOrgId: concatenatedId, clientOrgId: concatenatedId };
+    }
+    
+    const [adminOrgId, clientOrgId] = concatenatedId.split(ORG_ID_SEPARATOR);
+    return { adminOrgId, clientOrgId };
+  };
+
+  const getEffectiveOrgId = (concatenatedId?: string) => {
+    if (!concatenatedId) return undefined;
+    
+    const { adminOrgId, clientOrgId } = extractOrgIds(concatenatedId);
+    return isInPreviewMode ? clientOrgId : adminOrgId;
+  };
 
   const fetchUserProfile = async (userId: string) => {
     try {
@@ -90,6 +111,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       const profile = await fetchUserProfile(session.user.id);
       
+      let effectiveOrgId = profile.organization_id;
+      if (effectiveOrgId && effectiveOrgId.includes(ORG_ID_SEPARATOR)) {
+        effectiveOrgId = getEffectiveOrgId(effectiveOrgId);
+      }
+      
       const userData = {
         id: session.user.id,
         email: session.user.email,
@@ -98,8 +124,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       setUser(userData);
 
-      // Only handle navigation if we're not already on the admin dashboard
-      // This prevents the flash when adding new members
       if (location.pathname !== '/admin') {
         if (profile.organization_type === 'admin') {
           navigate('/admin');
@@ -169,7 +193,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const logout = async () => {
-    // If in preview mode, exit it instead of logging out
     if (isInPreviewMode) {
       exitPreviewMode();
       return;
@@ -192,27 +215,47 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       setIsTransitioning(true);
       
-      // Store original path to return to later
       sessionStorage.setItem('previewReturnPath', location.pathname);
       
-      // Store the original organization ID of the admin
       if (user?.organization_id) {
-        setOriginalOrgId(user.organization_id);
+        if (user.organization_id.includes(ORG_ID_SEPARATOR)) {
+          const { adminOrgId } = extractOrgIds(user.organization_id);
+          setOriginalOrgId(adminOrgId);
+        } else {
+          setOriginalOrgId(user.organization_id);
+        }
+        
+        const concatOrgId = getConcatenatedOrgId(
+          user.organization_id.includes(ORG_ID_SEPARATOR) 
+            ? extractOrgIds(user.organization_id).adminOrgId 
+            : user.organization_id,
+          member.organization_id
+        );
+        
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({ organization_id: concatOrgId })
+          .eq('id', user.id);
+          
+        if (updateError) {
+          console.error('Error updating organization ID for preview:', updateError);
+          throw new Error('Kunne ikke oppdatere organisasjons-ID for forhåndsvisning');
+        }
+        
+        setUser(prev => {
+          if (!prev) return null;
+          return { 
+            ...prev, 
+            organization_id: concatOrgId 
+          };
+        });
       }
       
-      // Wait for a brief moment for the transition UI to appear
       await new Promise(resolve => setTimeout(resolve, 300));
       
       setPreviewUser(member);
       setIsInPreviewMode(true);
       
-      // Update the user object in state with the temporary organization_id
-      // But we don't update the database anymore
-      if (user) {
-        setUser(prev => prev ? { ...prev, organization_id: member.organization_id } : null);
-      }
-      
-      // Navigate to dashboard
       navigate('/dashboard');
       toast.success(`Forhåndsvisning startet for ${member.email}`);
     } catch (error) {
@@ -227,19 +270,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       setIsTransitioning(true);
       
-      // Wait for a brief moment for the transition UI to appear
       await new Promise(resolve => setTimeout(resolve, 300));
-      
-      // Restore the original organization_id in the user state
-      if (user && originalOrgId) {
-        setUser(prev => prev ? { ...prev, organization_id: originalOrgId } : null);
-        setOriginalOrgId(undefined);
-      }
       
       setPreviewUser(null);
       setIsInPreviewMode(false);
       
-      // Return to the original path
+      setOriginalOrgId(undefined);
+      
       const returnPath = sessionStorage.getItem('previewReturnPath') || '/admin';
       navigate(returnPath);
       sessionStorage.removeItem('previewReturnPath');

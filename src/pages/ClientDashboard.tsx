@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
@@ -13,6 +14,19 @@ import { Statistics } from "@/components/statistics/Statistics";
 import { Home } from "@/components/home/Home";
 import { AdministratorTab } from "@/components/administrator/AdministratorTab";
 import { useDialogPreloader } from "@/hooks/use-dialog-preloader";
+
+// Separator used to distinguish between admin and client org IDs
+const ORG_ID_SEPARATOR = "::preview::";
+
+// Extract org IDs from concatenated string
+const extractOrgIds = (concatenatedId: string) => {
+  if (!concatenatedId.includes(ORG_ID_SEPARATOR)) {
+    return { adminOrgId: concatenatedId, clientOrgId: concatenatedId };
+  }
+  
+  const [adminOrgId, clientOrgId] = concatenatedId.split(ORG_ID_SEPARATOR);
+  return { adminOrgId, clientOrgId };
+};
 
 interface VoiceflowTranscript {
   _id: string;
@@ -48,9 +62,21 @@ const ClientDashboard = () => {
   const [preloadingTimerRef, setPreloadingTimerRef] = useState<NodeJS.Timeout | null>(null);
 
   const getEffectiveOrgId = useCallback(() => {
-    return isInPreviewMode && previewUser 
-      ? previewUser.organization_id 
-      : user?.organization_id;
+    if (isInPreviewMode && previewUser) {
+      return previewUser.organization_id;
+    }
+    
+    if (user?.organization_id) {
+      // If the org ID is concatenated, extract the appropriate part
+      if (user.organization_id.includes(ORG_ID_SEPARATOR)) {
+        return isInPreviewMode
+          ? extractOrgIds(user.organization_id).clientOrgId
+          : extractOrgIds(user.organization_id).adminOrgId;
+      }
+      return user.organization_id;
+    }
+    
+    return undefined;
   }, [isInPreviewMode, previewUser, user]);
 
   const {
