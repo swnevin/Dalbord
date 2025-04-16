@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
@@ -64,13 +65,14 @@ const ClientDashboard = () => {
   });
 
   const toggleTag = async (conversationId: string, tag: "system.saved" | "system.reviewed") => {
-    if (!user?.organization_id) return;
+    const organizationId = getEffectiveOrgId();
+    if (!organizationId) return;
 
     try {
       const { data: org, error: orgError } = await supabase
         .from('organizations')
         .select('voiceflow_api_key, voiceflow_project_id')
-        .eq('id', user.organization_id)
+        .eq('id', organizationId)
         .single();
 
       if (orgError) throw orgError;
@@ -158,13 +160,16 @@ const ClientDashboard = () => {
   };
 
   const handleDeleteConfirm = async () => {
-    if (!conversationToDelete || !user?.organization_id) return;
+    if (!conversationToDelete) return;
+    
+    const organizationId = getEffectiveOrgId();
+    if (!organizationId) return;
 
     try {
       const { data: org, error: orgError } = await supabase
         .from('organizations')
         .select('voiceflow_api_key, voiceflow_project_id')
-        .eq('id', user.organization_id)
+        .eq('id', organizationId)
         .single();
 
       if (orgError) throw orgError;

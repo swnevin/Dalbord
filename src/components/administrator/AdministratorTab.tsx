@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,28 +28,33 @@ interface Profile {
 }
 
 export const AdministratorTab = () => {
-  const { user } = useAuth();
+  const { user, previewUser, isInPreviewMode } = useAuth();
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [isActuallyLoading, setIsActuallyLoading] = useState(true);
   const [userAccessibleTabs, setUserAccessibleTabs] = useState<TabName[]>([]);
   const isLoading = useMinimumLoading(isActuallyLoading);
 
+  const getEffectiveOrgId = () => {
+    return isInPreviewMode && previewUser 
+      ? previewUser.organization_id 
+      : user?.organization_id;
+  };
+
   useEffect(() => {
-    if (user?.organization_id) {
-      fetchOrganization();
+    const organizationId = getEffectiveOrgId();
+    if (organizationId) {
+      fetchOrganization(organizationId);
       fetchUserAccessibleTabs();
     }
-  }, [user]);
+  }, [user, previewUser, isInPreviewMode]);
 
-  const fetchOrganization = async () => {
-    if (!user?.organization_id) return;
-    
+  const fetchOrganization = async (organizationId: string) => {
     try {
       const { data: org, error: orgError } = await supabase
         .from("organizations")
         .select("*")
-        .eq("id", user.organization_id)
+        .eq("id", organizationId)
         .single();
 
       if (orgError) throw orgError;
@@ -64,7 +70,7 @@ export const AdministratorTab = () => {
           *,
           tabs:user_tab_permissions(tab_name)
         `)
-        .eq("organization_id", user.organization_id);
+        .eq("organization_id", organizationId);
 
       if (profilesError) throw profilesError;
       setProfiles(orgProfiles || []);
@@ -77,13 +83,14 @@ export const AdministratorTab = () => {
   };
 
   const fetchUserAccessibleTabs = async () => {
-    if (!user?.id) return;
+    const userId = isInPreviewMode && previewUser ? previewUser.id : user?.id;
+    if (!userId) return;
     
     try {
       const { data, error } = await supabase
         .from('user_tab_permissions')
         .select('tab_name')
-        .eq('user_id', user.id);
+        .eq('user_id', userId);
         
       if (error) throw error;
       
@@ -159,7 +166,10 @@ export const AdministratorTab = () => {
         await supabase.auth.setSession(currentSession);
       }
 
-      fetchOrganization();
+      const organizationId = getEffectiveOrgId();
+      if (organizationId) {
+        fetchOrganization(organizationId);
+      }
       toast.success("Medlem lagt til. Du kan nå redigere tilgangene deres.");
     } catch (error: any) {
       console.error("Error adding member:", error);
@@ -180,7 +190,10 @@ export const AdministratorTab = () => {
 
       if (error) throw error;
       
-      fetchOrganization();
+      const organizationId = getEffectiveOrgId();
+      if (organizationId) {
+        fetchOrganization(organizationId);
+      }
       toast.success("Medlem fjernet");
     } catch (error: any) {
       console.error("Error removing member:", error);

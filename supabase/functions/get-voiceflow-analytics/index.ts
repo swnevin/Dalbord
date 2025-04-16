@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { startDate, endDate, queryType = 'interactions' } = await req.json()
+    const { startDate, endDate, queryType = 'interactions', organizationId } = await req.json()
 
     if (!startDate || !endDate) {
       throw new Error('Start date and end date are required')
@@ -24,39 +24,46 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseKey)
 
-    // Get the user's JWT from the authorization header
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
-      throw new Error('Missing authorization header')
-    }
+    let targetOrgId = organizationId;
+    
+    // If organizationId is not provided, get it from the user's token
+    if (!targetOrgId) {
+      // Get the user's JWT from the authorization header
+      const authHeader = req.headers.get('Authorization')
+      if (!authHeader) {
+        throw new Error('Missing authorization header')
+      }
 
-    // Get the user's organization ID from their profile
-    const { data: { user }, error: userError } = await supabase.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    )
-    if (userError || !user) {
-      throw new Error('Invalid user token')
-    }
+      // Get the user's organization ID from their profile
+      const { data: { user }, error: userError } = await supabase.auth.getUser(
+        authHeader.replace('Bearer ', '')
+      )
+      if (userError || !user) {
+        throw new Error('Invalid user token')
+      }
 
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('organization_id')
-      .eq('id', user.id)
-      .maybeSingle()
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .eq('id', user.id)
+        .maybeSingle()
 
-    if (profileError) {
-      throw new Error('Error fetching user profile')
-    }
+      if (profileError) {
+        throw new Error('Error fetching user profile')
+      }
 
-    if (!profile?.organization_id) {
-      throw new Error('User has no organization assigned')
+      if (!profile?.organization_id) {
+        throw new Error('User has no organization assigned')
+      }
+      
+      targetOrgId = profile.organization_id;
     }
 
     // Get the organization's Voiceflow credentials
     const { data: org, error: orgError } = await supabase
       .from('organizations')
       .select('voiceflow_api_key, voiceflow_project_id')
-      .eq('id', profile.organization_id)
+      .eq('id', targetOrgId)
       .maybeSingle()
 
     if (orgError) {

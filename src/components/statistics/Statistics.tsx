@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+
+import React, { useState, useEffect, useCallback } from "react";
 import { updateDateRange } from "./utils/dateUtils";
 import { StatisticsHeader } from "./StatisticsHeader";
 import { SummaryCards } from "./SummaryCards";
@@ -14,8 +15,10 @@ import { useStatistics } from "./hooks/useStatistics";
 import { useChartPreferences, ChartType } from "./hooks/useChartPreferences";
 import { Separator } from "@/components/ui/separator";
 import { ChartBarIcon, TrendingUpIcon, MessageSquareIcon, UserRoundIcon } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 export const Statistics = () => {
+  const { user, previewUser, isInPreviewMode } = useAuth();
   const [timeRange, setTimeRange] = useState<TimeRange>('7d');
   const [dateRange, setDateRange] = useState<DateRange>(updateDateRange('7d'));
   const [savingsSettings, setSavingsSettings] = useState<SavingsSettings>({
@@ -23,7 +26,13 @@ export const Statistics = () => {
     hourlyRate: 300    // default: 300 NOK per hour
   });
 
-  const { data, loading } = useStatistics(dateRange, timeRange, savingsSettings);
+  const getEffectiveOrgId = useCallback(() => {
+    return isInPreviewMode && previewUser 
+      ? previewUser.organization_id 
+      : user?.organization_id;
+  }, [isInPreviewMode, previewUser, user]);
+
+  const { data, loading } = useStatistics(dateRange, timeRange, savingsSettings, getEffectiveOrgId());
   const { isChartVisible, isSectionVisible, isLoading: isLoadingPreferences } = useChartPreferences();
 
   useEffect(() => {
