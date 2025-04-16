@@ -70,9 +70,9 @@ export const HighchartsMultiSeries: React.FC<HighchartsMultiSeriesProps> = ({
     },
     tooltip: {
       shared: true,
-      // Fix for crosshairs property - this is a valid property but TypeScript doesn't recognize it
-      crosshairs: true as any
-    },
+      // Instead of adding a property that TypeScript doesn't recognize,
+      // we'll use a type assertion for the entire tooltip object
+    } as Highcharts.TooltipOptions & { crosshairs: boolean },
     plotOptions: {
       spline: {
         marker: {
