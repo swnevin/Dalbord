@@ -88,28 +88,38 @@ export const useStatistics = (
             body: {
               startDate: dateRange.from.toISOString(),
               endDate: dateRange.to.toISOString(),
-              queryType: 'interactions'
+              queryType: 'interactions',
+              previewMode: preview.isPreviewMode,
+              previewOrgId: preview.previewOrgId
             },
           });
 
-        if (messageError) throw messageError;
+        if (messageError) {
+          console.error("[useStatistics] Message data error:", messageError);
+          throw messageError;
+        }
 
         const { data: sessionData, error: sessionError } = await supabase.functions
           .invoke('get-voiceflow-analytics', {
             body: {
               startDate: dateRange.from.toISOString(),
               endDate: dateRange.to.toISOString(),
-              queryType: 'sessions'
+              queryType: 'sessions',
+              previewMode: preview.isPreviewMode,
+              previewOrgId: preview.previewOrgId
             },
           });
 
-        if (sessionError) throw sessionError;
+        if (sessionError) {
+          console.error("[useStatistics] Session data error:", sessionError);
+          throw sessionError;
+        }
 
         const { data: org, error: orgError } = await supabase
           .from('organizations')
           .select('voiceflow_api_key, voiceflow_project_id')
           .eq('id', organizationId)
-          .single();
+          .maybeSingle();
 
         if (orgError) {
           console.error("[useStatistics] Error fetching org:", orgError);
@@ -164,7 +174,7 @@ export const useStatistics = (
       isMounted = false;
       abortController.abort();
     };
-  }, [organizationId, dateRange, timeRange]);
+  }, [organizationId, dateRange, timeRange, preview.isPreviewMode, preview.previewOrgId]);
 
   useEffect(() => {
     let isMounted = true;
@@ -192,7 +202,9 @@ export const useStatistics = (
                 body: {
                   startDate: startOfDay.toISOString(),
                   endDate: endOfDay.toISOString(),
-                  queryType: 'interactions'
+                  queryType: 'interactions',
+                  previewMode: preview.isPreviewMode,
+                  previewOrgId: preview.previewOrgId
                 },
               });
 
@@ -208,7 +220,9 @@ export const useStatistics = (
                 body: {
                   startDate: frame.start.toISOString(),
                   endDate: frame.end.toISOString(),
-                  queryType: 'interactions'
+                  queryType: 'interactions',
+                  previewMode: preview.isPreviewMode,
+                  previewOrgId: preview.previewOrgId
                 },
               });
 
@@ -239,7 +253,7 @@ export const useStatistics = (
     return () => {
       isMounted = false;
     };
-  }, [organizationId, dateRange, timeRange]);
+  }, [organizationId, dateRange, timeRange, preview.isPreviewMode, preview.previewOrgId]);
 
   useEffect(() => {
     let isMounted = true;
@@ -267,7 +281,9 @@ export const useStatistics = (
                 body: {
                   startDate: startOfDay.toISOString(),
                   endDate: endOfDay.toISOString(),
-                  queryType: 'sessions'
+                  queryType: 'sessions',
+                  previewMode: preview.isPreviewMode,
+                  previewOrgId: preview.previewOrgId
                 },
               });
 
@@ -283,7 +299,9 @@ export const useStatistics = (
                 body: {
                   startDate: frame.start.toISOString(),
                   endDate: frame.end.toISOString(),
-                  queryType: 'sessions'
+                  queryType: 'sessions',
+                  previewMode: preview.isPreviewMode,
+                  previewOrgId: preview.previewOrgId
                 },
               });
 
@@ -314,7 +332,7 @@ export const useStatistics = (
     return () => {
       isMounted = false;
     };
-  }, [organizationId, dateRange, timeRange]);
+  }, [organizationId, dateRange, timeRange, preview.isPreviewMode, preview.previewOrgId]);
 
   useEffect(() => {
     let isMounted = true;
@@ -402,7 +420,7 @@ export const useStatistics = (
       isMounted = false;
       abortController.abort();
     };
-  }, [organizationId, dateRange, timeRange]);
+  }, [organizationId, dateRange, timeRange, preview.isPreviewMode, preview.previewOrgId]);
 
   useEffect(() => {
     let isMounted = true;
@@ -419,7 +437,9 @@ export const useStatistics = (
             body: {
               startDate: dateRange.from.toISOString(),
               endDate: dateRange.to.toISOString(),
-              queryType: 'top_intents'
+              queryType: 'top_intents',
+              previewMode: preview.isPreviewMode,
+              previewOrgId: preview.previewOrgId
             },
           });
 
@@ -446,7 +466,7 @@ export const useStatistics = (
       isMounted = false;
       abortController.abort();
     };
-  }, [organizationId, dateRange, timeRange]);
+  }, [organizationId, dateRange, timeRange, preview.isPreviewMode, preview.previewOrgId]);
 
   useEffect(() => {
     let isMounted = true;
@@ -548,7 +568,7 @@ export const useStatistics = (
       isMounted = false;
       abortController.abort();
     };
-  }, [organizationId, dateRange, timeRange]);
+  }, [organizationId, dateRange, timeRange, preview.isPreviewMode, preview.previewOrgId]);
 
   useEffect(() => {
     let isMounted = true;
@@ -643,7 +663,7 @@ export const useStatistics = (
       isMounted = false;
       abortController.abort();
     };
-  }, [organizationId, dateRange, timeRange]);
+  }, [organizationId, dateRange, timeRange, preview.isPreviewMode, preview.previewOrgId]);
 
   return { data, loading };
 };

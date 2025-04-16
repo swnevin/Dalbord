@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { startDate, endDate, queryType = 'interactions' } = await req.json()
+    const { startDate, endDate, queryType = 'interactions', previewMode = false, previewOrgId = null } = await req.json()
 
     if (!startDate || !endDate) {
       throw new Error('Start date and end date are required')
@@ -24,48 +24,64 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseKey)
 
-    // Get the user's JWT from the authorization header
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
-      throw new Error('Missing authorization header')
+    let organizationId;
+
+    // If in preview mode, use the provided previewOrgId
+    if (previewMode && previewOrgId) {
+      console.log(`Using preview organization ID: ${previewOrgId}`)
+      organizationId = previewOrgId
+    } else {
+      // Get the user's JWT from the authorization header
+      const authHeader = req.headers.get('Authorization')
+      if (!authHeader) {
+        throw new Error('Missing authorization header')
+      }
+
+      // Get the user's organization ID from their profile
+      const { data: { user }, error: userError } = await supabase.auth.getUser(
+        authHeader.replace('Bearer ', '')
+      )
+      if (userError || !user) {
+        throw new Error('Invalid user token')
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .eq('id', user.id)
+        .maybeSingle()
+
+      if (profileError) {
+        throw new Error('Error fetching user profile')
+      }
+
+      if (!profile?.organization_id) {
+        throw new Error('User has no organization assigned')
+      }
+      
+      organizationId = profile.organization_id
     }
 
-    // Get the user's organization ID from their profile
-    const { data: { user }, error: userError } = await supabase.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    )
-    if (userError || !user) {
-      throw new Error('Invalid user token')
-    }
-
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('organization_id')
-      .eq('id', user.id)
-      .maybeSingle()
-
-    if (profileError) {
-      throw new Error('Error fetching user profile')
-    }
-
-    if (!profile?.organization_id) {
-      throw new Error('User has no organization assigned')
-    }
+    console.log(`Getting Voiceflow credentials for organization: ${organizationId}`)
 
     // Get the organization's Voiceflow credentials
     const { data: org, error: orgError } = await supabase
       .from('organizations')
       .select('voiceflow_api_key, voiceflow_project_id')
-      .eq('id', profile.organization_id)
+      .eq('id', organizationId)
       .maybeSingle()
 
     if (orgError) {
+      console.error(`Error fetching organization: ${orgError.message}`)
       throw new Error('Error fetching organization')
     }
 
     if (!org?.voiceflow_api_key || !org?.voiceflow_project_id) {
+      console.error(`Organization has no Voiceflow credentials, organization ID: ${organizationId}`)
       throw new Error('Organization has no Voiceflow credentials')
     }
+
+    console.log(`Using Voiceflow project ID: ${org.voiceflow_project_id}`)
 
     // Prepare the query based on the query type
     let queryName = 'interactions'; // Default is interactions (messages)
@@ -76,6 +92,8 @@ serve(async (req) => {
     } else if (queryType === 'top_intents') {
       queryName = 'top_intents';
     }
+
+    console.log(`Making query for ${queryName} from ${startDate} to ${endDate}`)
 
     const options = {
       method: 'POST',
@@ -101,11 +119,12 @@ serve(async (req) => {
     const response = await fetch(endpoint, options)
     
     if (!response.ok) {
+      console.error(`Voiceflow API error: ${response.status} ${response.statusText}`)
       throw new Error(`Voiceflow API error: ${response.status}`)
     }
     
     const data = await response.json()
-    console.log(`Voiceflow ${queryName} analytics response:`, data)
+    console.log(`Voiceflow ${queryName} analytics response status: success`)
 
     return new Response(
       JSON.stringify(data),

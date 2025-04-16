@@ -1,303 +1,140 @@
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { MessageCircleOff, ArrowRight, MessageSquare } from "lucide-react";
+import { Loader } from "@/components/ui/loader";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePreview } from "@/contexts/PreviewContext";
 import { supabase } from "@/integrations/supabase/client";
-import { 
-  Card, 
-  CardContent, 
-  CardHeader, 
-  CardTitle,
-  CardDescription,
-  CardFooter
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { Skeleton } from "@/components/ui/skeleton";
-import { PlusCircle, ChevronDown, ChevronUp, InfoIcon } from "lucide-react";
-import { toast } from "sonner";
-import { FallbackRequestItem } from "./FallbackRequestItem";
-import { CreateFAQDialog } from "./CreateFAQDialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader } from "@/components/ui/loader";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { 
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-  TooltipProvider
-} from "@/components/ui/tooltip";
+import { useNavigate } from "react-router-dom";
 
 interface FallbackRequest {
   id: string;
   query: string;
-  response: string;
   created_at: string;
   is_resolved: boolean;
 }
 
 export const FallbackRequests = () => {
+  const [isLoading, setIsLoading] = useState(true);
+  const [fallbackRequests, setFallbackRequests] = useState<FallbackRequest[]>([]);
   const { user } = useAuth();
   const { preview } = usePreview();
-  const [fallbackRequests, setFallbackRequests] = useState<FallbackRequest[]>([]);
-  const [resolvedRequests, setResolvedRequests] = useState<FallbackRequest[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [selectedRequest, setSelectedRequest] = useState<FallbackRequest | null>(null);
-  const [createFAQOpen, setCreateFAQOpen] = useState(false);
-  const [showAllResolved, setShowAllResolved] = useState(false);
-  const [showFilteredResults, setShowFilteredResults] = useState(true);
-  
+  const navigate = useNavigate();
+
   const organizationId = preview.isPreviewMode ? preview.previewOrgId : user?.organization_id;
-  
-  const filteredUnresolvedRequests = showFilteredResults 
-    ? fallbackRequests.filter(req => req.query !== "not_a_question")
-    : fallbackRequests;
-  
-  const filteredResolvedRequests = showFilteredResults 
-    ? resolvedRequests.filter(req => req.query !== "not_a_question")
-    : resolvedRequests;
-  
-  const fetchFallbackRequests = async () => {
-    if (!organizationId) {
-      console.log("[FallbackRequests] No organization ID available, skipping fetch");
-      return;
-    }
-    
-    try {
-      setIsLoading(true);
-      
-      console.log("[FallbackRequests] Fetching fallback requests for organization:", organizationId);
-      console.log("[FallbackRequests] Preview mode:", preview.isPreviewMode);
-      console.log("[FallbackRequests] Preview org ID:", preview.previewOrgId);
-      
-      const { data: unresolvedData, error: unresolvedError } = await supabase
-        .from('fallback_requests')
-        .select('*')
-        .eq('organization_id', organizationId)
-        .eq('is_resolved', false)
-        .order('created_at', { ascending: false });
-        
-      if (unresolvedError) {
-        console.error("[FallbackRequests] Error fetching unresolved requests:", unresolvedError);
-        throw unresolvedError;
-      }
-      
-      const { data: resolvedData, error: resolvedError } = await supabase
-        .from('fallback_requests')
-        .select('*')
-        .eq('organization_id', organizationId)
-        .eq('is_resolved', true)
-        .order('created_at', { ascending: false });
-        
-      if (resolvedError) {
-        console.error("[FallbackRequests] Error fetching resolved requests:", resolvedError);
-        throw resolvedError;
-      }
-      
-      console.log("[FallbackRequests] Fetched unresolved fallback requests:", unresolvedData?.length || 0);
-      console.log("[FallbackRequests] Fetched resolved fallback requests:", resolvedData?.length || 0);
-      
-      setFallbackRequests(unresolvedData || []);
-      setResolvedRequests(resolvedData || []);
-    } catch (error) {
-      console.error('[FallbackRequests] Error fetching fallback requests:', error);
-      toast.error('Kunne ikke hente henvendelser til fallback');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
+
   useEffect(() => {
+    const fetchFallbackRequests = async () => {
+      if (!organizationId) {
+        console.log("[FallbackRequests] No organization ID, skipping fetch");
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        console.log("[FallbackRequests] Fetching fallback requests for org:", organizationId);
+        
+        const { data, error } = await supabase
+          .from('fallback_requests')
+          .select('*')
+          .eq('organization_id', organizationId)
+          .order('created_at', { ascending: false })
+          .limit(5);
+
+        if (error) {
+          console.error("[FallbackRequests] Error fetching fallback requests:", error);
+          throw error;
+        }
+
+        console.log("[FallbackRequests] Fetched fallback requests:", data?.length || 0);
+        setFallbackRequests(data || []);
+      } catch (error) {
+        console.error("[FallbackRequests] Error:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
     fetchFallbackRequests();
   }, [organizationId]);
-  
-  const handleRequestClick = (request: FallbackRequest) => {
-    setSelectedRequest(request);
-    setCreateFAQOpen(true);
-  };
-  
-  const handleFAQCreated = async () => {
-    if (!selectedRequest) return;
-    
-    try {
-      const { error } = await supabase
-        .from('fallback_requests')
-        .update({ is_resolved: true })
-        .eq('id', selectedRequest.id);
-        
-      if (error) throw error;
-      
-      fetchFallbackRequests();
-      toast.success('Q&A opprettet og henvendelse markert som løst');
-    } catch (error) {
-      console.error('Error updating fallback request:', error);
-      toast.error('Kunne ikke oppdatere henvendelsen');
-    } finally {
-      setCreateFAQOpen(false);
-      setSelectedRequest(null);
-    }
+
+  const handleViewAll = () => {
+    navigate('/dashboard');
   };
 
-  const handleMarkAsResolved = async (requestId: string) => {
-    try {
-      const { error } = await supabase
-        .from('fallback_requests')
-        .update({ is_resolved: true })
-        .eq('id', requestId);
-        
-      if (error) throw error;
-      
-      fetchFallbackRequests();
-      toast.success('Henvendelse markert som løst');
-    } catch (error) {
-      console.error('Error updating fallback request:', error);
-      toast.error('Kunne ikke oppdatere henvendelsen');
-    }
-  };
-
-  const displayedResolvedRequests = showAllResolved 
-    ? filteredResolvedRequests 
-    : filteredResolvedRequests.slice(0, 3);
-
-  const renderLoadingState = () => (
-    <div className="flex justify-center py-4">
-      <Loader size="sm" text="Laster henvendelser til fallback..." />
-    </div>
-  );
-  
-  return (
-    <>
+  if (isLoading) {
+    return (
       <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-xl font-montserrat">Henvendelser sendt til fallback</CardTitle>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <MessageCircleOff className="h-5 w-5 text-muted-foreground" />
+            Henvendelser sendt til fallback
+          </CardTitle>
           <CardDescription>
-            Henvendelser som er videresendt til menneskelig hjelp. Klikk på en henvendelse for å opprette en Q&A-oppføring.
+            Spørsmål som assistenten ikke kunne svare på
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <p className="text-sm text-muted-foreground">
-                Viser {filteredUnresolvedRequests.length} av {fallbackRequests.length} uløste henvendelser
-              </p>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <InfoIcon className="h-4 w-4 text-muted-foreground cursor-help" />
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Filter skjuler henvendelser med "not_a_question" som spørsmål</p>
-                </TooltipContent>
-              </Tooltip>
-            </div>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => setShowFilteredResults(!showFilteredResults)}
-            >
-              {showFilteredResults ? "Vis alle" : "Vis filtrerte"}
-            </Button>
+          <div className="flex justify-center items-center py-8">
+            <Loader size="md" text="Laster henvendelser..." />
           </div>
-          
-          <Tabs defaultValue="unresolved" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-4 bg-muted">
-              <TabsTrigger 
-                value="unresolved" 
-                className="data-[state=active]:bg-primary data-[state=active]:text-white"
-              >
-                Uløste henvendelser
-              </TabsTrigger>
-              <TabsTrigger 
-                value="resolved" 
-                className="data-[state=active]:bg-primary data-[state=active]:text-white"
-              >
-                Løste henvendelser
-              </TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="unresolved">
-              {isLoading ? (
-                renderLoadingState()
-              ) : filteredUnresolvedRequests.length > 0 ? (
-                <ScrollArea className="h-[320px]">
-                  <div className="divide-y">
-                    {filteredUnresolvedRequests.map((request) => (
-                      <FallbackRequestItem 
-                        key={request.id} 
-                        request={request} 
-                        onClick={() => handleRequestClick(request)} 
-                      >
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleMarkAsResolved(request.id);
-                          }}
-                        >
-                          Marker som løst uten å opprette Q&A
-                        </Button>
-                      </FallbackRequestItem>
-                    ))}
-                  </div>
-                </ScrollArea>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <p>Hurra! Ingen uløste henvendelser til fallback</p>
-                </div>
-              )}
-            </TabsContent>
-            
-            <TabsContent value="resolved">
-              {isLoading ? (
-                renderLoadingState()
-              ) : filteredResolvedRequests.length > 0 ? (
-                <>
-                  <ScrollArea className="h-[320px]">
-                    <div className="divide-y">
-                      {displayedResolvedRequests.map((request) => (
-                        <FallbackRequestItem 
-                          key={request.id} 
-                          request={request} 
-                          onClick={() => {}} 
-                          isResolved={true}
-                        />
-                      ))}
-                    </div>
-                  </ScrollArea>
-                  
-                  {filteredResolvedRequests.length > 3 && (
-                    <Button 
-                      variant="ghost" 
-                      className="w-full mt-2 flex items-center justify-center gap-1" 
-                      onClick={() => setShowAllResolved(!showAllResolved)}
-                    >
-                      {showAllResolved ? (
-                        <>Vis færre <ChevronUp className="h-4 w-4" /></>
-                      ) : (
-                        <>Vis alle ({filteredResolvedRequests.length}) <ChevronDown className="h-4 w-4" /></>
-                      )}
-                    </Button>
-                  )}
-                </>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <p>Ingen løste henvendelser til fallback</p>
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
         </CardContent>
       </Card>
-      
-      {selectedRequest && (
-        <CreateFAQDialog
-          open={createFAQOpen}
-          onOpenChange={setCreateFAQOpen}
-          question={selectedRequest.query}
-          answer={selectedRequest.response}
-          onCreated={handleFAQCreated}
-        />
-      )}
-    </>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg flex items-center gap-2">
+          <MessageCircleOff className="h-5 w-5 text-muted-foreground" />
+          Henvendelser sendt til fallback
+        </CardTitle>
+        <CardDescription>
+          Spørsmål som assistenten ikke kunne svare på
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {fallbackRequests.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+            <MessageSquare className="h-12 w-12 mb-4 opacity-20" />
+            <p>Ingen henvendelser sendt til fallback ennå</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {fallbackRequests.map((request) => (
+              <div 
+                key={request.id} 
+                className="flex justify-between items-start p-3 border rounded-md"
+              >
+                <div>
+                  <p className="font-medium mb-1 line-clamp-2">{request.query}</p>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <span>{new Date(request.created_at).toLocaleDateString('no')}</span>
+                    <Badge variant={request.is_resolved ? "outline" : "destructive"}>
+                      {request.is_resolved ? "Løst" : "Ikke løst"}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+            ))}
+            
+            <div className="flex justify-end mt-4">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="text-primary flex items-center gap-1"
+                onClick={handleViewAll}
+              >
+                Se alle <ArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 };
