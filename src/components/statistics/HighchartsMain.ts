@@ -8,16 +8,16 @@ import HighchartsExportData from 'highcharts/modules/export-data';
 import HighchartsAccessibility from 'highcharts/modules/accessibility';
 
 // Apply modules to Highcharts (fix the function call format)
-if (typeof HighchartsMore === 'object') {
+if (typeof HighchartsMore === 'function') {
   HighchartsMore(Highcharts);
 }
-if (typeof HighchartsExporting === 'object') {
+if (typeof HighchartsExporting === 'function') {
   HighchartsExporting(Highcharts);
 }
-if (typeof HighchartsExportData === 'object') {
+if (typeof HighchartsExportData === 'function') {
   HighchartsExportData(Highcharts);
 }
-if (typeof HighchartsAccessibility === 'object') {
+if (typeof HighchartsAccessibility === 'function') {
   HighchartsAccessibility(Highcharts);
 }
 

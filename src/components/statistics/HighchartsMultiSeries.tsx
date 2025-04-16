@@ -70,8 +70,8 @@ export const HighchartsMultiSeries: React.FC<HighchartsMultiSeriesProps> = ({
     },
     tooltip: {
       shared: true,
-      // Use the crosshairs property correctly
-      crosshairs: [true, false] as [boolean, boolean]
+      // Fix for crosshairs property - this is a valid property but TypeScript doesn't recognize it
+      crosshairs: true as any
     },
     plotOptions: {
       spline: {
