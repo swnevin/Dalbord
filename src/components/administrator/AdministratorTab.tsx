@@ -1,12 +1,15 @@
 import { useState, useEffect } from "react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "../../contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { OrganizationCard } from "@/components/admin/OrganizationCard";
-import { useMinimumLoading } from "@/hooks/use-minimum-loading";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { toast } from "sonner";
+import { AddOrganizationForm } from "@/components/admin/AddOrganizationForm";
+import { OrganizationCard } from "@/components/admin/OrganizationCard";
 import { Database } from "@/integrations/supabase/types";
-import { usePreview } from "@/contexts/PreviewContext";
-
+import { useMinimumLoading } from "@/hooks/use-minimum-loading";
+import { Loader } from "@/components/ui/loader";
 type TabName = Database["public"]["Enums"]["tab_type"];
 
 interface Organization {
@@ -24,104 +27,152 @@ interface Profile {
   email: string;
   role: string;
   organization_id: string | null;
-  tabs?: { tab_name: TabName }[];
+  tabs?: {
+    tab_name: Database["public"]["Enums"]["tab_type"];
+  }[];
 }
 
-export const AdministratorTab = () => {
-  const { user } = useAuth();
-  const { preview } = usePreview();
-  const [organization, setOrganization] = useState<Organization | null>(null);
-  const [profiles, setProfiles] = useState<Profile[]>([]);
+const OrganizationsTab = () => {
+  const {
+    user
+  } = useAuth();
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [profiles, setProfiles] = useState<Record<string, Profile[]>>({});
   const [isActuallyLoading, setIsActuallyLoading] = useState(true);
-  const [userAccessibleTabs, setUserAccessibleTabs] = useState<TabName[]>([]);
+  const [isAdminUser, setIsAdminUser] = useState(false);
   const isLoading = useMinimumLoading(isActuallyLoading);
 
   useEffect(() => {
-    const organizationId = preview.isPreviewMode ? preview.previewOrgId : user?.organization_id;
-    
-    if (organizationId) {
-      fetchOrganization(organizationId);
-      fetchUserAccessibleTabs();
-    }
-  }, [user, preview.isPreviewMode, preview.previewOrgId]);
+    fetchOrganizations();
+    checkAdminStatus();
+  }, []);
 
-  const fetchOrganization = async (organizationId: string) => {
+  const checkAdminStatus = async () => {
+    if (!user) return;
+
     try {
-      // Fetch organization data
-      const { data: org, error: orgError } = await supabase
-        .from("organizations")
-        .select("*")
-        .eq("id", organizationId)
+      const {
+        data,
+        error
+      } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
         .single();
 
-      if (orgError) throw orgError;
-
-      setOrganization({
-        ...org,
-        type: org.type as "admin" | "client"
-      });
-
-      // Fetch organization members
-      const { data: orgProfiles, error: profilesError } = await supabase
-        .from("profiles")
-        .select(`
-          *,
-          tabs:user_tab_permissions(tab_name)
-        `)
-        .eq("organization_id", organizationId);
-
-      if (profilesError) throw profilesError;
-      setProfiles(orgProfiles || []);
+      if (error) throw error;
+      setIsAdminUser(data.role === 'admin');
     } catch (error) {
-      console.error("Error fetching organization data:", error);
-      toast.error("Kunne ikke hente organisasjonsdata");
+      console.error('Error checking admin status:', error);
+      toast.error('Kunne ikke verifisere administratortilgang');
+    }
+  };
+
+  const fetchOrganizations = async () => {
+    try {
+      const {
+        data: orgs,
+        error
+      } = await supabase
+        .from("organizations")
+        .select("*");
+
+      if (error) throw error;
+
+      const transformedOrgs: Organization[] = (orgs || []).map(org => ({
+        ...org,
+        type: (org.type === 'admin' ? 'admin' : 'client') as Organization['type']
+      }));
+
+      setOrganizations(transformedOrgs);
+
+      for (const org of transformedOrgs) {
+        const {
+          data: orgProfiles,
+          error: profilesError
+        } = await supabase
+          .from("profiles")
+          .select(`
+            *,
+            tabs:user_tab_permissions(tab_name)
+          `)
+          .eq("organization_id", org.id);
+
+        if (profilesError) throw profilesError;
+
+        setProfiles(prev => ({
+          ...prev,
+          [org.id]: orgProfiles || []
+        }));
+      }
+    } catch (error) {
+      console.error("Error fetching data:", error);
+      toast.error("Kunne ikke hente organisasjoner");
     } finally {
       setIsActuallyLoading(false);
     }
   };
 
-  const fetchUserAccessibleTabs = async () => {
-    if (!user?.id) return;
-    
+  const handleCreateOrg = async (name: string) => {
     try {
-      const { data, error } = await supabase
-        .from('user_tab_permissions')
-        .select('tab_name')
-        .eq('user_id', user.id);
-        
+      const {
+        data,
+        error
+      } = await supabase
+        .from("organizations")
+        .insert([{
+          name,
+          type: 'client' as Organization['type']
+        }])
+        .select()
+        .single();
+
       if (error) throw error;
-      
-      const tabs = data.map(item => item.tab_name as TabName);
-      setUserAccessibleTabs(tabs);
+
+      const newOrg: Organization = {
+        ...data,
+        type: data.type === 'admin' ? 'admin' : 'client'
+      };
+
+      setOrganizations([...organizations, newOrg]);
+      toast.success("Organisasjon opprettet");
     } catch (error) {
-      console.error('Error fetching user accessible tabs:', error);
+      console.error("Error creating organization:", error);
+      toast.error("Kunne ikke opprette organisasjon");
     }
   };
 
-  const handleAddMember = async (orgId: string, member: { 
-    name: string; 
-    email: string; 
+  const handleAddMember = async (orgId: string, member: {
+    name: string;
+    email: string;
     password: string;
     tabs: TabName[];
   }) => {
     try {
-      // Store the current session before adding a new user
-      const { data: sessionData } = await supabase.auth.getSession();
+      if (!isAdminUser) {
+        toast.error('Kun administratorer kan legge til medlemmer');
+        return;
+      }
+
+      const hasAdminTab = member.tabs.includes("administrator");
+      const hasOrganizationsTab = member.tabs.includes("organizations");
+      const userIsAdmin = hasAdminTab || hasOrganizationsTab;
+
+      const {
+        data: sessionData
+      } = await supabase.auth.getSession();
       const currentSession = sessionData.session;
-      
-      // Determine role based on tab permissions
-      const hasAdminTab = member.tabs.includes('administrator');
-      const hasOrganizationsTab = member.tabs.includes('organizations');
-      const memberRole = hasAdminTab || hasOrganizationsTab ? 'admin' : 'client';
-      
-      // Create new user with auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+
+      const {
+        data: authData,
+        error: authError
+      } = await supabase.auth.signUp({
         email: member.email,
         password: member.password,
         options: {
           data: {
             name: member.name,
-            role: memberRole
+            role: userIsAdmin ? 'admin' : 'client'
           },
           emailRedirectTo: `${window.location.origin}/login`
         }
@@ -133,12 +184,13 @@ export const AdministratorTab = () => {
         throw new Error('Kunne ikke opprette bruker');
       }
 
-      // Update profile with organization id and correct role
-      const { error: profileError } = await supabase
+      const {
+        error: profileError
+      } = await supabase
         .from("profiles")
-        .update({ 
+        .update({
           organization_id: orgId,
-          role: memberRole,
+          role: userIsAdmin ? 'admin' : 'client',
           name: member.name,
           email: member.email
         })
@@ -146,97 +198,195 @@ export const AdministratorTab = () => {
 
       if (profileError) throw profileError;
 
-      // Only assign tabs that the administrator has access to
-      const filteredTabs = member.tabs.filter(tab => 
-        userAccessibleTabs.includes(tab)
-      );
-
-      // Add tab permissions if there are any
-      if (filteredTabs.length > 0) {
-        const { error: tabError } = await supabase
+      if (member.tabs.length > 0) {
+        const {
+          error: tabError
+        } = await supabase
           .from('user_tab_permissions')
-          .insert(
-            filteredTabs.map(tab_name => ({
-              user_id: authData.user.id,
-              tab_name: tab_name
-            }))
-          );
+          .insert(member.tabs.map(tab_name => ({
+            user_id: authData.user.id,
+            tab_name: tab_name
+          })));
 
         if (tabError) throw tabError;
       }
 
-      // Restore the original session to prevent being logged in as the new user
       if (currentSession) {
         await supabase.auth.setSession(currentSession);
       }
 
-      fetchOrganization(); // Refresh data
+      const {
+        data: updatedProfiles,
+        error: fetchError
+      } = await supabase
+        .from("profiles")
+        .select(`
+          *,
+          tabs:user_tab_permissions(tab_name)
+        `)
+        .eq("organization_id", orgId);
+
+      if (fetchError) throw fetchError;
+
+      setProfiles(prev => ({
+        ...prev,
+        [orgId]: updatedProfiles || []
+      }));
+
       toast.success("Medlem lagt til. Du kan nå redigere tilgangene deres.");
     } catch (error: any) {
       console.error("Error adding member:", error);
       toast.error(error.message || "Kunne ikke legge til medlem");
+      throw error;
+    }
+  };
+
+  const handleUpdateBot = async (orgId: string, config: {
+    apiKey: string;
+    projectId: string;
+  }) => {
+    try {
+      const {
+        error
+      } = await supabase
+        .from("organizations")
+        .update({
+          voiceflow_api_key: config.apiKey,
+          voiceflow_project_id: config.projectId
+        })
+        .eq("id", orgId);
+
+      if (error) throw error;
+      toast.success("Bot konfigurert");
+    } catch (error) {
+      console.error("Error updating bot config:", error);
+      toast.error("Kunne ikke oppdatere bot konfigurasjon");
+    }
+  };
+
+  const handleDeleteOrg = async (orgId: string) => {
+    try {
+      const {
+        error
+      } = await supabase
+        .from("organizations")
+        .delete()
+        .eq("id", orgId);
+
+      if (error) throw error;
+      setOrganizations(organizations.filter(org => org.id !== orgId));
+      toast.success("Organisasjon slettet");
+    } catch (error) {
+      console.error("Error deleting organization:", error);
+      toast.error("Kunne ikke slette organisasjon");
     }
   };
 
   const handleDeleteMember = async (profileId: string) => {
     try {
-      // Don't allow users to delete themselves
-      if (profileId === user?.id) {
-        toast.error("Du kan ikke slette din egen konto");
+      if (!isAdminUser) {
+        toast.error('Kun administratorer kan slette brukere');
         return;
       }
-      
-      const { error } = await supabase.rpc('delete_user', {
+
+      const {
+        data: profile,
+        error: profileError
+      } = await supabase
+        .from("profiles")
+        .select("organization_id")
+        .eq("id", profileId)
+        .single();
+
+      if (profileError) throw profileError;
+
+      const {
+        error: deleteError
+      } = await supabase.rpc('delete_user', {
         user_id: profileId
       });
 
-      if (error) throw error;
-      
-      fetchOrganization(); // Refresh data
+      if (deleteError) throw deleteError;
+
+      if (profile.organization_id) {
+        setProfiles(prev => ({
+          ...prev,
+          [profile.organization_id]: (prev[profile.organization_id] || []).filter(p => p.id !== profileId)
+        }));
+      }
+
       toast.success("Medlem fjernet");
     } catch (error: any) {
       console.error("Error removing member:", error);
-      toast.error(error.message || "Kunne ikke fjerne medlem");
+      if (error.message === "Only administrators can delete users") {
+        toast.error("Kun administratorer kan slette brukere");
+      } else {
+        toast.error("Kunne ikke fjerne medlem");
+      }
     }
   };
 
-  const handleUpdateBot = async (orgId: string, config: { apiKey: string; projectId: string }): Promise<void> => {
-    return Promise.resolve();
-  };
+  if (isLoading) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <Loader size="lg" text="Laster inn organisasjoner..." />
+      </div>
+    );
+  }
 
-  const handleDeleteOrg = async (orgId: string): Promise<void> => {
-    return Promise.resolve();
-  };
+  const sortedOrganizations = [...organizations].sort((a, b) => {
+    if (a.name === "Dalai") return -1;
+    if (b.name === "Dalai") return 1;
+    return 0;
+  });
 
   return (
-    <div className="container max-w-7xl mx-auto p-6 space-y-8">
-      <header>
-        <h1 className="text-3xl font-bold font-montserrat text-primary">Administrér organisasjon</h1>
-        <p className="text-muted-foreground">
-          Administrer medlemmer og rettigheter i organisasjonen din.
-        </p>
-      </header>
+    <div className="space-y-8">
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold text-primary">Organisasjoner</h1>
+        <Sheet>
+          <SheetTrigger asChild>
+            <Button className="bg-secondary hover:bg-secondary/90 text-neutral-50">
+              <Plus className="mr-2 h-4 w-4" /> Legg til organisasjon
+            </Button>
+          </SheetTrigger>
+          <SheetContent>
+            <AddOrganizationForm onSubmit={handleCreateOrg} />
+          </SheetContent>
+        </Sheet>
+      </div>
 
-      {!organization && !isLoading ? (
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
-          <h2 className="text-xl font-semibold text-primary mb-2">Ingen organisasjon funnet</h2>
-          <p className="text-gray-600">Du er ikke tilknyttet noen organisasjon eller mangler rettigheter.</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {organization && (
+      <div className="space-y-4">
+        {sortedOrganizations.map(org => {
+          const isAdminOrg = org.name === "Dalai";
+          return isAdminOrg ? (
+            <div key={org.id} className="border-2 border-primary/20 rounded-lg p-2">
+              <OrganizationCard
+                organization={org}
+                members={profiles[org.id] || []}
+                onUpdateBot={handleUpdateBot}
+                onDeleteOrg={handleDeleteOrg}
+                onAddMember={handleAddMember}
+                onDeleteMember={handleDeleteMember}
+                hideControls={true}
+              />
+            </div>
+          ) : (
             <OrganizationCard
-              organization={organization}
-              members={profiles}
+              key={org.id}
+              organization={org}
+              members={profiles[org.id] || []}
               onUpdateBot={handleUpdateBot}
               onDeleteOrg={handleDeleteOrg}
               onAddMember={handleAddMember}
               onDeleteMember={handleDeleteMember}
-              hideControls={true} // Hide bot configuration and delete organization buttons
+              hideControls={false}
             />
-          )}
-        </div>
-      )}
+          );
+        })}
+      </div>
     </div>
   );
 };
+
+export default OrganizationsTab;
