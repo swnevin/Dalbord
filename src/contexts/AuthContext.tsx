@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -196,6 +195,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // Wait for a brief moment for the transition UI to appear
       await new Promise(resolve => setTimeout(resolve, 300));
       
+      // Store the preview user data
       setPreviewUser(member);
       setIsInPreviewMode(true);
       

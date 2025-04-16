@@ -1,7 +1,6 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Trash2, Pencil, UserRound } from "lucide-react";
+import { Trash2, Pencil, Eye } from "lucide-react";
 import { Database } from "@/integrations/supabase/types";
 import {
   AlertDialog,
@@ -96,12 +95,10 @@ export const MemberList = ({
     if (!editingMember) return;
 
     try {
-      // Check if the member is being given admin privileges
       const hasAdminTab = editingMember.tabs.includes("administrator");
       const hasOrganizationsTab = editingMember.tabs.includes("organizations");
       const isAdmin = hasAdminTab || hasOrganizationsTab;
       
-      // Update user role if they have admin tabs or if admin privileges are removed
       const { error: roleError } = await supabase
         .from('profiles')
         .update({ role: isAdmin ? 'admin' : 'client' })
@@ -109,7 +106,6 @@ export const MemberList = ({
         
       if (roleError) throw roleError;
 
-      // Delete existing permissions
       const { error: deleteError } = await supabase
         .from('user_tab_permissions')
         .delete()
@@ -117,7 +113,6 @@ export const MemberList = ({
 
       if (deleteError) throw deleteError;
 
-      // Insert new permissions
       if (editingMember.tabs.length > 0) {
         const { error: insertError } = await supabase
           .from('user_tab_permissions')
@@ -139,7 +134,6 @@ export const MemberList = ({
     }
   };
 
-  // Check if the organization is the Dalai admin org
   const isDalaiAdminOrg = organizationType === "admin";
 
   return (
@@ -175,7 +169,7 @@ export const MemberList = ({
                       className="text-[#E2B808] hover:text-[#E2B808]/80 hover:bg-[#E2B808]/10"
                       onClick={() => handlePreviewClick(profile)}
                     >
-                      <UserRound className="h-4 w-4" />
+                      <Eye className="h-4 w-4" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
