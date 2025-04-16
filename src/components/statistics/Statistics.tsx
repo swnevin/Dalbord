@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { updateDateRange } from "./utils/dateUtils";
 import { StatisticsHeader } from "./StatisticsHeader";
@@ -9,11 +10,19 @@ import { FeedbackPieChart } from "./FeedbackPieChart";
 import { SavingsCharts } from "./SavingsCharts";
 import { SuccessMetricsCards } from "./SuccessMetricsCards";
 import { SuccessVsFallbackPieChart } from "./SuccessVsFallbackPieChart";
+import { SuccessVsFallbackLineChart } from "./SuccessVsFallbackChart"; 
 import { DateRange, TimeRange, SavingsSettings } from "./types";
 import { useStatistics } from "./hooks/useStatistics";
 import { useChartPreferences, ChartType } from "./hooks/useChartPreferences";
 import { Separator } from "@/components/ui/separator";
-import { ChartBarIcon, TrendingUpIcon, MessageSquareIcon, UserRoundIcon } from "lucide-react";
+import { 
+  ChartBarIcon, 
+  TrendingUpIcon, 
+  MessageSquareIcon, 
+  UserRoundIcon, 
+  BarChart3Icon, 
+  LineChartIcon 
+} from "lucide-react";
 
 export const Statistics = () => {
   const [timeRange, setTimeRange] = useState<TimeRange>('7d');
@@ -32,6 +41,19 @@ export const Statistics = () => {
     }
   }, [timeRange]);
 
+  useEffect(() => {
+    // Calculate success rate when data changes
+    if (data.successfulAnswerCount !== undefined && data.fallbackCount !== undefined) {
+      const totalRequests = data.successfulAnswerCount + data.fallbackCount;
+      const successRate = totalRequests > 0 
+        ? (data.successfulAnswerCount / totalRequests) * 100 
+        : 0;
+      
+      // Update data with success rate
+      data.successRate = successRate;
+    }
+  }, [data.successfulAnswerCount, data.fallbackCount]);
+
   const handleSavingsSettingsChange = (settings: Partial<SavingsSettings>) => {
     setSavingsSettings(prev => ({
       ...prev,
@@ -40,7 +62,7 @@ export const Statistics = () => {
   };
 
   return (
-    <div className="p-8 space-y-8">
+    <div className="p-6 space-y-8 max-w-[1600px] mx-auto">
       <StatisticsHeader
         timeRange={timeRange}
         dateRange={dateRange}
@@ -52,13 +74,13 @@ export const Statistics = () => {
       {isSectionVisible('summary') && (
         <div className="space-y-4">
           <div className="flex items-center gap-2 text-primary">
-            <ChartBarIcon size={20} />
+            <BarChart3Icon size={20} />
             <h2 className="text-xl font-semibold">Sammendrag</h2>
           </div>
           <Separator className="bg-primary/10" />
           
-          <div className="grid gap-4 grid-cols-1">
-            <div className="grid grid-cols-1 gap-4">
+          <div className="grid gap-6">
+            <div className="grid gap-6 grid-cols-1">
               {isChartVisible('total_messages' as ChartType) && (
                 <SummaryCards
                   totalMessages={data.totalMessages ?? 0}
@@ -81,6 +103,7 @@ export const Statistics = () => {
                 <SuccessMetricsCards
                   successfulAnswerCount={data.successfulAnswerCount ?? 0}
                   fallbackCount={data.fallbackCount ?? 0}
+                  successRate={data.successRate ?? 0}
                   isLoading={loading.fallbackChart || isLoadingPreferences}
                 />
               )}
@@ -89,16 +112,56 @@ export const Statistics = () => {
         </div>
       )}
 
+      {/* Comparison Charts Section */}
+      {isSectionVisible('question_handling') && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 text-primary">
+            <MessageSquareIcon size={20} />
+            <h2 className="text-xl font-semibold">Håndtering av spørsmål</h2>
+          </div>
+          <Separator className="bg-primary/10" />
+          
+          <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
+            {isChartVisible('feedback_pie' as ChartType) && (
+              <FeedbackPieChart
+                thumbsUpCount={data.thumbsUpCount ?? 0}
+                thumbsDownCount={data.thumbsDownCount ?? 0}
+                successfulAnswerCount={data.successfulAnswerCount ?? 0}
+                isLoading={loading.feedbackChart || loading.fallbackChart || isLoadingPreferences}
+              />
+            )}
+            
+            {isChartVisible('success_vs_fallback' as ChartType) && (
+              <SuccessVsFallbackPieChart
+                successfulAnswerCount={data.successfulAnswerCount ?? 0}
+                fallbackCount={data.fallbackCount ?? 0}
+                isLoading={loading.fallbackChart || isLoadingPreferences}
+              />
+            )}
+          </div>
+
+          <div className="grid gap-6 grid-cols-1">
+            {isChartVisible('success_vs_fallback_trend' as ChartType) && (
+              <SuccessVsFallbackLineChart
+                data={data.successVsFallbackTimeSeries || []}
+                isLoading={loading.fallbackChart || isLoadingPreferences}
+                loadingText="Laster trenddata..."
+              />
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Detailed Analytics Section */}
       {isSectionVisible('detailed_analysis') && (
         <div className="space-y-4">
           <div className="flex items-center gap-2 text-primary">
-            <UserRoundIcon size={20} />
+            <LineChartIcon size={20} />
             <h2 className="text-xl font-semibold">Detaljert analyse</h2>
           </div>
           <Separator className="bg-primary/10" />
           
-          <div className="grid gap-4 grid-cols-1">
+          <div className="grid gap-6 grid-cols-1">
             {isChartVisible('users_over_time' as ChartType) && (
               <TimeSeriesChart
                 data={data.userTimeSeries}
@@ -148,36 +211,6 @@ export const Statistics = () => {
         </div>
       )}
 
-      {/* Håndtering av spørsmål Section */}
-      {isSectionVisible('question_handling') && (
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 text-primary">
-            <MessageSquareIcon size={20} />
-            <h2 className="text-xl font-semibold">Håndtering av spørsmål</h2>
-          </div>
-          <Separator className="bg-primary/10" />
-          
-          <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
-            {isChartVisible('feedback_pie' as ChartType) && (
-              <FeedbackPieChart
-                thumbsUpCount={data.thumbsUpCount ?? 0}
-                thumbsDownCount={data.thumbsDownCount ?? 0}
-                successfulAnswerCount={data.successfulAnswerCount ?? 0}
-                isLoading={loading.feedbackChart || loading.fallbackChart || isLoadingPreferences}
-              />
-            )}
-            
-            {isChartVisible('success_vs_fallback' as ChartType) && (
-              <SuccessVsFallbackPieChart
-                successfulAnswerCount={data.successfulAnswerCount ?? 0}
-                fallbackCount={data.fallbackCount ?? 0}
-                isLoading={loading.fallbackChart || isLoadingPreferences}
-              />
-            )}
-          </div>
-        </div>
-      )}
-
       {/* Savings Section */}
       {isSectionVisible('savings') && (
         <div className="space-y-4">
@@ -187,7 +220,7 @@ export const Statistics = () => {
           </div>
           <Separator className="bg-primary/10" />
           
-          <div className="grid gap-4 grid-cols-1">
+          <div className="grid gap-6 grid-cols-1">
             {(isChartVisible('savings_time' as ChartType) || isChartVisible('savings_money' as ChartType)) && (
               <SavingsCharts
                 timeSaved={data.timeSaved ?? 0}

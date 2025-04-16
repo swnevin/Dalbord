@@ -30,10 +30,20 @@ export const FeedbackPieChart: React.FC<FeedbackPieChartProps> = ({
   const notReviewedCount = Math.max(0, successfulAnswerCount - reviewedCount);
 
   const data = [
-    { name: 'Tommel opp 👍', value: thumbsUpCount, color: '#28483F', icon: ThumbsUp }, // Primary Dark Green
-    { name: 'Tommel ned 👎', value: thumbsDownCount, color: '#8E9196', icon: ThumbsDown }, // Neutral Gray
-    { name: 'Ikke vurdert ❔', value: notReviewedCount, color: '#F1F0FB', icon: HelpCircle } // Soft Gray background
+    { name: 'Tommel opp 👍', value: thumbsUpCount, color: '#10b981', icon: ThumbsUp }, // Success Green
+    { name: 'Tommel ned 👎', value: thumbsDownCount, color: '#ef4444', icon: ThumbsDown }, // Error Red
+    { name: 'Ikke vurdert ❔', value: notReviewedCount, color: '#d1d5db', icon: HelpCircle } // Light Gray
   ];
+
+  // Calculate total feedback percentage
+  const feedbackRate = successfulAnswerCount > 0 
+    ? ((thumbsUpCount + thumbsDownCount) / successfulAnswerCount) * 100 
+    : 0;
+
+  // Calculate positive feedback percentage (from the feedback received)
+  const positiveFeedbackRate = reviewedCount > 0 
+    ? (thumbsUpCount / reviewedCount) * 100 
+    : 0;
 
   // Custom tooltip
   const CustomTooltip = ({ active, payload }: any) => {
@@ -52,11 +62,11 @@ export const FeedbackPieChart: React.FC<FeedbackPieChartProps> = ({
     return null;
   };
 
-  if (isLoading || successfulAnswerCount === 0) {
+  if (isLoading) {
     return (
-      <Card>
+      <Card className="h-full min-h-[400px]">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Tilbakemeldinger på svar</CardTitle>
+          <CardTitle className="text-base font-medium">Tilbakemeldinger på svar</CardTitle>
           <TooltipProvider delayDuration={100}>
             <UITooltip>
               <TooltipTrigger asChild>
@@ -82,9 +92,9 @@ export const FeedbackPieChart: React.FC<FeedbackPieChartProps> = ({
   }
 
   return (
-    <Card>
+    <Card className="h-full min-h-[400px]">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">Tilbakemeldinger på svar</CardTitle>
+        <CardTitle className="text-base font-medium">Tilbakemeldinger på svar</CardTitle>
         <TooltipProvider delayDuration={100}>
           <UITooltip>
             <TooltipTrigger asChild>
@@ -100,46 +110,61 @@ export const FeedbackPieChart: React.FC<FeedbackPieChartProps> = ({
         </TooltipProvider>
       </CardHeader>
       <CardContent>
-        <div className="h-64 flex items-center justify-center">
-          <ChartContainer 
-            config={{}} 
-            className="h-full w-full flex items-center justify-center"
-          >
-            <RechartsPieChart width={250} height={250} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
-              <Pie
-                data={data}
-                cx="50%"
-                cy="50%"
-                outerRadius={80}
-                innerRadius={40}
-                dataKey="value"
-                labelLine={false}
-                paddingAngle={2}
-                strokeWidth={3}
-                stroke="#ffffff"
-              >
-                {data.map((entry, index) => (
-                  <Cell 
-                    key={`cell-${index}`} 
-                    fill={entry.color} 
-                    className="drop-shadow-md"
-                  />
-                ))}
-              </Pie>
-              <Tooltip content={<CustomTooltip />} />
-            </RechartsPieChart>
-          </ChartContainer>
-        </div>
-        <div className="flex justify-center gap-6 mt-6">
-          {data.map((entry, index) => (
-            <div key={`legend-${index}`} className="flex items-center gap-2 bg-white p-1.5 px-3 rounded-full shadow-sm">
-              <div 
-                className="w-3 h-3 rounded-full" 
-                style={{ backgroundColor: entry.color }}
-              ></div>
-              <span className="text-sm">{entry.name}</span>
+        <div className="flex flex-col gap-4">
+          {/* Add summary metrics at the top */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-slate-50 dark:bg-slate-900 p-3 rounded-lg">
+              <div className="text-sm text-muted-foreground">Tilbakemeldingsrate</div>
+              <div className="text-2xl font-bold mt-1">{feedbackRate.toFixed(1)}%</div>
             </div>
-          ))}
+            <div className="bg-slate-50 dark:bg-slate-900 p-3 rounded-lg">
+              <div className="text-sm text-muted-foreground">Positivitetsrate</div>
+              <div className="text-2xl font-bold mt-1">{positiveFeedbackRate.toFixed(1)}%</div>
+            </div>
+          </div>
+          
+          <div className="h-56 flex items-center justify-center">
+            <ChartContainer 
+              config={{}} 
+              className="h-full w-full flex items-center justify-center"
+            >
+              <RechartsPieChart width={250} height={250} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
+                <Pie
+                  data={data}
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={80}
+                  innerRadius={40}
+                  dataKey="value"
+                  labelLine={false}
+                  paddingAngle={2}
+                  strokeWidth={3}
+                  stroke="#ffffff"
+                >
+                  {data.map((entry, index) => (
+                    <Cell 
+                      key={`cell-${index}`} 
+                      fill={entry.color} 
+                      className="drop-shadow-sm"
+                    />
+                  ))}
+                </Pie>
+                <Tooltip content={<CustomTooltip />} />
+              </RechartsPieChart>
+            </ChartContainer>
+          </div>
+
+          <div className="flex justify-center gap-6 mt-2">
+            {data.map((entry, index) => (
+              <div key={`legend-${index}`} className="flex items-center gap-2 bg-white dark:bg-gray-800 p-1.5 px-3 rounded-full shadow-sm">
+                <div 
+                  className="w-3 h-3 rounded-full" 
+                  style={{ backgroundColor: entry.color }}
+                ></div>
+                <span className="text-sm">{entry.name}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </CardContent>
     </Card>
