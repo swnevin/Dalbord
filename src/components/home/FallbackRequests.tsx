@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -36,20 +37,25 @@ export const FallbackRequests = () => {
       try {
         console.log("[FallbackRequests] Fetching fallback requests for org:", organizationId);
         
+        // Make the direct query to the fallback_requests table
         let { data: fallbacks, error: fallbackError } = await supabase
           .from('fallback_requests')
           .select('*')
-          .eq('organization_id', organizationId);
+          .eq('organization_id', organizationId)
+          .order('created_at', { ascending: false });
 
         if (fallbackError) {
           console.error("[FallbackRequests] Error fetching fallback requests:", fallbackError);
           throw fallbackError;
         }
 
+        console.log("[FallbackRequests] Raw fallback results:", fallbacks);
+        
         if (preview.isPreviewMode) {
           console.log("[FallbackRequests] Preview mode active, got fallbacks:", fallbacks?.length || 0);
         }
 
+        // Filter to show only last 30 days
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
@@ -57,6 +63,11 @@ export const FallbackRequests = () => {
           const requestDate = new Date(request.created_at);
           return requestDate >= thirtyDaysAgo;
         }) || [];
+
+        // Sort by creation date (newest first)
+        fallbacks = fallbacks.sort((a, b) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        ).slice(0, 5); // Limit to 5 entries for the widget
 
         console.log("[FallbackRequests] Filtered fallback requests:", fallbacks.length);
         
@@ -73,7 +84,7 @@ export const FallbackRequests = () => {
     };
 
     fetchFallbackRequests();
-  }, [organizationId, preview.isPreviewMode]);
+  }, [organizationId, preview.isPreviewMode, preview.previewOrgId]);
 
   const handleViewAll = () => {
     navigate('/dashboard');

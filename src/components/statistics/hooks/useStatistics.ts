@@ -668,7 +668,9 @@ export const useStatistics = (
                 organization_id: organizationId,
                 start_date: dateRange.from.toISOString(),
                 end_date: dateRange.to.toISOString(),
-                metrics: ['successful_answer']
+                metrics: ['successful_answer'],
+                previewMode: preview.isPreviewMode,
+                previewOrgId: preview.previewOrgId
               },
             });
 
@@ -740,7 +742,6 @@ export const useStatistics = (
           console.error("[useStatistics] Edge function error for success metrics, falling back to direct query:", functionError);
         }
         
-        // Fallback to direct query
         const { data: metricsData, error: metricsError } = await supabase
           .from('conversation_metrics')
           .select('*')
@@ -836,7 +837,7 @@ export const useStatistics = (
       isMounted = false;
       abortController.abort();
     };
-  }, [organizationId, dateRange, timeRange]);
+  }, [organizationId, dateRange, timeRange, preview.isPreviewMode, preview.previewOrgId]);
 
   return { data, loading };
 };
