@@ -1,4 +1,3 @@
-
 export interface StatisticsData {
   totalMessages?: number;
   totalConversations?: number;

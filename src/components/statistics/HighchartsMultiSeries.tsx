@@ -34,6 +34,14 @@ export const HighchartsMultiSeries: React.FC<HighchartsMultiSeriesProps> = ({
   isLoading,
   loadingText = 'Laster data...'
 }) => {
+  // Convert our custom series type to Highcharts expected format
+  const formattedSeries = series.map(s => ({
+    name: s.name,
+    data: s.data,
+    color: s.color,
+    type: s.type || 'spline'
+  }));
+
   const chartOptions: Highcharts.Options = {
     chart: {
       type: 'spline',
@@ -62,7 +70,8 @@ export const HighchartsMultiSeries: React.FC<HighchartsMultiSeriesProps> = ({
     },
     tooltip: {
       shared: true,
-      crosshairs: true
+      // Use the crosshairs property correctly
+      crosshairs: [true, false] as [boolean, boolean]
     },
     plotOptions: {
       spline: {
@@ -71,7 +80,7 @@ export const HighchartsMultiSeries: React.FC<HighchartsMultiSeriesProps> = ({
         }
       }
     },
-    series: series
+    series: formattedSeries as any
   };
 
   const hasData = series.length > 0 && series.some(s => s.data.length > 0);
