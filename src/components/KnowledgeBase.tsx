@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ChevronDown, Search, Trash2, Upload, ExternalLink, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePreview } from "@/contexts/PreviewContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Loader } from "@/components/ui/loader";
@@ -24,6 +24,7 @@ import {
 
 const KnowledgeBase = () => {
   const { user } = useAuth();
+  const { preview } = usePreview();
   const { toast } = useToast();
   const [sources, setSources] = useState<VoiceflowDocument[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -34,18 +35,20 @@ const KnowledgeBase = () => {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [sourceTypeFilter, setSourceTypeFilter] = useState<SourceType>("all");
 
+  const organizationId = preview.isPreviewMode ? preview.previewOrgId : user?.organization_id;
+
   const showLoader = useMinimumLoading(isLoading);
   const showChunksLoader = useMinimumLoading(isLoadingChunks);
 
   const fetchSources = async () => {
-    if (!user?.organization_id) return;
+    if (!organizationId) return;
 
     setIsLoading(true);
     try {
       const { data: org, error: orgError } = await supabase
         .from('organizations')
         .select('voiceflow_api_key')
-        .eq('id', user.organization_id)
+        .eq('id', organizationId)
         .single();
 
       if (orgError || !org.voiceflow_api_key) {
@@ -101,7 +104,7 @@ const KnowledgeBase = () => {
 
   useEffect(() => {
     fetchSources();
-  }, [user?.organization_id]);
+  }, [organizationId]);
 
   const handleExpandSource = async (documentId: string) => {
     if (expandedSourceId === documentId) {
@@ -117,7 +120,7 @@ const KnowledgeBase = () => {
       const { data: org, error: orgError } = await supabase
         .from('organizations')
         .select('voiceflow_api_key')
-        .eq('id', user?.organization_id)
+        .eq('id', organizationId)
         .single();
 
       if (orgError || !org.voiceflow_api_key) {
@@ -155,7 +158,7 @@ const KnowledgeBase = () => {
   };
 
   const handleDelete = async (documentId: string) => {
-    if (!user?.organization_id) {
+    if (!organizationId) {
       toast({
         title: "Feil",
         description: "Ingen organisasjon funnet.",
@@ -168,7 +171,7 @@ const KnowledgeBase = () => {
       const { data: org, error: orgError } = await supabase
         .from('organizations')
         .select('voiceflow_api_key')
-        .eq('id', user.organization_id)
+        .eq('id', organizationId)
         .single();
 
       if (orgError || !org.voiceflow_api_key) {

@@ -1,6 +1,6 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePreview } from "@/contexts/PreviewContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { differenceInDays } from "date-fns";
@@ -13,6 +13,7 @@ export const useStatistics = (
   savingsSettings: SavingsSettings
 ) => {
   const { user } = useAuth();
+  const { preview } = usePreview();
   const [data, setData] = useState<StatisticsData>({
     totalMessages: 0,
     totalConversations: 0,
@@ -46,6 +47,8 @@ export const useStatistics = (
     fallbackChart: true
   });
 
+  const organizationId = preview.isPreviewMode ? preview.previewOrgId : user?.organization_id;
+
   // Calculate savings whenever total messages or settings change
   useEffect(() => {
     if (data.totalMessages) {
@@ -66,7 +69,7 @@ export const useStatistics = (
     const abortController = new AbortController();
 
     const fetchSummaryData = async () => {
-      if (!user?.organization_id) return;
+      if (!organizationId) return;
 
       setLoading(prev => ({ ...prev, summaryCards: true }));
 
@@ -98,7 +101,7 @@ export const useStatistics = (
         const { data: org, error: orgError } = await supabase
           .from('organizations')
           .select('voiceflow_api_key, voiceflow_project_id')
-          .eq('id', user.organization_id)
+          .eq('id', organizationId)
           .single();
 
         if (orgError) throw orgError;
@@ -149,7 +152,7 @@ export const useStatistics = (
       isMounted = false;
       abortController.abort();
     };
-  }, [user?.organization_id, dateRange, timeRange]);
+  }, [organizationId, dateRange, timeRange]);
 
   // Fetch message time series data
   useEffect(() => {
@@ -157,7 +160,7 @@ export const useStatistics = (
     const abortController = new AbortController();
 
     const fetchMessageTimeSeries = async () => {
-      if (!user?.organization_id) return;
+      if (!organizationId) return;
 
       setLoading(prev => ({ ...prev, messageChart: true }));
 
@@ -225,7 +228,7 @@ export const useStatistics = (
     return () => {
       isMounted = false;
     };
-  }, [user?.organization_id, dateRange, timeRange]);
+  }, [organizationId, dateRange, timeRange]);
 
   // Fetch session time series data
   useEffect(() => {
@@ -233,7 +236,7 @@ export const useStatistics = (
     const abortController = new AbortController();
 
     const fetchSessionTimeSeries = async () => {
-      if (!user?.organization_id) return;
+      if (!organizationId) return;
 
       setLoading(prev => ({ ...prev, sessionChart: true }));
 
@@ -301,7 +304,7 @@ export const useStatistics = (
     return () => {
       isMounted = false;
     };
-  }, [user?.organization_id, dateRange, timeRange]);
+  }, [organizationId, dateRange, timeRange]);
 
   // Fetch user time series data
   useEffect(() => {
@@ -309,7 +312,7 @@ export const useStatistics = (
     const abortController = new AbortController();
 
     const fetchUserTimeSeries = async () => {
-      if (!user?.organization_id) return;
+      if (!organizationId) return;
 
       setLoading(prev => ({ ...prev, userChart: true }));
 
@@ -317,7 +320,7 @@ export const useStatistics = (
         const { data: org, error: orgError } = await supabase
           .from('organizations')
           .select('voiceflow_api_key, voiceflow_project_id')
-          .eq('id', user.organization_id)
+          .eq('id', organizationId)
           .single();
 
         if (orgError) throw orgError;
@@ -390,7 +393,7 @@ export const useStatistics = (
       isMounted = false;
       abortController.abort();
     };
-  }, [user?.organization_id, dateRange, timeRange]);
+  }, [organizationId, dateRange, timeRange]);
 
   // Fetch top intents data
   useEffect(() => {
@@ -398,7 +401,7 @@ export const useStatistics = (
     const abortController = new AbortController();
 
     const fetchTopIntents = async () => {
-      if (!user?.organization_id) return;
+      if (!organizationId) return;
 
       setLoading(prev => ({ ...prev, intentChart: true }));
 
@@ -437,7 +440,7 @@ export const useStatistics = (
       isMounted = false;
       abortController.abort();
     };
-  }, [user?.organization_id, dateRange, timeRange]);
+  }, [organizationId, dateRange, timeRange]);
 
   // Fetch feedback and escalation metrics
   useEffect(() => {
@@ -445,7 +448,7 @@ export const useStatistics = (
     const abortController = new AbortController();
 
     const fetchFeedbackMetrics = async () => {
-      if (!user?.organization_id) return;
+      if (!organizationId) return;
 
       setLoading(prev => ({ 
         ...prev, 
@@ -458,7 +461,7 @@ export const useStatistics = (
         const { data: metricsData, error: metricsError } = await supabase
           .from('conversation_metrics')
           .select('*')
-          .eq('organization_id', user.organization_id)
+          .eq('organization_id', organizationId)
           .gte('timestamp', dateRange.from.toISOString())
           .lte('timestamp', dateRange.to.toISOString());
 
@@ -544,7 +547,7 @@ export const useStatistics = (
       isMounted = false;
       abortController.abort();
     };
-  }, [user?.organization_id, dateRange, timeRange]);
+  }, [organizationId, dateRange, timeRange]);
 
   // Fetch successful answers metrics and fallback requests
   useEffect(() => {
@@ -552,7 +555,7 @@ export const useStatistics = (
     const abortController = new AbortController();
 
     const fetchSuccessMetrics = async () => {
-      if (!user?.organization_id) return;
+      if (!organizationId) return;
 
       setLoading(prev => ({ 
         ...prev, 
@@ -564,7 +567,7 @@ export const useStatistics = (
         const { data: metricsData, error: metricsError } = await supabase
           .from('conversation_metrics')
           .select('*')
-          .eq('organization_id', user.organization_id)
+          .eq('organization_id', organizationId)
           .eq('metric_type', 'successful_answer')
           .gte('timestamp', dateRange.from.toISOString())
           .lte('timestamp', dateRange.to.toISOString());
@@ -575,7 +578,7 @@ export const useStatistics = (
         const { data: fallbackData, error: fallbackError } = await supabase
           .from('fallback_requests')
           .select('*')
-          .eq('organization_id', user.organization_id)
+          .eq('organization_id', organizationId)
           .gte('created_at', dateRange.from.toISOString())
           .lte('created_at', dateRange.to.toISOString());
 
@@ -648,7 +651,7 @@ export const useStatistics = (
       isMounted = false;
       abortController.abort();
     };
-  }, [user?.organization_id, dateRange, timeRange]);
+  }, [organizationId, dateRange, timeRange]);
 
   return { data, loading };
 };
