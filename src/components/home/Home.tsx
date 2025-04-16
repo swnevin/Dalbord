@@ -1,13 +1,14 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { ServerStatus } from "./ServerStatus";
 import { FallbackRequests } from "./FallbackRequests";
 import { DashboardManual } from "./DashboardManual";
+import { usePreview } from "@/contexts/PreviewContext";
 
 export const Home = () => {
   const { user } = useAuth();
+  const { preview } = usePreview();
   const [userName, setUserName] = useState<string>("");
   
   useEffect(() => {
@@ -34,6 +35,8 @@ export const Home = () => {
     fetchUserName();
   }, [user]);
   
+  const organizationId = preview.isPreviewMode ? preview.previewOrgId : user?.organization_id;
+
   return (
     <div className="container max-w-7xl mx-auto p-6 space-y-8">
       <header className="space-y-2">

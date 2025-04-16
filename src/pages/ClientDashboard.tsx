@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
@@ -14,6 +13,7 @@ import { Statistics } from "@/components/statistics/Statistics";
 import { Home } from "@/components/home/Home";
 import { AdministratorTab } from "@/components/administrator/AdministratorTab";
 import { useDialogPreloader } from "@/hooks/use-dialog-preloader";
+import { usePreview } from "@/contexts/PreviewContext";
 
 interface VoiceflowTranscript {
   _id: string;
@@ -33,6 +33,7 @@ const ClientDashboard = () => {
   const [activeTab, setActiveTab] = useState("home");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const { user } = useAuth();
+  const { preview } = usePreview();
   const [conversations, setConversations] = useState<VoiceflowTranscript[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [conversationsCollapsed, setConversationsCollapsed] = useState(false);
@@ -266,13 +267,15 @@ const ClientDashboard = () => {
 
   useEffect(() => {
     const fetchConversations = async () => {
-      if (!user?.organization_id) return;
+      const organizationId = preview.isPreviewMode ? preview.previewOrgId : user?.organization_id;
+      
+      if (!organizationId) return;
 
       try {
         const { data: org, error: orgError } = await supabase
           .from('organizations')
           .select('voiceflow_api_key, voiceflow_project_id')
-          .eq('id', user.organization_id)
+          .eq('id', organizationId)
           .single();
 
         if (orgError) throw orgError;
@@ -303,11 +306,15 @@ const ClientDashboard = () => {
     };
 
     fetchConversations();
-  }, [user?.organization_id]);
+  }, [user?.organization_id, preview.isPreviewMode, preview.previewOrgId]);
 
   useEffect(() => {
     const fetchDialog = async () => {
-      if (!selectedConversation || !user?.organization_id) return;
+      if (!selectedConversation) return;
+      
+      const organizationId = preview.isPreviewMode ? preview.previewOrgId : user?.organization_id;
+      
+      if (!organizationId) return;
       
       if (getCachedDialog(selectedConversation)) {
         return;
@@ -317,7 +324,7 @@ const ClientDashboard = () => {
         const { data: org, error: orgError } = await supabase
           .from('organizations')
           .select('voiceflow_api_key, voiceflow_project_id')
-          .eq('id', user.organization_id)
+          .eq('id', organizationId)
           .single();
 
         if (orgError) throw orgError;
@@ -351,7 +358,7 @@ const ClientDashboard = () => {
     };
 
     fetchDialog();
-  }, [selectedConversation, user?.organization_id, getCachedDialog, preloadConversations]);
+  }, [selectedConversation, user?.organization_id, getCachedDialog, preloadConversations, preview.isPreviewMode, preview.previewOrgId]);
 
   useEffect(() => {
     return () => {

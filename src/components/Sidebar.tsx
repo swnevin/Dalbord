@@ -1,6 +1,6 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
+import { usePreview } from "../contexts/PreviewContext";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -25,6 +25,7 @@ type TabName = "organizations" | "conversations" | "knowledge" | "statistics" | 
 const Sidebar = ({ role, onTabChange, activeTab, onCollapsedChange }: SidebarProps) => {
   const [collapsed, setCollapsed] = useState(true);
   const { user } = useAuth();
+  const { preview } = usePreview();
   const [permittedTabs, setPermittedTabs] = useState<TabName[]>([]);
 
   const adminLinks = [
@@ -46,6 +47,18 @@ const Sidebar = ({ role, onTabChange, activeTab, onCollapsedChange }: SidebarPro
       if (!user) return;
 
       try {
+        // Use preview tabs if in preview mode
+        if (preview.isPreviewMode && preview.previewTabs.length > 0) {
+          const tabs = preview.previewTabs as TabName[];
+          setPermittedTabs(tabs);
+          
+          if (tabs.length > 0 && !tabs.includes(activeTab as TabName)) {
+            onTabChange(tabs[0]);
+          }
+          return;
+        }
+
+        // Otherwise fetch normally
         const { data, error } = await supabase
           .from('user_tab_permissions')
           .select('tab_name')
@@ -65,7 +78,7 @@ const Sidebar = ({ role, onTabChange, activeTab, onCollapsedChange }: SidebarPro
     };
 
     fetchPermittedTabs();
-  }, [user, activeTab, onTabChange]);
+  }, [user, activeTab, onTabChange, preview.isPreviewMode, preview.previewTabs]);
 
   const links = allLinks.filter(link => permittedTabs.includes(link.value));
 

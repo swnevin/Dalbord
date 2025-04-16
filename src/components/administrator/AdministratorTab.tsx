@@ -5,6 +5,7 @@ import { OrganizationCard } from "@/components/admin/OrganizationCard";
 import { useMinimumLoading } from "@/hooks/use-minimum-loading";
 import { toast } from "sonner";
 import { Database } from "@/integrations/supabase/types";
+import { usePreview } from "@/contexts/PreviewContext";
 
 type TabName = Database["public"]["Enums"]["tab_type"];
 
@@ -28,29 +29,29 @@ interface Profile {
 
 export const AdministratorTab = () => {
   const { user } = useAuth();
+  const { preview } = usePreview();
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [isActuallyLoading, setIsActuallyLoading] = useState(true);
   const [userAccessibleTabs, setUserAccessibleTabs] = useState<TabName[]>([]);
-  // Using the minimum loading hook to ensure smooth transitions
   const isLoading = useMinimumLoading(isActuallyLoading);
 
   useEffect(() => {
-    if (user?.organization_id) {
-      fetchOrganization();
+    const organizationId = preview.isPreviewMode ? preview.previewOrgId : user?.organization_id;
+    
+    if (organizationId) {
+      fetchOrganization(organizationId);
       fetchUserAccessibleTabs();
     }
-  }, [user]);
+  }, [user, preview.isPreviewMode, preview.previewOrgId]);
 
-  const fetchOrganization = async () => {
-    if (!user?.organization_id) return;
-    
+  const fetchOrganization = async (organizationId: string) => {
     try {
       // Fetch organization data
       const { data: org, error: orgError } = await supabase
         .from("organizations")
         .select("*")
-        .eq("id", user.organization_id)
+        .eq("id", organizationId)
         .single();
 
       if (orgError) throw orgError;
@@ -67,7 +68,7 @@ export const AdministratorTab = () => {
           *,
           tabs:user_tab_permissions(tab_name)
         `)
-        .eq("organization_id", user.organization_id);
+        .eq("organization_id", organizationId);
 
       if (profilesError) throw profilesError;
       setProfiles(orgProfiles || []);
@@ -199,18 +200,14 @@ export const AdministratorTab = () => {
     }
   };
 
-  // Update these functions to return Promises to match the expected type
   const handleUpdateBot = async (orgId: string, config: { apiKey: string; projectId: string }): Promise<void> => {
-    // Empty implementation as this is disabled for client administrators
     return Promise.resolve();
   };
 
   const handleDeleteOrg = async (orgId: string): Promise<void> => {
-    // Empty implementation as this is disabled for client administrators
     return Promise.resolve();
   };
 
-  // Show partial content during loading
   return (
     <div className="container max-w-7xl mx-auto p-6 space-y-8">
       <header>
