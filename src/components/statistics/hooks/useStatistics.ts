@@ -482,6 +482,8 @@ export const useStatistics = (
       }));
 
       try {
+        console.log("[useStatistics] Fetching feedback metrics for organization:", organizationId);
+        
         const { data: metricsData, error: metricsError } = await supabase
           .from('conversation_metrics')
           .select('*')
@@ -489,7 +491,12 @@ export const useStatistics = (
           .gte('timestamp', dateRange.from.toISOString())
           .lte('timestamp', dateRange.to.toISOString());
 
-        if (metricsError) throw metricsError;
+        if (metricsError) {
+          console.error("[useStatistics] Error fetching metrics:", metricsError);
+          throw metricsError;
+        }
+
+        console.log("[useStatistics] Fetched metrics:", metricsData?.length || 0);
 
         const happyFaceCount = metricsData.filter(m => m.metric_type === 'happy_face').length;
         const neutralFaceCount = metricsData.filter(m => m.metric_type === 'neutral_face').length;
@@ -550,8 +557,8 @@ export const useStatistics = (
           }));
         }
       } catch (error) {
-        if (isMounted && !abortController.signal.aborted) {
-          console.error('Error fetching feedback metrics:', error);
+        console.error('[useStatistics] Error fetching feedback metrics:', error);
+        if (isMounted) {
           toast.error('Kunne ikke hente tilbakemeldingsdata');
           setLoading(prev => ({
             ...prev,
@@ -568,7 +575,7 @@ export const useStatistics = (
       isMounted = false;
       abortController.abort();
     };
-  }, [organizationId, dateRange, timeRange, preview.isPreviewMode, preview.previewOrgId]);
+  }, [organizationId, dateRange, timeRange]);
 
   useEffect(() => {
     let isMounted = true;
@@ -583,6 +590,8 @@ export const useStatistics = (
       }));
 
       try {
+        console.log("[useStatistics] Fetching success metrics for organization:", organizationId);
+        
         const { data: metricsData, error: metricsError } = await supabase
           .from('conversation_metrics')
           .select('*')
@@ -591,7 +600,10 @@ export const useStatistics = (
           .gte('timestamp', dateRange.from.toISOString())
           .lte('timestamp', dateRange.to.toISOString());
 
-        if (metricsError) throw metricsError;
+        if (metricsError) {
+          console.error("[useStatistics] Error fetching metrics:", metricsError);
+          throw metricsError;
+        }
 
         const { data: fallbackData, error: fallbackError } = await supabase
           .from('fallback_requests')
@@ -600,7 +612,13 @@ export const useStatistics = (
           .gte('created_at', dateRange.from.toISOString())
           .lte('created_at', dateRange.to.toISOString());
 
-        if (fallbackError) throw fallbackError;
+        if (fallbackError) {
+          console.error("[useStatistics] Error fetching fallbacks:", fallbackError);
+          throw fallbackError;
+        }
+
+        console.log("[useStatistics] Fetched metrics:", metricsData?.length || 0);
+        console.log("[useStatistics] Fetched fallbacks:", fallbackData?.length || 0);
 
         const successfulAnswerCount = metricsData.length;
         const fallbackCount = fallbackData.length;
@@ -630,8 +648,6 @@ export const useStatistics = (
           });
         }
 
-        console.log('Success vs Fallback time series:', successVsFallbackTimeSeries);
-
         if (isMounted) {
           setData(prev => ({
             ...prev,
@@ -646,8 +662,8 @@ export const useStatistics = (
           }));
         }
       } catch (error) {
-        if (isMounted && !abortController.signal.aborted) {
-          console.error('Error fetching success metrics:', error);
+        console.error('[useStatistics] Error fetching success metrics:', error);
+        if (isMounted) {
           toast.error('Kunne ikke hente svar/fallback-data');
           setLoading(prev => ({
             ...prev,
@@ -663,7 +679,7 @@ export const useStatistics = (
       isMounted = false;
       abortController.abort();
     };
-  }, [organizationId, dateRange, timeRange, preview.isPreviewMode, preview.previewOrgId]);
+  }, [organizationId, dateRange, timeRange]);
 
   return { data, loading };
 };
