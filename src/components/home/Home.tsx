@@ -7,7 +7,7 @@ import { FallbackRequests } from "./FallbackRequests";
 import { DashboardManual } from "./DashboardManual";
 
 export const Home = () => {
-  const { user } = useAuth();
+  const { user, previewUser, isInPreviewMode } = useAuth();
   const [userName, setUserName] = useState<string>("");
   
   useEffect(() => {
@@ -15,6 +15,23 @@ export const Home = () => {
       if (!user) return;
       
       try {
+        // If in preview mode, prioritize preview user's name if available
+        if (isInPreviewMode && previewUser) {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('name')
+            .eq('id', previewUser.id)
+            .maybeSingle();
+            
+          if (error) throw error;
+          
+          if (data && data.name) {
+            setUserName(data.name);
+            return;
+          }
+        }
+        
+        // Fall back to the current user's name
         const { data, error } = await supabase
           .from('profiles')
           .select('name')
@@ -32,7 +49,7 @@ export const Home = () => {
     };
     
     fetchUserName();
-  }, [user]);
+  }, [user, previewUser, isInPreviewMode]);
   
   return (
     <div className="container max-w-7xl mx-auto p-6 space-y-8">
@@ -41,7 +58,9 @@ export const Home = () => {
           Hei, {userName || "bruker"}! 👋
         </h1>
         <p className="text-muted-foreground">
-          Velkommen til dashbordet ditt. Her kan du se viktig informasjon om systemet ditt.
+          {isInPreviewMode && previewUser 
+            ? "Forhåndsvisning: Dette er hvordan dashbordet ser ut for denne brukeren."
+            : "Velkommen til dashbordet ditt. Her kan du se viktig informasjon om systemet ditt."}
         </p>
       </header>
       
