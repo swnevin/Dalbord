@@ -15,12 +15,23 @@ export const Home = () => {
   useEffect(() => {
     const fetchUserName = async () => {
       try {
+        console.log("[Home] Preview mode:", preview.isPreviewMode);
+        console.log("[Home] Preview email:", preview.previewEmail);
+        
         if (preview.isPreviewMode && preview.previewEmail) {
-          setUserName(preview.previewEmail.split('@')[0] || "Preview User");
+          // In preview mode, use the email from preview context
+          const nameFromEmail = preview.previewEmail.split('@')[0] || "Preview User";
+          console.log("[Home] Setting name from preview email:", nameFromEmail);
+          setUserName(nameFromEmail);
           return;
         }
         
-        if (!user) return;
+        if (!user) {
+          console.log("[Home] No user available, skipping fetch");
+          return;
+        }
+        
+        console.log("[Home] Fetching profile for user:", user.id);
         
         const { data, error } = await supabase
           .from('profiles')
@@ -28,13 +39,17 @@ export const Home = () => {
           .eq('id', user.id)
           .maybeSingle();
           
-        if (error) throw error;
+        if (error) {
+          console.error("[Home] Error fetching profile:", error);
+          throw error;
+        }
         
         if (data && data.name) {
+          console.log("[Home] Setting name from profile:", data.name);
           setUserName(data.name);
         }
       } catch (error) {
-        console.error('Error fetching user profile:', error);
+        console.error('[Home] Error fetching user profile:', error);
       }
     };
     

@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
@@ -50,6 +51,13 @@ const ClientDashboard = () => {
   const [preloadingTimerRef, setPreloadingTimerRef] = useState<NodeJS.Timeout | null>(null);
 
   const organizationId = preview.isPreviewMode ? preview.previewOrgId : user?.organization_id;
+
+  useEffect(() => {
+    console.log("[ClientDashboard] Using organization ID:", organizationId);
+    console.log("[ClientDashboard] Preview mode:", preview.isPreviewMode);
+    console.log("[ClientDashboard] Preview org ID:", preview.previewOrgId);
+    console.log("[ClientDashboard] Preview tabs:", preview.previewTabs);
+  }, [organizationId, preview]);
 
   const {
     dialogCache,
@@ -268,21 +276,34 @@ const ClientDashboard = () => {
 
   useEffect(() => {
     const fetchConversations = async () => {
-      if (!organizationId) return;
+      if (!organizationId) {
+        console.log("[ClientDashboard] No organization ID available, skipping fetch");
+        return;
+      }
 
       try {
+        console.log("[ClientDashboard] Fetching conversations for organization:", organizationId);
+        
         const { data: org, error: orgError } = await supabase
           .from('organizations')
           .select('voiceflow_api_key, voiceflow_project_id')
           .eq('id', organizationId)
           .single();
 
-        if (orgError) throw orgError;
-        if (!org.voiceflow_api_key || !org.voiceflow_project_id) {
-          console.error('Missing Voiceflow credentials');
+        if (orgError) {
+          console.error("[ClientDashboard] Error fetching org:", orgError);
+          throw orgError;
+        }
+        
+        if (!org?.voiceflow_api_key || !org?.voiceflow_project_id) {
+          console.error("[ClientDashboard] Missing Voiceflow credentials for org:", organizationId);
+          console.log("[ClientDashboard] VF API Key exists:", !!org?.voiceflow_api_key);
+          console.log("[ClientDashboard] VF Project ID exists:", !!org?.voiceflow_project_id);
           return;
         }
 
+        console.log("[ClientDashboard] Using Voiceflow project ID:", org.voiceflow_project_id);
+        
         const response = await fetch(
           `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}`,
           {
@@ -293,12 +314,16 @@ const ClientDashboard = () => {
           }
         );
 
-        if (!response.ok) throw new Error('Failed to fetch transcripts');
+        if (!response.ok) {
+          console.error("[ClientDashboard] Voiceflow API error:", response.status);
+          throw new Error('Failed to fetch transcripts');
+        }
 
         const data = await response.json();
+        console.log("[ClientDashboard] Fetched conversations:", data.length);
         setConversations(data);
       } catch (error) {
-        console.error('Error fetching conversations:', error);
+        console.error('[ClientDashboard] Error fetching conversations:', error);
       } finally {
         setIsLoading(false);
       }

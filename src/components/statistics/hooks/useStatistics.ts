@@ -50,8 +50,10 @@ export const useStatistics = (
   const organizationId = preview.isPreviewMode ? preview.previewOrgId : user?.organization_id;
 
   useEffect(() => {
-    console.log("Statistics using organization ID:", organizationId);
-  }, [organizationId]);
+    console.log("[useStatistics] Using organization ID:", organizationId);
+    console.log("[useStatistics] Preview mode:", preview.isPreviewMode);
+    console.log("[useStatistics] Preview org ID:", preview.previewOrgId);
+  }, [organizationId, preview.isPreviewMode, preview.previewOrgId]);
 
   useEffect(() => {
     if (data.totalMessages) {
@@ -71,11 +73,16 @@ export const useStatistics = (
     const abortController = new AbortController();
 
     const fetchSummaryData = async () => {
-      if (!organizationId) return;
-
+      if (!organizationId) {
+        console.log("[useStatistics] No organization ID available, skipping fetch");
+        return;
+      }
+      
       setLoading(prev => ({ ...prev, summaryCards: true }));
 
       try {
+        console.log("[useStatistics] Fetching summary data for organization:", organizationId);
+        
         const { data: messageData, error: messageError } = await supabase.functions
           .invoke('get-voiceflow-analytics', {
             body: {
@@ -104,7 +111,12 @@ export const useStatistics = (
           .eq('id', organizationId)
           .single();
 
-        if (orgError) throw orgError;
+        if (orgError) {
+          console.error("[useStatistics] Error fetching org:", orgError);
+          throw orgError;
+        }
+
+        console.log("[useStatistics] Got org data:", org ? "yes" : "no", "VF project ID:", org?.voiceflow_project_id?.substring(0, 5) + "...");
 
         const conversationsResponse = await fetch(
           `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}`,

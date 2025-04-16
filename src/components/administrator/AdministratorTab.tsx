@@ -46,6 +46,10 @@ const OrganizationsTab = () => {
   const organizationId = preview.isPreviewMode ? preview.previewOrgId : user?.organization_id;
 
   useEffect(() => {
+    console.log("[AdministratorTab] Using organization ID:", organizationId);
+    console.log("[AdministratorTab] Preview mode:", preview.isPreviewMode);
+    console.log("[AdministratorTab] Preview org ID:", preview.previewOrgId);
+    
     if (preview.isPreviewMode) {
       // In preview mode, only show the organization being previewed
       fetchClientOrg();
@@ -75,17 +79,27 @@ const OrganizationsTab = () => {
   };
 
   const fetchClientOrg = async () => {
-    if (!organizationId) return;
+    if (!organizationId) {
+      console.log("[AdministratorTab] No organization ID available, skipping fetch");
+      return;
+    }
     
     try {
+      console.log("[AdministratorTab] Fetching client organization:", organizationId);
+      
       const { data: org, error } = await supabase
         .from("organizations")
         .select("*")
         .eq("id", organizationId)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("[AdministratorTab] Error fetching organization:", error);
+        throw error;
+      }
 
+      console.log("[AdministratorTab] Found organization:", org.name);
+      
       const transformedOrg: Organization = {
         ...org,
         type: (org.type === 'admin' ? 'admin' : 'client') as Organization['type']
@@ -101,8 +115,13 @@ const OrganizationsTab = () => {
         `)
         .eq("organization_id", org.id);
 
-      if (profilesError) throw profilesError;
+      if (profilesError) {
+        console.error("[AdministratorTab] Error fetching profiles:", profilesError);
+        throw profilesError;
+      }
 
+      console.log("[AdministratorTab] Found profiles:", orgProfiles?.length || 0);
+      
       setProfiles({
         [org.id]: orgProfiles || []
       });

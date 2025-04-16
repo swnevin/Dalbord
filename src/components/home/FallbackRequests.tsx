@@ -58,12 +58,17 @@ export const FallbackRequests = () => {
     : resolvedRequests;
   
   const fetchFallbackRequests = async () => {
-    if (!organizationId) return;
+    if (!organizationId) {
+      console.log("[FallbackRequests] No organization ID available, skipping fetch");
+      return;
+    }
     
     try {
       setIsLoading(true);
       
-      console.log("Fetching fallback requests for organization:", organizationId);
+      console.log("[FallbackRequests] Fetching fallback requests for organization:", organizationId);
+      console.log("[FallbackRequests] Preview mode:", preview.isPreviewMode);
+      console.log("[FallbackRequests] Preview org ID:", preview.previewOrgId);
       
       const { data: unresolvedData, error: unresolvedError } = await supabase
         .from('fallback_requests')
@@ -72,7 +77,10 @@ export const FallbackRequests = () => {
         .eq('is_resolved', false)
         .order('created_at', { ascending: false });
         
-      if (unresolvedError) throw unresolvedError;
+      if (unresolvedError) {
+        console.error("[FallbackRequests] Error fetching unresolved requests:", unresolvedError);
+        throw unresolvedError;
+      }
       
       const { data: resolvedData, error: resolvedError } = await supabase
         .from('fallback_requests')
@@ -81,15 +89,18 @@ export const FallbackRequests = () => {
         .eq('is_resolved', true)
         .order('created_at', { ascending: false });
         
-      if (resolvedError) throw resolvedError;
+      if (resolvedError) {
+        console.error("[FallbackRequests] Error fetching resolved requests:", resolvedError);
+        throw resolvedError;
+      }
       
-      console.log("Fetched unresolved fallback requests:", unresolvedData?.length || 0);
-      console.log("Fetched resolved fallback requests:", resolvedData?.length || 0);
+      console.log("[FallbackRequests] Fetched unresolved fallback requests:", unresolvedData?.length || 0);
+      console.log("[FallbackRequests] Fetched resolved fallback requests:", resolvedData?.length || 0);
       
       setFallbackRequests(unresolvedData || []);
       setResolvedRequests(resolvedData || []);
     } catch (error) {
-      console.error('Error fetching fallback requests:', error);
+      console.error('[FallbackRequests] Error fetching fallback requests:', error);
       toast.error('Kunne ikke hente henvendelser til fallback');
     } finally {
       setIsLoading(false);

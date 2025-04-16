@@ -41,12 +41,21 @@ const KnowledgeBase = () => {
   const showLoader = useMinimumLoading(isLoading);
   const showChunksLoader = useMinimumLoading(isLoadingChunks);
 
+  useEffect(() => {
+    console.log("[KnowledgeBase] Using organization ID:", organizationId);
+    console.log("[KnowledgeBase] Preview mode:", preview.isPreviewMode);
+    console.log("[KnowledgeBase] Preview org ID:", preview.previewOrgId);
+  }, [organizationId, preview.isPreviewMode, preview.previewOrgId]);
+
   const fetchSources = async () => {
-    if (!organizationId) return;
+    if (!organizationId) {
+      console.log("[KnowledgeBase] No organization ID available, skipping fetch");
+      return;
+    }
 
     setIsLoading(true);
     try {
-      console.log("Fetching sources for organization:", organizationId);
+      console.log("[KnowledgeBase] Fetching sources for organization:", organizationId);
       
       const { data: org, error: orgError } = await supabase
         .from('organizations')
@@ -54,12 +63,17 @@ const KnowledgeBase = () => {
         .eq('id', organizationId)
         .single();
 
-      if (orgError || !org.voiceflow_api_key) {
-        console.error("Error fetching Voiceflow API key:", orgError);
+      if (orgError) {
+        console.error("[KnowledgeBase] Error fetching Voiceflow API key:", orgError);
         throw new Error('Kunne ikke hente Voiceflow API nøkkel');
       }
 
-      console.log("Got Voiceflow API key, fetching sources");
+      if (!org?.voiceflow_api_key) {
+        console.error("[KnowledgeBase] No Voiceflow API key found for organization:", organizationId);
+        throw new Error('Ingen Voiceflow API nøkkel funnet for denne organisasjonen');
+      }
+
+      console.log("[KnowledgeBase] Got Voiceflow API key, fetching sources");
 
       const limit = 100;
       let page = 1;
@@ -79,6 +93,7 @@ const KnowledgeBase = () => {
         );
 
         if (!response.ok) {
+          console.error("[KnowledgeBase] Voiceflow API error:", response.status);
           throw new Error('Kunne ikke hente kilder');
         }
 
@@ -95,10 +110,10 @@ const KnowledgeBase = () => {
         page++;
       }
 
-      console.log(`Fetched ${allSources.length} sources`);
+      console.log(`[KnowledgeBase] Fetched ${allSources.length} sources`);
       setSources(allSources);
     } catch (error) {
-      console.error('Error fetching sources:', error);
+      console.error('[KnowledgeBase] Error fetching sources:', error);
       toast({
         title: "Feil",
         description: error instanceof Error ? error.message : "Kunne ikke hente kilder",
