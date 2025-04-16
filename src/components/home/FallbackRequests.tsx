@@ -9,12 +9,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { usePreview } from "@/contexts/PreviewContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 interface FallbackRequest {
   id: string;
   query: string;
   created_at: string;
   is_resolved: boolean;
+  response?: string;
 }
 
 export const FallbackRequests = () => {
@@ -36,9 +38,11 @@ export const FallbackRequests = () => {
 
       try {
         console.log("[FallbackRequests] Fetching fallback requests for org:", organizationId);
+        console.log("[FallbackRequests] Preview mode:", preview.isPreviewMode);
+        console.log("[FallbackRequests] Preview org ID:", preview.previewOrgId);
         
         // Make the direct query to the fallback_requests table
-        let { data: fallbacks, error: fallbackError } = await supabase
+        const { data: fallbacks, error: fallbackError } = await supabase
           .from('fallback_requests')
           .select('*')
           .eq('organization_id', organizationId)
@@ -46,6 +50,7 @@ export const FallbackRequests = () => {
 
         if (fallbackError) {
           console.error("[FallbackRequests] Error fetching fallback requests:", fallbackError);
+          toast.error("Kunne ikke hente fallback-hendelser");
           throw fallbackError;
         }
 
@@ -55,27 +60,36 @@ export const FallbackRequests = () => {
           console.log("[FallbackRequests] Preview mode active, got fallbacks:", fallbacks?.length || 0);
         }
 
+        if (!fallbacks || fallbacks.length === 0) {
+          console.log("[FallbackRequests] No fallback requests found");
+          setFallbackRequests([]);
+          setIsLoading(false);
+          return;
+        }
+
         // Filter to show only last 30 days
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-        fallbacks = fallbacks?.filter(request => {
+        let filteredFallbacks = fallbacks.filter(request => {
           const requestDate = new Date(request.created_at);
           return requestDate >= thirtyDaysAgo;
-        }) || [];
+        });
+
+        console.log("[FallbackRequests] Filtered by date:", filteredFallbacks.length);
 
         // Sort by creation date (newest first)
-        fallbacks = fallbacks.sort((a, b) => 
+        filteredFallbacks = filteredFallbacks.sort((a, b) => 
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         ).slice(0, 5); // Limit to 5 entries for the widget
 
-        console.log("[FallbackRequests] Filtered fallback requests:", fallbacks.length);
+        console.log("[FallbackRequests] Final fallback requests (limited to 5):", filteredFallbacks.length);
         
-        if (fallbacks && fallbacks.length > 0) {
-          console.log("[FallbackRequests] First fallback request:", fallbacks[0]);
+        if (filteredFallbacks.length > 0) {
+          console.log("[FallbackRequests] First fallback request:", filteredFallbacks[0]);
         }
         
-        setFallbackRequests(fallbacks || []);
+        setFallbackRequests(filteredFallbacks);
       } catch (error) {
         console.error("[FallbackRequests] Error:", error);
       } finally {
@@ -112,7 +126,7 @@ export const FallbackRequests = () => {
   }
 
   return (
-    <Card>
+    <Card className="border-[#28483F] border-t-4">
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
           <MessageCircleOff className="h-5 w-5 text-muted-foreground" />
@@ -139,7 +153,7 @@ export const FallbackRequests = () => {
                   <p className="font-medium mb-1 line-clamp-2">{request.query}</p>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <span>{new Date(request.created_at).toLocaleDateString('no')}</span>
-                    <Badge variant={request.is_resolved ? "outline" : "destructive"}>
+                    <Badge variant={request.is_resolved ? "success" : "destructive"} className={request.is_resolved ? "bg-green-100 text-green-800 hover:bg-green-200" : ""}>
                       {request.is_resolved ? "Løst" : "Ikke løst"}
                     </Badge>
                   </div>
@@ -151,7 +165,7 @@ export const FallbackRequests = () => {
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className="text-primary flex items-center gap-1"
+                className="text-[#28483F] flex items-center gap-1 hover:bg-[#28483F]/10"
                 onClick={handleViewAll}
               >
                 Se alle <ArrowRight className="h-4 w-4" />
