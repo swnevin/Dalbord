@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,6 +46,8 @@ const KnowledgeBase = () => {
 
     setIsLoading(true);
     try {
+      console.log("Fetching sources for organization:", organizationId);
+      
       const { data: org, error: orgError } = await supabase
         .from('organizations')
         .select('voiceflow_api_key')
@@ -52,8 +55,11 @@ const KnowledgeBase = () => {
         .single();
 
       if (orgError || !org.voiceflow_api_key) {
+        console.error("Error fetching Voiceflow API key:", orgError);
         throw new Error('Kunne ikke hente Voiceflow API nøkkel');
       }
+
+      console.log("Got Voiceflow API key, fetching sources");
 
       const limit = 100;
       let page = 1;
@@ -89,6 +95,7 @@ const KnowledgeBase = () => {
         page++;
       }
 
+      console.log(`Fetched ${allSources.length} sources`);
       setSources(allSources);
     } catch (error) {
       console.error('Error fetching sources:', error);

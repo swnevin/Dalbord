@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePreview } from "@/contexts/PreviewContext";
@@ -62,6 +63,8 @@ export const FallbackRequests = () => {
     try {
       setIsLoading(true);
       
+      console.log("Fetching fallback requests for organization:", organizationId);
+      
       const { data: unresolvedData, error: unresolvedError } = await supabase
         .from('fallback_requests')
         .select('*')
@@ -79,6 +82,9 @@ export const FallbackRequests = () => {
         .order('created_at', { ascending: false });
         
       if (resolvedError) throw resolvedError;
+      
+      console.log("Fetched unresolved fallback requests:", unresolvedData?.length || 0);
+      console.log("Fetched resolved fallback requests:", resolvedData?.length || 0);
       
       setFallbackRequests(unresolvedData || []);
       setResolvedRequests(resolvedData || []);

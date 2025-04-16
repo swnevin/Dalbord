@@ -11,7 +11,7 @@ import { ConversationDialog } from "@/components/conversations/ConversationDialo
 import { DeleteDialog } from "@/components/conversations/DeleteDialog";
 import { Statistics } from "@/components/statistics/Statistics";
 import { Home } from "@/components/home/Home";
-import AdministratorTab from "@/components/administrator/AdministratorTab";
+import OrganizationsTab from "@/components/administrator/AdministratorTab";
 import { useDialogPreloader } from "@/hooks/use-dialog-preloader";
 import { usePreview } from "@/contexts/PreviewContext";
 
@@ -410,7 +410,7 @@ const ClientDashboard = () => {
           <KnowledgeBase />
         )}
         {activeTab === "statistics" && <Statistics />}
-        {activeTab === "administrator" && <AdministratorTab />}
+        {activeTab === "administrator" && <OrganizationsTab />}
       </div>
 
       <DeleteDialog

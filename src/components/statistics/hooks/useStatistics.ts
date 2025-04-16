@@ -49,7 +49,10 @@ export const useStatistics = (
 
   const organizationId = preview.isPreviewMode ? preview.previewOrgId : user?.organization_id;
 
-  // Calculate savings whenever total messages or settings change
+  useEffect(() => {
+    console.log("Statistics using organization ID:", organizationId);
+  }, [organizationId]);
+
   useEffect(() => {
     if (data.totalMessages) {
       const timeSaved = data.totalMessages * savingsSettings.timePerMessage;
@@ -63,7 +66,6 @@ export const useStatistics = (
     }
   }, [data.totalMessages, savingsSettings]);
 
-  // Fetch summary data (total messages, sessions and conversations)
   useEffect(() => {
     let isMounted = true;
     const abortController = new AbortController();
@@ -74,7 +76,6 @@ export const useStatistics = (
       setLoading(prev => ({ ...prev, summaryCards: true }));
 
       try {
-        // Fetch message counts
         const { data: messageData, error: messageError } = await supabase.functions
           .invoke('get-voiceflow-analytics', {
             body: {
@@ -86,7 +87,6 @@ export const useStatistics = (
 
         if (messageError) throw messageError;
 
-        // Fetch session counts
         const { data: sessionData, error: sessionError } = await supabase.functions
           .invoke('get-voiceflow-analytics', {
             body: {
@@ -154,7 +154,6 @@ export const useStatistics = (
     };
   }, [organizationId, dateRange, timeRange]);
 
-  // Fetch message time series data
   useEffect(() => {
     let isMounted = true;
     const abortController = new AbortController();
@@ -230,7 +229,6 @@ export const useStatistics = (
     };
   }, [organizationId, dateRange, timeRange]);
 
-  // Fetch session time series data
   useEffect(() => {
     let isMounted = true;
     const abortController = new AbortController();
@@ -306,7 +304,6 @@ export const useStatistics = (
     };
   }, [organizationId, dateRange, timeRange]);
 
-  // Fetch user time series data
   useEffect(() => {
     let isMounted = true;
     const abortController = new AbortController();
@@ -395,7 +392,6 @@ export const useStatistics = (
     };
   }, [organizationId, dateRange, timeRange]);
 
-  // Fetch top intents data
   useEffect(() => {
     let isMounted = true;
     const abortController = new AbortController();
@@ -406,7 +402,6 @@ export const useStatistics = (
       setLoading(prev => ({ ...prev, intentChart: true }));
 
       try {
-        // Fetch top intents data
         const { data: intentData, error: intentError } = await supabase.functions
           .invoke('get-voiceflow-analytics', {
             body: {
@@ -418,7 +413,6 @@ export const useStatistics = (
 
         if (intentError) throw intentError;
 
-        // Extract intents from the response and filter out VF prefixed ones
         const topIntents: IntentData[] = intentData?.result?.[0]?.intents || [];
 
         if (isMounted) {
@@ -442,7 +436,6 @@ export const useStatistics = (
     };
   }, [organizationId, dateRange, timeRange]);
 
-  // Fetch feedback and escalation metrics
   useEffect(() => {
     let isMounted = true;
     const abortController = new AbortController();
@@ -457,7 +450,6 @@ export const useStatistics = (
       }));
 
       try {
-        // Query the database directly for metrics
         const { data: metricsData, error: metricsError } = await supabase
           .from('conversation_metrics')
           .select('*')
@@ -467,7 +459,6 @@ export const useStatistics = (
 
         if (metricsError) throw metricsError;
 
-        // Process metrics data
         const happyFaceCount = metricsData.filter(m => m.metric_type === 'happy_face').length;
         const neutralFaceCount = metricsData.filter(m => m.metric_type === 'neutral_face').length;
         const sadFaceCount = metricsData.filter(m => m.metric_type === 'sad_face').length;
@@ -475,7 +466,6 @@ export const useStatistics = (
         const thumbsUpCount = metricsData.filter(m => m.metric_type === 'thumbs_up').length;
         const thumbsDownCount = metricsData.filter(m => m.metric_type === 'thumbs_down').length;
 
-        // Process time series data
         const timeFrames = getTimeFrames(dateRange.from, dateRange.to);
         const feedbackTimeSeries: FeedbackTimeSeriesData[] = [];
         const escalationTimeSeries: TimeSeriesData[] = [];
@@ -493,7 +483,6 @@ export const useStatistics = (
           const sad = frameMetrics.filter(m => m.metric_type === 'sad_face').length;
           const escalated = frameMetrics.filter(m => m.metric_type === 'escalated_to_human').length;
 
-          // Format the date for display
           const dateLabel = formatDateLabel(frame.start, daysDiff);
         
           feedbackTimeSeries.push({
@@ -549,7 +538,6 @@ export const useStatistics = (
     };
   }, [organizationId, dateRange, timeRange]);
 
-  // Fetch successful answers metrics and fallback requests
   useEffect(() => {
     let isMounted = true;
     const abortController = new AbortController();
@@ -563,7 +551,6 @@ export const useStatistics = (
       }));
 
       try {
-        // Query metrics for successful answers
         const { data: metricsData, error: metricsError } = await supabase
           .from('conversation_metrics')
           .select('*')
@@ -574,7 +561,6 @@ export const useStatistics = (
 
         if (metricsError) throw metricsError;
 
-        // Query fallback requests
         const { data: fallbackData, error: fallbackError } = await supabase
           .from('fallback_requests')
           .select('*')
@@ -584,30 +570,25 @@ export const useStatistics = (
 
         if (fallbackError) throw fallbackError;
 
-        // Get counts
         const successfulAnswerCount = metricsData.length;
         const fallbackCount = fallbackData.length;
 
-        // Process time series data
         const timeFrames = getTimeFrames(dateRange.from, dateRange.to);
         const successVsFallbackTimeSeries: SuccessVsFallbackTimeSeriesData[] = [];
         
         const daysDiff = differenceInDays(dateRange.to, dateRange.from);
         
         for (const frame of timeFrames) {
-          // Count successful answers in this timeframe
           const successfulAnswers = metricsData.filter(m => {
             const date = new Date(m.timestamp);
             return date >= frame.start && date <= frame.end;
           }).length;
 
-          // Count fallbacks in this timeframe
           const fallbacks = fallbackData.filter(f => {
             const date = new Date(f.created_at);
             return date >= frame.start && date <= frame.end;
           }).length;
 
-          // Format the date for display
           const dateLabel = formatDateLabel(frame.start, daysDiff);
           
           successVsFallbackTimeSeries.push({
@@ -617,7 +598,6 @@ export const useStatistics = (
           });
         }
 
-        // Debug log
         console.log('Success vs Fallback time series:', successVsFallbackTimeSeries);
 
         if (isMounted) {

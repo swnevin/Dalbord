@@ -1,5 +1,7 @@
+
 import { useState, useEffect } from "react";
 import { useAuth } from "../../contexts/AuthContext";
+import { usePreview } from "@/contexts/PreviewContext"; 
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -33,28 +35,32 @@ interface Profile {
 }
 
 const OrganizationsTab = () => {
-  const {
-    user
-  } = useAuth();
+  const { user } = useAuth();
+  const { preview } = usePreview();
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile[]>>({});
   const [isActuallyLoading, setIsActuallyLoading] = useState(true);
   const [isAdminUser, setIsAdminUser] = useState(false);
   const isLoading = useMinimumLoading(isActuallyLoading);
+  
+  const organizationId = preview.isPreviewMode ? preview.previewOrgId : user?.organization_id;
 
   useEffect(() => {
-    fetchOrganizations();
+    if (preview.isPreviewMode) {
+      // In preview mode, only show the organization being previewed
+      fetchClientOrg();
+    } else {
+      // Normal admin view shows all organizations
+      fetchOrganizations();
+    }
     checkAdminStatus();
-  }, []);
+  }, [preview.isPreviewMode, organizationId]);
 
   const checkAdminStatus = async () => {
     if (!user) return;
 
     try {
-      const {
-        data,
-        error
-      } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
         .select('role')
         .eq('id', user.id)
@@ -68,12 +74,49 @@ const OrganizationsTab = () => {
     }
   };
 
+  const fetchClientOrg = async () => {
+    if (!organizationId) return;
+    
+    try {
+      const { data: org, error } = await supabase
+        .from("organizations")
+        .select("*")
+        .eq("id", organizationId)
+        .single();
+
+      if (error) throw error;
+
+      const transformedOrg: Organization = {
+        ...org,
+        type: (org.type === 'admin' ? 'admin' : 'client') as Organization['type']
+      };
+
+      setOrganizations([transformedOrg]);
+
+      const { data: orgProfiles, error: profilesError } = await supabase
+        .from("profiles")
+        .select(`
+          *,
+          tabs:user_tab_permissions(tab_name)
+        `)
+        .eq("organization_id", org.id);
+
+      if (profilesError) throw profilesError;
+
+      setProfiles({
+        [org.id]: orgProfiles || []
+      });
+    } catch (error) {
+      console.error("Error fetching client organization:", error);
+      toast.error("Kunne ikke hente organisasjonsinformasjon");
+    } finally {
+      setIsActuallyLoading(false);
+    }
+  };
+
   const fetchOrganizations = async () => {
     try {
-      const {
-        data: orgs,
-        error
-      } = await supabase
+      const { data: orgs, error } = await supabase
         .from("organizations")
         .select("*");
 
@@ -87,10 +130,7 @@ const OrganizationsTab = () => {
       setOrganizations(transformedOrgs);
 
       for (const org of transformedOrgs) {
-        const {
-          data: orgProfiles,
-          error: profilesError
-        } = await supabase
+        const { data: orgProfiles, error: profilesError } = await supabase
           .from("profiles")
           .select(`
             *,
@@ -334,6 +374,33 @@ const OrganizationsTab = () => {
     );
   }
 
+  // In preview mode, show a simplified client view without admin controls
+  if (preview.isPreviewMode) {
+    return (
+      <div className="space-y-8">
+        <div className="flex justify-between items-center">
+          <h1 className="text-3xl font-bold text-primary">Organisasjon</h1>
+        </div>
+
+        <div className="space-y-4">
+          {organizations.map(org => (
+            <OrganizationCard
+              key={org.id}
+              organization={org}
+              members={profiles[org.id] || []}
+              onUpdateBot={handleUpdateBot}
+              onDeleteOrg={handleDeleteOrg}
+              onAddMember={handleAddMember}
+              onDeleteMember={handleDeleteMember}
+              hideControls={true}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Normal view for actual admins
   const sortedOrganizations = [...organizations].sort((a, b) => {
     if (a.name === "Dalai") return -1;
     if (b.name === "Dalai") return 1;

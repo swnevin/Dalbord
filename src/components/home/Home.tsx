@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,9 +14,14 @@ export const Home = () => {
   
   useEffect(() => {
     const fetchUserName = async () => {
-      if (!user) return;
-      
       try {
+        if (preview.isPreviewMode && preview.previewEmail) {
+          setUserName(preview.previewEmail.split('@')[0] || "Preview User");
+          return;
+        }
+        
+        if (!user) return;
+        
         const { data, error } = await supabase
           .from('profiles')
           .select('name')
@@ -33,10 +39,8 @@ export const Home = () => {
     };
     
     fetchUserName();
-  }, [user]);
+  }, [user, preview.isPreviewMode, preview.previewEmail]);
   
-  const organizationId = preview.isPreviewMode ? preview.previewOrgId : user?.organization_id;
-
   return (
     <div className="container max-w-7xl mx-auto p-6 space-y-8">
       <header className="space-y-2">
