@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { 
@@ -36,7 +35,7 @@ interface FallbackRequest {
 }
 
 export const FallbackRequests = () => {
-  const { user, previewUser, isInPreviewMode } = useAuth();
+  const { user } = useAuth();
   const [fallbackRequests, setFallbackRequests] = useState<FallbackRequest[]>([]);
   const [resolvedRequests, setResolvedRequests] = useState<FallbackRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -53,15 +52,8 @@ export const FallbackRequests = () => {
     ? resolvedRequests.filter(req => req.query !== "not_a_question")
     : resolvedRequests;
   
-  const getEffectiveOrgId = useCallback(() => {
-    return isInPreviewMode && previewUser 
-      ? previewUser.organization_id 
-      : user?.organization_id;
-  }, [isInPreviewMode, previewUser, user]);
-  
   const fetchFallbackRequests = async () => {
-    const organizationId = getEffectiveOrgId();
-    if (!organizationId) return;
+    if (!user?.organization_id) return;
     
     try {
       setIsLoading(true);
@@ -69,7 +61,7 @@ export const FallbackRequests = () => {
       const { data: unresolvedData, error: unresolvedError } = await supabase
         .from('fallback_requests')
         .select('*')
-        .eq('organization_id', organizationId)
+        .eq('organization_id', user.organization_id)
         .eq('is_resolved', false)
         .order('created_at', { ascending: false });
         
@@ -78,7 +70,7 @@ export const FallbackRequests = () => {
       const { data: resolvedData, error: resolvedError } = await supabase
         .from('fallback_requests')
         .select('*')
-        .eq('organization_id', organizationId)
+        .eq('organization_id', user.organization_id)
         .eq('is_resolved', true)
         .order('created_at', { ascending: false });
         
@@ -96,7 +88,7 @@ export const FallbackRequests = () => {
   
   useEffect(() => {
     fetchFallbackRequests();
-  }, [getEffectiveOrgId]);
+  }, [user?.organization_id]);
   
   const handleRequestClick = (request: FallbackRequest) => {
     setSelectedRequest(request);

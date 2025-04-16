@@ -23,7 +23,7 @@ import {
 } from "./knowledge-base/types";
 
 const KnowledgeBase = () => {
-  const { user, previewUser, isInPreviewMode } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
   const [sources, setSources] = useState<VoiceflowDocument[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -37,22 +37,15 @@ const KnowledgeBase = () => {
   const showLoader = useMinimumLoading(isLoading);
   const showChunksLoader = useMinimumLoading(isLoadingChunks);
 
-  const getEffectiveOrgId = () => {
-    return isInPreviewMode && previewUser 
-      ? previewUser.organization_id 
-      : user?.organization_id;
-  };
-
   const fetchSources = async () => {
-    const organizationId = getEffectiveOrgId();
-    if (!organizationId) return;
+    if (!user?.organization_id) return;
 
     setIsLoading(true);
     try {
       const { data: org, error: orgError } = await supabase
         .from('organizations')
         .select('voiceflow_api_key')
-        .eq('id', organizationId)
+        .eq('id', user.organization_id)
         .single();
 
       if (orgError || !org.voiceflow_api_key) {
@@ -108,7 +101,7 @@ const KnowledgeBase = () => {
 
   useEffect(() => {
     fetchSources();
-  }, [isInPreviewMode, previewUser, user?.organization_id]);
+  }, [user?.organization_id]);
 
   const handleExpandSource = async (documentId: string) => {
     if (expandedSourceId === documentId) {
@@ -121,13 +114,10 @@ const KnowledgeBase = () => {
     setExpandedSourceId(documentId);
 
     try {
-      const organizationId = getEffectiveOrgId();
-      if (!organizationId) throw new Error('Ingen organisasjon funnet');
-
       const { data: org, error: orgError } = await supabase
         .from('organizations')
         .select('voiceflow_api_key')
-        .eq('id', organizationId)
+        .eq('id', user?.organization_id)
         .single();
 
       if (orgError || !org.voiceflow_api_key) {
@@ -165,8 +155,7 @@ const KnowledgeBase = () => {
   };
 
   const handleDelete = async (documentId: string) => {
-    const organizationId = getEffectiveOrgId();
-    if (!organizationId) {
+    if (!user?.organization_id) {
       toast({
         title: "Feil",
         description: "Ingen organisasjon funnet.",
@@ -179,7 +168,7 @@ const KnowledgeBase = () => {
       const { data: org, error: orgError } = await supabase
         .from('organizations')
         .select('voiceflow_api_key')
-        .eq('id', organizationId)
+        .eq('id', user.organization_id)
         .single();
 
       if (orgError || !org.voiceflow_api_key) {

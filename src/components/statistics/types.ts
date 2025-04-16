@@ -42,15 +42,6 @@ export interface TimeSeriesData {
   value: number;
 }
 
-// Alias for backward compatibility
-export type TimeSeriesDataPoint = TimeSeriesData;
-
-// Chart data point for bar/pie charts
-export interface ChartDataPoint {
-  name: string;
-  value: number;
-}
-
 export interface FeedbackTimeSeriesData {
   date: string;
   happy_face: number;
@@ -72,9 +63,6 @@ export interface IntentData {
 export type DateRange = {
   from: Date;
   to: Date;
-  // Adding these for backward compatibility
-  start?: Date;
-  end?: Date;
 };
 
 export type TimeRange = '7d' | '30d' | '90d' | '365d' | 'all' | 'custom';

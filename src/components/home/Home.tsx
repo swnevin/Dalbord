@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,7 +7,7 @@ import { FallbackRequests } from "./FallbackRequests";
 import { DashboardManual } from "./DashboardManual";
 
 export const Home = () => {
-  const { user, previewUser, isInPreviewMode } = useAuth();
+  const { user } = useAuth();
   const [userName, setUserName] = useState<string>("");
   
   useEffect(() => {
@@ -14,12 +15,10 @@ export const Home = () => {
       if (!user) return;
       
       try {
-        const userId = isInPreviewMode ? previewUser?.id : user.id;
-        
         const { data, error } = await supabase
           .from('profiles')
           .select('name')
-          .eq('id', userId)
+          .eq('id', user.id)
           .maybeSingle();
           
         if (error) throw error;
@@ -33,7 +32,7 @@ export const Home = () => {
     };
     
     fetchUserName();
-  }, [user, previewUser, isInPreviewMode]);
+  }, [user]);
   
   return (
     <div className="container max-w-7xl mx-auto p-6 space-y-8">

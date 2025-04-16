@@ -56,33 +56,29 @@ serve(async (req) => {
       })
     }
 
+    // Get the user's organization_id
+    const { data: profileData, error: profileError } = await supabaseClient
+      .from('profiles')
+      .select('organization_id')
+      .eq('id', userData.user.id)
+      .single()
+
+    if (profileError || !profileData.organization_id) {
+      return new Response(JSON.stringify({ error: 'User has no organization' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
     // Parse the request body
     const body: MetricsRequest = await req.json()
     
-    // Get the organization ID from the request or from the user's profile
-    let organizationId = body.organization_id;
-    
-    if (!organizationId) {
-      // Get the user's organization_id
-      const { data: profileData, error: profileError } = await supabaseClient
-        .from('profiles')
-        .select('organization_id')
-        .eq('id', userData.user.id)
-        .single()
-
-      if (profileError || !profileData.organization_id) {
-        return new Response(JSON.stringify({ error: 'User has no organization' }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        })
-      }
-      
-      organizationId = profileData.organization_id;
-    }
+    // Default to the user's organization if not specified
+    const organizationId = body.organization_id || profileData.organization_id
     
     // Verify the user has access to the requested organization
-    if (organizationId !== userData.user.organization_id) {
-      // For non-matching orgs, check if user is an admin
+    if (organizationId !== profileData.organization_id) {
+      // Additional check required for admins only
       const { data: isAdmin, error: adminError } = await supabaseClient
         .from('profiles')
         .select('role')

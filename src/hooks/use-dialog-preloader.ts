@@ -1,43 +1,85 @@
 
-import { useState, useCallback, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useState, useCallback, useRef, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
-interface DialogCache {
-  [conversationId: string]: any[];
-}
-
-interface DialogContentCache {
-  [conversationId: string]: string;
-}
+export type DialogCache = Record<string, any[]>;
 
 interface UseDialogPreloaderProps {
-  organizationId?: string;
+  organizationId: string | undefined;
+  maxCacheSize?: number;
 }
 
-export const useDialogPreloader = ({ organizationId }: UseDialogPreloaderProps = {}) => {
+export const useDialogPreloader = ({ 
+  organizationId, 
+  maxCacheSize = 25
+}: UseDialogPreloaderProps) => {
   const [dialogCache, setDialogCache] = useState<DialogCache>({});
-  const [dialogContentCache, setDialogContentCache] = useState<DialogContentCache>({});
-  const [failedPreloads, setFailedPreloads] = useState<Set<string>>(new Set());
-
-  const getCachedDialog = useCallback((conversationId: string) => {
-    return dialogCache[conversationId];
-  }, [dialogCache]);
-
-  const isConversationPreloaded = useCallback((conversationId: string) => {
-    return Boolean(dialogCache[conversationId]) || failedPreloads.has(conversationId);
-  }, [dialogCache, failedPreloads]);
-
-  const preloadConversations = useCallback(async (conversationIds: string[]) => {
-    if (!organizationId) return;
+  const [preloadedConversations, setPreloadedConversations] = useState<Set<string>>(new Set());
+  const [isPreloading, setIsPreloading] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const pendingQueue = useRef<Set<string>>(new Set());
+  const processingRef = useRef<boolean>(false);
+  const lastRequestTime = useRef<number>(0);
+  const queueTimer = useRef<number | null>(null);
+  
+  // Clean up cache when it exceeds maximum size
+  const cleanupCache = useCallback(() => {
+    if (Object.keys(dialogCache).length <= maxCacheSize) return;
     
-    // Filter out already preloaded or failed conversations
-    const idsToPreload = conversationIds.filter(id => 
-      !dialogCache[id] && !failedPreloads.has(id)
-    );
+    // Simple LRU implementation - remove oldest entries
+    const entries = Object.entries(dialogCache);
+    const sortedEntries = entries.sort((a, b) => {
+      const aAccessed = a[1][0]?.accessedAt || 0;
+      const bAccessed = b[1][0]?.accessedAt || 0;
+      return aAccessed - bAccessed;
+    });
     
-    if (idsToPreload.length === 0) return;
+    const toRemove = sortedEntries.slice(0, entries.length - maxCacheSize);
+    const newCache = { ...dialogCache };
+    
+    toRemove.forEach(([key]) => {
+      delete newCache[key];
+      setPreloadedConversations(prev => {
+        const updated = new Set(prev);
+        updated.delete(key);
+        return updated;
+      });
+    });
+    
+    setDialogCache(newCache);
+  }, [dialogCache, maxCacheSize]);
 
+  // Process the queue of conversations to preload
+  const processQueue = useCallback(async () => {
+    if (!organizationId || processingRef.current || pendingQueue.current.size === 0) return;
+    
+    processingRef.current = true;
+    
     try {
+      // Rate limiting - ensure at least 300ms between requests
+      const now = Date.now();
+      const timeSinceLastRequest = now - lastRequestTime.current;
+      
+      if (timeSinceLastRequest < 300) {
+        await new Promise(resolve => setTimeout(resolve, 300 - timeSinceLastRequest));
+      }
+      
+      const nextId = pendingQueue.current.values().next().value;
+      pendingQueue.current.delete(nextId);
+      
+      // If already cached, skip
+      if (dialogCache[nextId]) {
+        processingRef.current = false;
+        queueTimer.current = window.setTimeout(processQueue, 0);
+        return;
+      }
+      
+      setIsPreloading(true);
+      
+      // Create new abort controller for this request
+      abortControllerRef.current = new AbortController();
+      
       const { data: org, error: orgError } = await supabase
         .from('organizations')
         .select('voiceflow_api_key, voiceflow_project_id')
@@ -46,90 +88,150 @@ export const useDialogPreloader = ({ organizationId }: UseDialogPreloaderProps =
 
       if (orgError) throw orgError;
       if (!org.voiceflow_api_key || !org.voiceflow_project_id) {
-        console.error('Missing Voiceflow credentials');
-        return;
+        throw new Error('Mangler Voiceflow-legitimasjon');
       }
 
-      // Use Promise.allSettled to fetch all dialogs in parallel but handle failures individually
-      const preloadPromises = idsToPreload.map(async (id) => {
-        try {
-          const response = await fetch(
-            `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}/${id}`,
-            {
-              headers: {
-                accept: 'application/json',
-                Authorization: org.voiceflow_api_key,
-              },
-            }
-          );
-
-          if (!response.ok) {
-            throw new Error(`Failed to fetch dialog for ${id}: ${response.status}`);
-          }
-
-          const dialogData = await response.json();
-          
-          return { id, dialog: dialogData };
-        } catch (error) {
-          console.error(`Error preloading dialog for ${id}:`, error);
-          return { id, error };
+      const response = await fetch(
+        `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}/${nextId}`,
+        {
+          headers: {
+            accept: 'application/json',
+            Authorization: org.voiceflow_api_key,
+          },
+          signal: abortControllerRef.current.signal
         }
-      });
+      );
 
-      const results = await Promise.allSettled(preloadPromises);
+      if (!response.ok) throw new Error('Kunne ikke laste inn samtale');
+
+      const data = await response.json();
       
-      const newCache = { ...dialogCache };
-      const newContentCache = { ...dialogContentCache };
-      const newFailedPreloads = new Set(failedPreloads);
+      // Add accessedAt timestamp for LRU cache
+      const dataWithTimestamp = data.map((item: any) => ({
+        ...item,
+        accessedAt: Date.now()
+      }));
       
-      results.forEach((result) => {
-        if (result.status === 'fulfilled') {
-          const { id, dialog, error } = result.value;
-          
-          if (dialog) {
-            newCache[id] = dialog;
-            
-            // Extract and store content for search
-            const content = dialog
-              .filter((item: any) => item.payload?.message || item.payload?.text)
-              .map((item: any) => item.payload?.message || item.payload?.text)
-              .join(' ')
-              .toLowerCase();
-              
-            newContentCache[id] = content;
-          } else if (error) {
-            newFailedPreloads.add(id);
-          }
-        }
+      setDialogCache(prev => ({
+        ...prev,
+        [nextId]: dataWithTimestamp
+      }));
+      
+      setPreloadedConversations(prev => {
+        const updated = new Set(prev);
+        updated.add(nextId);
+        return updated;
       });
       
-      setDialogCache(newCache);
-      setDialogContentCache(newContentCache);
-      setFailedPreloads(newFailedPreloads);
+      lastRequestTime.current = Date.now();
+      
     } catch (error) {
-      console.error('Error fetching organization data:', error);
+      // Ignore aborted requests
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        console.log('Preloading request aborted');
+      } else {
+        console.error('Error preloading dialog:', error);
+      }
+    } finally {
+      processingRef.current = false;
+      
+      if (pendingQueue.current.size > 0) {
+        queueTimer.current = window.setTimeout(processQueue, 50);
+      } else {
+        setIsPreloading(false);
+      }
     }
-  }, [dialogCache, dialogContentCache, failedPreloads, organizationId]);
+  }, [organizationId, dialogCache]);
 
-  const searchInDialogContent = useCallback((searchTerm: string, conversationId: string) => {
-    const content = dialogContentCache[conversationId];
-    if (!content) return false;
+  // Add conversations to preloading queue
+  const preloadConversations = useCallback((conversationIds: string[]) => {
+    // Cancel any ongoing requests
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
     
-    return content.includes(searchTerm.toLowerCase());
-  }, [dialogContentCache]);
+    // Clear existing timer if any
+    if (queueTimer.current !== null) {
+      window.clearTimeout(queueTimer.current);
+      queueTimer.current = null;
+    }
+    
+    // Add to pending queue
+    conversationIds.forEach(id => {
+      if (!dialogCache[id] && !pendingQueue.current.has(id)) {
+        pendingQueue.current.add(id);
+      }
+    });
+    
+    // Start processing queue
+    queueTimer.current = window.setTimeout(processQueue, 0);
+    
+    // Clean up cache if needed
+    cleanupCache();
+  }, [processQueue, dialogCache, cleanupCache]);
 
-  // Reset caches when organization changes
+  // Get dialog from cache or return undefined if not cached
+  const getCachedDialog = useCallback((conversationId: string) => {
+    if (!dialogCache[conversationId]) return undefined;
+    
+    // Update access timestamp
+    const updatedDialog = dialogCache[conversationId].map((item: any) => ({
+      ...item,
+      accessedAt: Date.now()
+    }));
+    
+    setDialogCache(prev => ({
+      ...prev,
+      [conversationId]: updatedDialog
+    }));
+    
+    return updatedDialog;
+  }, [dialogCache]);
+
+  // Check if a conversation is preloaded
+  const isConversationPreloaded = useCallback((conversationId: string) => {
+    return preloadedConversations.has(conversationId);
+  }, [preloadedConversations]);
+
+  // Search within dialog content
+  const searchInDialogContent = useCallback((searchTerm: string, conversationId: string) => {
+    if (!dialogCache[conversationId]) return false;
+    
+    const searchLower = searchTerm.toLowerCase();
+    
+    return dialogCache[conversationId].some(msg => {
+      if (msg.type === 'text' && msg.payload?.payload?.message) {
+        return msg.payload.payload.message.toLowerCase().includes(searchLower);
+      }
+      if (msg.type === 'request' && 
+         (msg.payload?.payload?.query || msg.payload?.payload?.label)) {
+        const text = (msg.payload.payload.query || msg.payload.payload.label || '').toLowerCase();
+        return text.includes(searchLower);
+      }
+      return false;
+    });
+  }, [dialogCache]);
+
+  // Clean up aborted requests on unmount
   useEffect(() => {
-    setDialogCache({});
-    setDialogContentCache({});
-    setFailedPreloads(new Set());
-  }, [organizationId]);
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      
+      if (queueTimer.current !== null) {
+        window.clearTimeout(queueTimer.current);
+      }
+    };
+  }, []);
 
   return {
     dialogCache,
     preloadConversations,
     getCachedDialog,
     isConversationPreloaded,
+    isPreloading,
     searchInDialogContent
   };
 };
