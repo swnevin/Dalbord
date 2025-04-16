@@ -1,3 +1,4 @@
+
 export interface StatisticsData {
   totalMessages?: number;
   totalConversations?: number;
@@ -23,9 +24,6 @@ export interface StatisticsData {
   // Thumbs up/down feedback metrics
   thumbsUpCount?: number;
   thumbsDownCount?: number;
-  
-  // Success rate calculation
-  successRate?: number;
 }
 
 export interface LoadingState {
