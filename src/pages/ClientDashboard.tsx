@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
@@ -12,7 +11,7 @@ import { ConversationDialog } from "@/components/conversations/ConversationDialo
 import { DeleteDialog } from "@/components/conversations/DeleteDialog";
 import { Statistics } from "@/components/statistics/Statistics";
 import { Home } from "@/components/home/Home";
-import AdministratorTab from "@/components/administrator/AdministratorTab"; // Changed from named import to default import
+import AdministratorTab from "@/components/administrator/AdministratorTab";
 import { useDialogPreloader } from "@/hooks/use-dialog-preloader";
 import { usePreview } from "@/contexts/PreviewContext";
 
@@ -50,6 +49,8 @@ const ClientDashboard = () => {
   const [itemsPerPage, setItemsPerPage] = useState(100);
   const [preloadingTimerRef, setPreloadingTimerRef] = useState<NodeJS.Timeout | null>(null);
 
+  const organizationId = preview.isPreviewMode ? preview.previewOrgId : user?.organization_id;
+
   const {
     dialogCache,
     preloadConversations,
@@ -57,17 +58,17 @@ const ClientDashboard = () => {
     isConversationPreloaded,
     searchInDialogContent
   } = useDialogPreloader({
-    organizationId: user?.organization_id
+    organizationId
   });
 
   const toggleTag = async (conversationId: string, tag: "system.saved" | "system.reviewed") => {
-    if (!user?.organization_id) return;
+    if (!organizationId) return;
 
     try {
       const { data: org, error: orgError } = await supabase
         .from('organizations')
         .select('voiceflow_api_key, voiceflow_project_id')
-        .eq('id', user.organization_id)
+        .eq('id', organizationId)
         .single();
 
       if (orgError) throw orgError;
@@ -214,7 +215,6 @@ const ClientDashboard = () => {
       
       const searchLower = searchTerm.toLowerCase();
       
-      // Enhanced date search - check for partial matches in day, month, year
       const date = new Date(conv.updatedAt);
       const day = date.getDate().toString().padStart(2, '0');
       const month = (date.getMonth() + 1).toString().padStart(2, '0');
@@ -268,8 +268,6 @@ const ClientDashboard = () => {
 
   useEffect(() => {
     const fetchConversations = async () => {
-      const organizationId = preview.isPreviewMode ? preview.previewOrgId : user?.organization_id;
-      
       if (!organizationId) return;
 
       try {
@@ -307,13 +305,11 @@ const ClientDashboard = () => {
     };
 
     fetchConversations();
-  }, [user?.organization_id, preview.isPreviewMode, preview.previewOrgId]);
+  }, [organizationId]);
 
   useEffect(() => {
     const fetchDialog = async () => {
       if (!selectedConversation) return;
-      
-      const organizationId = preview.isPreviewMode ? preview.previewOrgId : user?.organization_id;
       
       if (!organizationId) return;
       
@@ -359,7 +355,7 @@ const ClientDashboard = () => {
     };
 
     fetchDialog();
-  }, [selectedConversation, user?.organization_id, getCachedDialog, preloadConversations, preview.isPreviewMode, preview.previewOrgId]);
+  }, [selectedConversation, organizationId, getCachedDialog, preloadConversations]);
 
   useEffect(() => {
     return () => {
