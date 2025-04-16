@@ -50,6 +50,11 @@ export const FallbackRequests = () => {
         }
 
         console.log("[FallbackRequests] Fetched fallback requests:", data?.length || 0);
+        
+        if (data && data.length > 0) {
+          console.log("[FallbackRequests] First fallback request:", data[0]);
+        }
+        
         setFallbackRequests(data || []);
       } catch (error) {
         console.error("[FallbackRequests] Error:", error);

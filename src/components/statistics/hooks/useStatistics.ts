@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePreview } from "@/contexts/PreviewContext";
@@ -484,6 +485,70 @@ export const useStatistics = (
       try {
         console.log("[useStatistics] Fetching feedback metrics for organization:", organizationId);
         
+        // Try to directly fetch from the get-metrics edge function first
+        try {
+          const { data: metricsResponse, error: functionError } = await supabase.functions
+            .invoke('get-metrics', {
+              body: {
+                organization_id: organizationId,
+                start_date: dateRange.from.toISOString(),
+                end_date: dateRange.to.toISOString(),
+                metrics: ['happy_face', 'neutral_face', 'sad_face', 'escalated_to_human', 'thumbs_up', 'thumbs_down']
+              },
+            });
+
+          if (functionError) throw functionError;
+          
+          if (metricsResponse) {
+            console.log("[useStatistics] Successfully fetched metrics from edge function:", metricsResponse);
+            
+            const happyFaceCount = metricsResponse.totals.happy_face || 0;
+            const neutralFaceCount = metricsResponse.totals.neutral_face || 0;
+            const sadFaceCount = metricsResponse.totals.sad_face || 0;
+            const escalatedCount = metricsResponse.totals.escalated_to_human || 0;
+            const thumbsUpCount = metricsResponse.totals.thumbs_up || 0;
+            const thumbsDownCount = metricsResponse.totals.thumbs_down || 0;
+            
+            // Process time series data
+            const feedbackTimeSeries: FeedbackTimeSeriesData[] = metricsResponse.timeSeries.map(item => ({
+              date: item.date,
+              happy_face: item.happy_face || 0,
+              neutral_face: item.neutral_face || 0,
+              sad_face: item.sad_face || 0
+            }));
+            
+            const escalationTimeSeries: TimeSeriesData[] = metricsResponse.timeSeries.map(item => ({
+              date: item.date,
+              value: item.escalated_to_human || 0
+            }));
+            
+            if (isMounted) {
+              setData(prev => ({
+                ...prev,
+                happyFaceCount,
+                neutralFaceCount,
+                sadFaceCount,
+                escalatedCount,
+                thumbsUpCount,
+                thumbsDownCount,
+                feedbackTimeSeries,
+                escalationTimeSeries
+              }));
+              
+              setLoading(prev => ({
+                ...prev,
+                feedbackChart: false,
+                escalationChart: false
+              }));
+            }
+            
+            return;
+          }
+        } catch (functionError) {
+          console.error("[useStatistics] Edge function error, falling back to direct query:", functionError);
+        }
+        
+        // Fallback to direct query if edge function fails
         const { data: metricsData, error: metricsError } = await supabase
           .from('conversation_metrics')
           .select('*')
@@ -496,7 +561,11 @@ export const useStatistics = (
           throw metricsError;
         }
 
-        console.log("[useStatistics] Fetched metrics:", metricsData?.length || 0);
+        console.log("[useStatistics] Fetched metrics directly:", metricsData?.length || 0);
+        
+        if (metricsData) {
+          console.log("[useStatistics] Metrics sample:", metricsData.slice(0, 2));
+        }
 
         const happyFaceCount = metricsData.filter(m => m.metric_type === 'happy_face').length;
         const neutralFaceCount = metricsData.filter(m => m.metric_type === 'neutral_face').length;
@@ -592,6 +661,89 @@ export const useStatistics = (
       try {
         console.log("[useStatistics] Fetching success metrics for organization:", organizationId);
         
+        // Try to get successful_answer from the edge function first
+        try {
+          const { data: metricsResponse, error: functionError } = await supabase.functions
+            .invoke('get-metrics', {
+              body: {
+                organization_id: organizationId,
+                start_date: dateRange.from.toISOString(),
+                end_date: dateRange.to.toISOString(),
+                metrics: ['successful_answer']
+              },
+            });
+
+          if (functionError) throw functionError;
+          
+          if (metricsResponse) {
+            console.log("[useStatistics] Successfully fetched successful_answer metrics from edge function");
+            
+            // Get fallback data directly
+            const { data: fallbackData, error: fallbackError } = await supabase
+              .from('fallback_requests')
+              .select('*')
+              .eq('organization_id', organizationId)
+              .gte('created_at', dateRange.from.toISOString())
+              .lte('created_at', dateRange.to.toISOString());
+
+            if (fallbackError) {
+              console.error("[useStatistics] Error fetching fallbacks:", fallbackError);
+              throw fallbackError;
+            }
+
+            console.log("[useStatistics] Successfully fetched fallback data:", fallbackData?.length || 0);
+            
+            if (fallbackData) {
+              console.log("[useStatistics] Fallback sample:", fallbackData.slice(0, 2));
+            }
+            
+            const successfulAnswerCount = metricsResponse.totals.successful_answer || 0;
+            const fallbackCount = fallbackData.length;
+            
+            // Process time series data
+            const timeFrames = getTimeFrames(dateRange.from, dateRange.to);
+            const successVsFallbackTimeSeries: SuccessVsFallbackTimeSeriesData[] = [];
+            const daysDiff = differenceInDays(dateRange.to, dateRange.from);
+            
+            for (const frame of timeFrames) {
+              const successfulAnswers = metricsResponse.timeSeries
+                .find(item => item.date === frame.start.toISOString().split('T')[0])?.successful_answer || 0;
+              
+              const fallbacks = fallbackData.filter(f => {
+                const date = new Date(f.created_at);
+                return date >= frame.start && date <= frame.end;
+              }).length;
+
+              const dateLabel = formatDateLabel(frame.start, daysDiff);
+              
+              successVsFallbackTimeSeries.push({
+                date: dateLabel,
+                successful_answer: successfulAnswers,
+                fallback: fallbacks
+              });
+            }
+            
+            if (isMounted) {
+              setData(prev => ({
+                ...prev,
+                successfulAnswerCount,
+                fallbackCount,
+                successVsFallbackTimeSeries
+              }));
+              
+              setLoading(prev => ({
+                ...prev,
+                fallbackChart: false
+              }));
+            }
+            
+            return;
+          }
+        } catch (functionError) {
+          console.error("[useStatistics] Edge function error for success metrics, falling back to direct query:", functionError);
+        }
+        
+        // Fallback to direct query
         const { data: metricsData, error: metricsError } = await supabase
           .from('conversation_metrics')
           .select('*')
@@ -619,6 +771,14 @@ export const useStatistics = (
 
         console.log("[useStatistics] Fetched metrics:", metricsData?.length || 0);
         console.log("[useStatistics] Fetched fallbacks:", fallbackData?.length || 0);
+        
+        if (metricsData) {
+          console.log("[useStatistics] Metrics sample:", metricsData.slice(0, 2));
+        }
+        
+        if (fallbackData) {
+          console.log("[useStatistics] Fallback sample:", fallbackData.slice(0, 2));
+        }
 
         const successfulAnswerCount = metricsData.length;
         const fallbackCount = fallbackData.length;

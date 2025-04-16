@@ -17,6 +17,8 @@ interface MetricsRequest {
   start_date?: string // ISO date string
   end_date?: string // ISO date string
   metrics?: string[] // metric types to include
+  previewMode?: boolean
+  previewOrgId?: string
 }
 
 serve(async (req) => {
@@ -36,62 +38,77 @@ serve(async (req) => {
       })
     }
 
-    // Get the JWT token from the Authorization header
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Missing Authorization header' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    // Verify the JWT token
-    const token = authHeader.replace('Bearer ', '')
-    const { data: userData, error: verifyError } = await supabaseClient.auth.getUser(token)
-    
-    if (verifyError || !userData) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    // Get the user's organization_id
-    const { data: profileData, error: profileError } = await supabaseClient
-      .from('profiles')
-      .select('organization_id')
-      .eq('id', userData.user.id)
-      .single()
-
-    if (profileError || !profileData.organization_id) {
-      return new Response(JSON.stringify({ error: 'User has no organization' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
+    console.log('Processing get-metrics request')
 
     // Parse the request body
     const body: MetricsRequest = await req.json()
     
-    // Default to the user's organization if not specified
-    const organizationId = body.organization_id || profileData.organization_id
+    // Handle preview mode explicitly
+    const usePreviewMode = body.previewMode === true && body.previewOrgId
     
-    // Verify the user has access to the requested organization
-    if (organizationId !== profileData.organization_id) {
-      // Additional check required for admins only
-      const { data: isAdmin, error: adminError } = await supabaseClient
+    let organizationId = body.organization_id
+    
+    // If preview mode is active and we have a preview org ID, use that instead
+    if (usePreviewMode && body.previewOrgId) {
+      console.log(`Using preview organization ID: ${body.previewOrgId} instead of ${organizationId}`)
+      organizationId = body.previewOrgId
+    } else {
+      // For non-preview requests, verify authentication
+      const authHeader = req.headers.get('Authorization')
+      if (!authHeader) {
+        return new Response(JSON.stringify({ error: 'Missing Authorization header' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      // Verify the JWT token
+      const token = authHeader.replace('Bearer ', '')
+      const { data: userData, error: verifyError } = await supabaseClient.auth.getUser(token)
+      
+      if (verifyError || !userData) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      // Get the user's organization_id
+      const { data: profileData, error: profileError } = await supabaseClient
         .from('profiles')
-        .select('role')
+        .select('organization_id, role')
         .eq('id', userData.user.id)
         .single()
+
+      if (profileError || !profileData.organization_id) {
+        return new Response(JSON.stringify({ error: 'User has no organization' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
       
-      if (adminError || isAdmin.role !== 'admin') {
+      // Default to the user's organization if not specified
+      if (!organizationId) {
+        organizationId = profileData.organization_id
+      }
+      
+      // Verify the user has access to the requested organization
+      if (organizationId !== profileData.organization_id && profileData.role !== 'admin') {
         return new Response(JSON.stringify({ error: 'Access denied to organization data' }), {
           status: 403,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
       }
     }
+    
+    if (!organizationId) {
+      return new Response(JSON.stringify({ error: 'Missing organization ID' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    console.log(`Fetching metrics for organization: ${organizationId}`)
 
     // Prepare the date range
     const startDate = body.start_date ? new Date(body.start_date) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) // Default to 30 days ago
@@ -121,6 +138,8 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
+    
+    console.log(`Found ${metrics.length} metrics for organization ${organizationId}`)
     
     // Process the metrics for different chart types
     
