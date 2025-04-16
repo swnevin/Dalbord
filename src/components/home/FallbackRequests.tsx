@@ -153,7 +153,10 @@ export const FallbackRequests = () => {
                   <p className="font-medium mb-1 line-clamp-2">{request.query}</p>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <span>{new Date(request.created_at).toLocaleDateString('no')}</span>
-                    <Badge variant={request.is_resolved ? "success" : "destructive"} className={request.is_resolved ? "bg-green-100 text-green-800 hover:bg-green-200" : ""}>
+                    <Badge 
+                      variant={request.is_resolved ? "secondary" : "destructive"} 
+                      className={request.is_resolved ? "bg-green-100 text-green-800 hover:bg-green-200" : ""}
+                    >
                       {request.is_resolved ? "Løst" : "Ikke løst"}
                     </Badge>
                   </div>
