@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus, Bot, Trash2, Clipboard, Settings } from "lucide-react";
@@ -59,6 +60,7 @@ interface OrganizationCardProps {
   }) => Promise<void>;
   onDeleteMember: (profileId: string) => Promise<void>;
   hideControls?: boolean;
+  hidePreviewButton?: boolean;
 }
 
 export const OrganizationCard = ({
@@ -69,6 +71,7 @@ export const OrganizationCard = ({
   onAddMember,
   onDeleteMember,
   hideControls = false,
+  hidePreviewButton = false,
 }: OrganizationCardProps) => {
   const [botConfig, setBotConfig] = useState({
     apiKey: organization.voiceflow_api_key || "",
@@ -212,6 +215,7 @@ export const OrganizationCard = ({
           members={members}
           onDeleteMember={onDeleteMember}
           organizationType={organization.type || "client"}
+          hidePreviewButton={hidePreviewButton || isDalaiOrg}
         />
       </div>
     </div>

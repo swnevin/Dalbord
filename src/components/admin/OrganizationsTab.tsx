@@ -10,6 +10,7 @@ import { OrganizationCard } from "@/components/admin/OrganizationCard";
 import { Database } from "@/integrations/supabase/types";
 import { useMinimumLoading } from "@/hooks/use-minimum-loading";
 import { Loader } from "@/components/ui/loader";
+
 type TabName = Database["public"]["Enums"]["tab_type"];
 interface Organization {
   id: string;
@@ -29,6 +30,7 @@ interface Profile {
     tab_name: Database["public"]["Enums"]["tab_type"];
   }[];
 }
+
 const OrganizationsTab = () => {
   const {
     user
@@ -38,10 +40,12 @@ const OrganizationsTab = () => {
   const [isActuallyLoading, setIsActuallyLoading] = useState(true);
   const [isAdminUser, setIsAdminUser] = useState(false);
   const isLoading = useMinimumLoading(isActuallyLoading);
+
   useEffect(() => {
     fetchOrganizations();
     checkAdminStatus();
   }, []);
+
   const checkAdminStatus = async () => {
     if (!user) return;
     try {
@@ -56,6 +60,7 @@ const OrganizationsTab = () => {
       toast.error('Kunne ikke verifisere administratortilgang');
     }
   };
+
   const fetchOrganizations = async () => {
     try {
       const {
@@ -89,6 +94,7 @@ const OrganizationsTab = () => {
       setIsActuallyLoading(false);
     }
   };
+
   const handleCreateOrg = async (name: string) => {
     try {
       const {
@@ -110,6 +116,7 @@ const OrganizationsTab = () => {
       toast.error("Kunne ikke opprette organisasjon");
     }
   };
+
   const handleAddMember = async (orgId: string, member: {
     name: string;
     email: string;
@@ -186,6 +193,7 @@ const OrganizationsTab = () => {
       throw error;
     }
   };
+
   const handleUpdateBot = async (orgId: string, config: {
     apiKey: string;
     projectId: string;
@@ -204,6 +212,7 @@ const OrganizationsTab = () => {
       toast.error("Kunne ikke oppdatere bot konfigurasjon");
     }
   };
+
   const handleDeleteOrg = async (orgId: string) => {
     try {
       const {
@@ -217,6 +226,7 @@ const OrganizationsTab = () => {
       toast.error("Kunne ikke slette organisasjon");
     }
   };
+
   const handleDeleteMember = async (profileId: string) => {
     try {
       if (!isAdminUser) {
@@ -250,16 +260,19 @@ const OrganizationsTab = () => {
       }
     }
   };
+
   if (isLoading) {
     return <div className="flex h-full items-center justify-center">
         <Loader size="lg" text="Laster inn organisasjoner..." />
       </div>;
   }
+
   const sortedOrganizations = [...organizations].sort((a, b) => {
     if (a.name === "Dalai") return -1;
     if (b.name === "Dalai") return 1;
     return 0;
   });
+
   return <div className="space-y-8">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-primary">Organisasjoner</h1>
@@ -278,11 +291,34 @@ const OrganizationsTab = () => {
       <div className="space-y-4">
         {sortedOrganizations.map(org => {
         const isAdminOrg = org.name === "Dalai";
-        return isAdminOrg ? <div key={org.id} className="border-2 border-primary/20 rounded-lg p-2">
-              <OrganizationCard organization={org} members={profiles[org.id] || []} onUpdateBot={handleUpdateBot} onDeleteOrg={handleDeleteOrg} onAddMember={handleAddMember} onDeleteMember={handleDeleteMember} hideControls={true} />
-            </div> : <OrganizationCard key={org.id} organization={org} members={profiles[org.id] || []} onUpdateBot={handleUpdateBot} onDeleteOrg={handleDeleteOrg} onAddMember={handleAddMember} onDeleteMember={handleDeleteMember} hideControls={false} />;
+        return isAdminOrg ? 
+            <div key={org.id} className="border-2 border-primary/20 rounded-lg p-2">
+              <OrganizationCard 
+                organization={org} 
+                members={profiles[org.id] || []} 
+                onUpdateBot={handleUpdateBot} 
+                onDeleteOrg={handleDeleteOrg} 
+                onAddMember={handleAddMember} 
+                onDeleteMember={handleDeleteMember} 
+                hideControls={true}
+                hidePreviewButton={true} 
+              />
+            </div> 
+          : 
+            <OrganizationCard 
+              key={org.id} 
+              organization={org} 
+              members={profiles[org.id] || []} 
+              onUpdateBot={handleUpdateBot} 
+              onDeleteOrg={handleDeleteOrg} 
+              onAddMember={handleAddMember} 
+              onDeleteMember={handleDeleteMember} 
+              hideControls={false}
+              hidePreviewButton={false} 
+            />;
       })}
       </div>
     </div>;
 };
+
 export default OrganizationsTab;

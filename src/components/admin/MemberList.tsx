@@ -1,6 +1,7 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Trash2, Pencil } from "lucide-react";
+import { Trash2, Pencil, UserRound } from "lucide-react";
 import { Database } from "@/integrations/supabase/types";
 import {
   AlertDialog,
@@ -25,6 +26,8 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useAuth } from "@/contexts/AuthContext";
 
 type TabName = Database["public"]["Enums"]["tab_type"];
 
@@ -41,6 +44,7 @@ interface MemberListProps {
   members: Profile[];
   onDeleteMember: (profileId: string) => Promise<void>;
   organizationType: "admin" | "client";
+  hidePreviewButton?: boolean;
 }
 
 const tabLabels: Record<TabName, string> = {
@@ -52,16 +56,39 @@ const tabLabels: Record<TabName, string> = {
   administrator: "Administrator"
 };
 
-export const MemberList = ({ members, onDeleteMember, organizationType }: MemberListProps) => {
+export const MemberList = ({ 
+  members, 
+  onDeleteMember, 
+  organizationType,
+  hidePreviewButton = false
+}: MemberListProps) => {
   const [editingMember, setEditingMember] = useState<{
     id: string;
     tabs: TabName[];
   } | null>(null);
+  
+  const { enterPreviewMode } = useAuth();
 
   const handleEditClick = (profile: Profile) => {
     setEditingMember({
       id: profile.id,
       tabs: profile.tabs?.map(t => t.tab_name) || []
+    });
+  };
+
+  const handlePreviewClick = (profile: Profile) => {
+    if (!profile.organization_id) {
+      toast.error("Denne brukeren er ikke tilknyttet en organisasjon");
+      return;
+    }
+    
+    const memberTabs = profile.tabs?.map(t => t.tab_name as TabName) || [];
+    
+    enterPreviewMode({
+      id: profile.id,
+      email: profile.email,
+      organization_id: profile.organization_id,
+      tabs: memberTabs
     });
   };
 
@@ -112,6 +139,9 @@ export const MemberList = ({ members, onDeleteMember, organizationType }: Member
     }
   };
 
+  // Check if the organization is the Dalai admin org
+  const isDalaiAdminOrg = organizationType === "admin";
+
   return (
     <div className="space-y-2">
       {members.map((profile) => (
@@ -135,6 +165,26 @@ export const MemberList = ({ members, onDeleteMember, organizationType }: Member
             )}
           </div>
           <div className="flex gap-2">
+            {!hidePreviewButton && !isDalaiAdminOrg && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-[#E2B808] hover:text-[#E2B808]/80 hover:bg-[#E2B808]/10"
+                      onClick={() => handlePreviewClick(profile)}
+                    >
+                      <UserRound className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Logg inn som medlem</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            
             <Sheet>
               <SheetTrigger asChild>
                 <Button

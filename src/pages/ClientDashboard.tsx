@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
@@ -32,7 +31,7 @@ type FilterType = "all" | "approved" | "saved";
 const ClientDashboard = () => {
   const [activeTab, setActiveTab] = useState("home");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
-  const { user } = useAuth();
+  const { user, previewUser, isInPreviewMode } = useAuth();
   const [conversations, setConversations] = useState<VoiceflowTranscript[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [conversationsCollapsed, setConversationsCollapsed] = useState(false);
@@ -48,6 +47,12 @@ const ClientDashboard = () => {
   const [itemsPerPage, setItemsPerPage] = useState(100);
   const [preloadingTimerRef, setPreloadingTimerRef] = useState<NodeJS.Timeout | null>(null);
 
+  const getEffectiveOrgId = useCallback(() => {
+    return isInPreviewMode && previewUser 
+      ? previewUser.organization_id 
+      : user?.organization_id;
+  }, [isInPreviewMode, previewUser, user]);
+
   const {
     dialogCache,
     preloadConversations,
@@ -55,7 +60,7 @@ const ClientDashboard = () => {
     isConversationPreloaded,
     searchInDialogContent
   } = useDialogPreloader({
-    organizationId: user?.organization_id
+    organizationId: getEffectiveOrgId()
   });
 
   const toggleTag = async (conversationId: string, tag: "system.saved" | "system.reviewed") => {
@@ -266,13 +271,14 @@ const ClientDashboard = () => {
 
   useEffect(() => {
     const fetchConversations = async () => {
-      if (!user?.organization_id) return;
+      const organizationId = getEffectiveOrgId();
+      if (!organizationId) return;
 
       try {
         const { data: org, error: orgError } = await supabase
           .from('organizations')
           .select('voiceflow_api_key, voiceflow_project_id')
-          .eq('id', user.organization_id)
+          .eq('id', organizationId)
           .single();
 
         if (orgError) throw orgError;
@@ -303,11 +309,14 @@ const ClientDashboard = () => {
     };
 
     fetchConversations();
-  }, [user?.organization_id]);
+  }, [getEffectiveOrgId]);
 
   useEffect(() => {
     const fetchDialog = async () => {
-      if (!selectedConversation || !user?.organization_id) return;
+      if (!selectedConversation) return;
+      
+      const organizationId = getEffectiveOrgId();
+      if (!organizationId) return;
       
       if (getCachedDialog(selectedConversation)) {
         return;
@@ -317,7 +326,7 @@ const ClientDashboard = () => {
         const { data: org, error: orgError } = await supabase
           .from('organizations')
           .select('voiceflow_api_key, voiceflow_project_id')
-          .eq('id', user.organization_id)
+          .eq('id', organizationId)
           .single();
 
         if (orgError) throw orgError;
@@ -351,7 +360,7 @@ const ClientDashboard = () => {
     };
 
     fetchDialog();
-  }, [selectedConversation, user?.organization_id, getCachedDialog, preloadConversations]);
+  }, [selectedConversation, getEffectiveOrgId, getCachedDialog, preloadConversations]);
 
   useEffect(() => {
     return () => {

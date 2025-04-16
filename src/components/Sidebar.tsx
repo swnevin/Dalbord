@@ -24,7 +24,7 @@ type TabName = "organizations" | "conversations" | "knowledge" | "statistics" | 
 
 const Sidebar = ({ role, onTabChange, activeTab, onCollapsedChange }: SidebarProps) => {
   const [collapsed, setCollapsed] = useState(true);
-  const { user } = useAuth();
+  const { user, previewUser, isInPreviewMode } = useAuth();
   const [permittedTabs, setPermittedTabs] = useState<TabName[]>([]);
 
   const adminLinks = [
@@ -43,6 +43,17 @@ const Sidebar = ({ role, onTabChange, activeTab, onCollapsedChange }: SidebarPro
 
   useEffect(() => {
     const fetchPermittedTabs = async () => {
+      if (isInPreviewMode && previewUser) {
+        // Use the preview user's permitted tabs directly
+        setPermittedTabs(previewUser.tabs as TabName[]);
+        
+        // If the current active tab is not permitted, change to first permitted tab
+        if (previewUser.tabs.length > 0 && !previewUser.tabs.includes(activeTab as TabName)) {
+          onTabChange(previewUser.tabs[0]);
+        }
+        return;
+      }
+      
       if (!user) return;
 
       try {
@@ -65,7 +76,7 @@ const Sidebar = ({ role, onTabChange, activeTab, onCollapsedChange }: SidebarPro
     };
 
     fetchPermittedTabs();
-  }, [user, activeTab, onTabChange]);
+  }, [user, activeTab, onTabChange, isInPreviewMode, previewUser]);
 
   const links = allLinks.filter(link => permittedTabs.includes(link.value));
 
