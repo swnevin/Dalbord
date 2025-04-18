@@ -12,11 +12,25 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 const supabaseClient = createClient(supabaseUrl, supabaseServiceKey)
 
+// Separator used to distinguish between admin and client org IDs
+const ORG_ID_SEPARATOR = "::preview::";
+
+// Extract org IDs from concatenated string
+const extractOrgIds = (concatenatedId: string) => {
+  if (!concatenatedId.includes(ORG_ID_SEPARATOR)) {
+    return { adminOrgId: concatenatedId, clientOrgId: concatenatedId };
+  }
+  
+  const [adminOrgId, clientOrgId] = concatenatedId.split(ORG_ID_SEPARATOR);
+  return { adminOrgId, clientOrgId };
+};
+
 interface MetricsRequest {
-  organization_id: string
+  organization_id?: string // ISO date string
   start_date?: string // ISO date string
   end_date?: string // ISO date string
   metrics?: string[] // metric types to include
+  isPreviewMode?: boolean // Flag to indicate if in preview mode
 }
 
 serve(async (req) => {
@@ -73,11 +87,19 @@ serve(async (req) => {
     // Parse the request body
     const body: MetricsRequest = await req.json()
     
-    // Use the specified organization_id if provided or default to the user's organization
-    const organizationId = body.organization_id || profileData.organization_id
+    // Handle concatenated organization IDs
+    let userOrgId = profileData.organization_id
+    if (userOrgId.includes(ORG_ID_SEPARATOR)) {
+      const { adminOrgId, clientOrgId } = extractOrgIds(userOrgId)
+      userOrgId = body.isPreviewMode ? clientOrgId : adminOrgId
+    }
     
-    // Verify the user has access to the requested organization
-    if (organizationId !== profileData.organization_id) {
+    // Use the specified organization_id if provided or default to the user's organization
+    const organizationId = body.organization_id || userOrgId
+    
+    // If a specific org ID is provided and it's different from the user's,
+    // check that the user is an admin
+    if (organizationId !== userOrgId && organizationId !== profileData.organization_id) {
       // Only admins can access other organizations' data
       if (profileData.role !== 'admin') {
         return new Response(JSON.stringify({ error: 'Access denied to organization data' }), {

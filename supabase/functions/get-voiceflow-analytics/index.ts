@@ -7,13 +7,26 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Separator used to distinguish between admin and client org IDs
+const ORG_ID_SEPARATOR = "::preview::";
+
+// Extract org IDs from concatenated string
+const extractOrgIds = (concatenatedId: string) => {
+  if (!concatenatedId.includes(ORG_ID_SEPARATOR)) {
+    return { adminOrgId: concatenatedId, clientOrgId: concatenatedId };
+  }
+  
+  const [adminOrgId, clientOrgId] = concatenatedId.split(ORG_ID_SEPARATOR);
+  return { adminOrgId, clientOrgId };
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    const { startDate, endDate, queryType = 'interactions' } = await req.json()
+    const { startDate, endDate, queryType = 'interactions', isPreviewMode } = await req.json()
 
     if (!startDate || !endDate) {
       throw new Error('Start date and end date are required')
@@ -51,12 +64,22 @@ serve(async (req) => {
     if (!profile?.organization_id) {
       throw new Error('User has no organization assigned')
     }
+    
+    // Extract the appropriate organization ID based on the format
+    let organizationId = profile.organization_id
+    
+    // If it's a concatenated ID, extract the appropriate part
+    if (organizationId.includes(ORG_ID_SEPARATOR)) {
+      const { adminOrgId, clientOrgId } = extractOrgIds(organizationId)
+      // For preview mode use client org ID, otherwise use admin org ID
+      organizationId = isPreviewMode ? clientOrgId : adminOrgId
+    }
 
     // Get the organization's Voiceflow credentials
     const { data: org, error: orgError } = await supabase
       .from('organizations')
       .select('voiceflow_api_key, voiceflow_project_id')
-      .eq('id', profile.organization_id)
+      .eq('id', organizationId)
       .maybeSingle()
 
     if (orgError) {

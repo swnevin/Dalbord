@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,6 +27,19 @@ import {
   TooltipProvider
 } from "@/components/ui/tooltip";
 
+// Separator used to distinguish between admin and client org IDs
+const ORG_ID_SEPARATOR = "::preview::";
+
+// Extract org IDs from concatenated string
+const extractOrgIds = (concatenatedId: string) => {
+  if (!concatenatedId.includes(ORG_ID_SEPARATOR)) {
+    return { adminOrgId: concatenatedId, clientOrgId: concatenatedId };
+  }
+  
+  const [adminOrgId, clientOrgId] = concatenatedId.split(ORG_ID_SEPARATOR);
+  return { adminOrgId, clientOrgId };
+};
+
 interface FallbackRequest {
   id: string;
   query: string;
@@ -35,7 +49,7 @@ interface FallbackRequest {
 }
 
 export const FallbackRequests = () => {
-  const { user } = useAuth();
+  const { user, isInPreviewMode, previewUser } = useAuth();
   const [fallbackRequests, setFallbackRequests] = useState<FallbackRequest[]>([]);
   const [resolvedRequests, setResolvedRequests] = useState<FallbackRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -43,6 +57,23 @@ export const FallbackRequests = () => {
   const [createFAQOpen, setCreateFAQOpen] = useState(false);
   const [showAllResolved, setShowAllResolved] = useState(false);
   const [showFilteredResults, setShowFilteredResults] = useState(true);
+  
+  const getEffectiveOrgId = () => {
+    if (isInPreviewMode && previewUser) {
+      return previewUser.organization_id;
+    }
+    
+    if (user?.organization_id) {
+      if (user.organization_id.includes(ORG_ID_SEPARATOR)) {
+        return isInPreviewMode 
+          ? extractOrgIds(user.organization_id).clientOrgId
+          : extractOrgIds(user.organization_id).adminOrgId;
+      }
+      return user.organization_id;
+    }
+    
+    return null;
+  };
   
   const filteredUnresolvedRequests = showFilteredResults 
     ? fallbackRequests.filter(req => req.query !== "not_a_question")
@@ -53,7 +84,8 @@ export const FallbackRequests = () => {
     : resolvedRequests;
   
   const fetchFallbackRequests = async () => {
-    if (!user?.organization_id) return;
+    const orgId = getEffectiveOrgId();
+    if (!orgId) return;
     
     try {
       setIsLoading(true);
@@ -61,7 +93,7 @@ export const FallbackRequests = () => {
       const { data: unresolvedData, error: unresolvedError } = await supabase
         .from('fallback_requests')
         .select('*')
-        .eq('organization_id', user.organization_id)
+        .eq('organization_id', orgId)
         .eq('is_resolved', false)
         .order('created_at', { ascending: false });
         
@@ -70,7 +102,7 @@ export const FallbackRequests = () => {
       const { data: resolvedData, error: resolvedError } = await supabase
         .from('fallback_requests')
         .select('*')
-        .eq('organization_id', user.organization_id)
+        .eq('organization_id', orgId)
         .eq('is_resolved', true)
         .order('created_at', { ascending: false });
         
@@ -88,7 +120,7 @@ export const FallbackRequests = () => {
   
   useEffect(() => {
     fetchFallbackRequests();
-  }, [user?.organization_id]);
+  }, [user?.organization_id, isInPreviewMode, previewUser]);
   
   const handleRequestClick = (request: FallbackRequest) => {
     setSelectedRequest(request);
@@ -99,10 +131,14 @@ export const FallbackRequests = () => {
     if (!selectedRequest) return;
     
     try {
+      const orgId = getEffectiveOrgId();
+      if (!orgId) return;
+      
       const { error } = await supabase
         .from('fallback_requests')
         .update({ is_resolved: true })
-        .eq('id', selectedRequest.id);
+        .eq('id', selectedRequest.id)
+        .eq('organization_id', orgId);
         
       if (error) throw error;
       
@@ -119,10 +155,14 @@ export const FallbackRequests = () => {
 
   const handleMarkAsResolved = async (requestId: string) => {
     try {
+      const orgId = getEffectiveOrgId();
+      if (!orgId) return;
+      
       const { error } = await supabase
         .from('fallback_requests')
         .update({ is_resolved: true })
-        .eq('id', requestId);
+        .eq('id', requestId)
+        .eq('organization_id', orgId);
         
       if (error) throw error;
       

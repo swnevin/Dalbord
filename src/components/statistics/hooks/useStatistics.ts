@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,12 +6,23 @@ import { differenceInDays } from "date-fns";
 import { StatisticsData, LoadingState, DateRange, TimeRange, SavingsSettings, TimeSeriesData, IntentData, FeedbackTimeSeriesData, MetricsResponse, SuccessVsFallbackTimeSeriesData } from "../types";
 import { getTimeFrames, formatDateLabel } from "../utils/dateUtils";
 
+const ORG_ID_SEPARATOR = "::preview::";
+
+const extractOrgIds = (concatenatedId: string) => {
+  if (!concatenatedId.includes(ORG_ID_SEPARATOR)) {
+    return { adminOrgId: concatenatedId, clientOrgId: concatenatedId };
+  }
+  
+  const [adminOrgId, clientOrgId] = concatenatedId.split(ORG_ID_SEPARATOR);
+  return { adminOrgId, clientOrgId };
+};
+
 export const useStatistics = (
   dateRange: DateRange,
   timeRange: TimeRange,
   savingsSettings: SavingsSettings
 ) => {
-  const { user } = useAuth();
+  const { user, isInPreviewMode, previewUser } = useAuth();
   const [data, setData] = useState<StatisticsData>({
     totalMessages: 0,
     totalConversations: 0,
@@ -46,7 +56,23 @@ export const useStatistics = (
     fallbackChart: true
   });
 
-  // Calculate savings whenever total messages or settings change
+  const getEffectiveOrgId = () => {
+    if (isInPreviewMode && previewUser) {
+      return previewUser.organization_id;
+    }
+    
+    if (user?.organization_id) {
+      if (user.organization_id.includes(ORG_ID_SEPARATOR)) {
+        return isInPreviewMode 
+          ? extractOrgIds(user.organization_id).clientOrgId
+          : extractOrgIds(user.organization_id).adminOrgId;
+      }
+      return user.organization_id;
+    }
+    
+    return undefined;
+  };
+
   useEffect(() => {
     if (data.totalMessages) {
       const timeSaved = data.totalMessages * savingsSettings.timePerMessage;
@@ -60,36 +86,36 @@ export const useStatistics = (
     }
   }, [data.totalMessages, savingsSettings]);
 
-  // Fetch summary data (total messages, sessions and conversations)
   useEffect(() => {
     let isMounted = true;
     const abortController = new AbortController();
 
     const fetchSummaryData = async () => {
-      if (!user?.organization_id) return;
+      const organizationId = getEffectiveOrgId();
+      if (!organizationId) return;
 
       setLoading(prev => ({ ...prev, summaryCards: true }));
 
       try {
-        // Fetch message counts
         const { data: messageData, error: messageError } = await supabase.functions
           .invoke('get-voiceflow-analytics', {
             body: {
               startDate: dateRange.from.toISOString(),
               endDate: dateRange.to.toISOString(),
-              queryType: 'interactions'
+              queryType: 'interactions',
+              isPreviewMode: isInPreviewMode
             },
           });
 
         if (messageError) throw messageError;
 
-        // Fetch session counts
         const { data: sessionData, error: sessionError } = await supabase.functions
           .invoke('get-voiceflow-analytics', {
             body: {
               startDate: dateRange.from.toISOString(),
               endDate: dateRange.to.toISOString(),
-              queryType: 'sessions'
+              queryType: 'sessions',
+              isPreviewMode: isInPreviewMode
             },
           });
 
@@ -98,7 +124,7 @@ export const useStatistics = (
         const { data: org, error: orgError } = await supabase
           .from('organizations')
           .select('voiceflow_api_key, voiceflow_project_id')
-          .eq('id', user.organization_id)
+          .eq('id', organizationId)
           .single();
 
         if (orgError) throw orgError;
@@ -149,15 +175,15 @@ export const useStatistics = (
       isMounted = false;
       abortController.abort();
     };
-  }, [user?.organization_id, dateRange, timeRange]);
+  }, [getEffectiveOrgId(), dateRange, timeRange, isInPreviewMode]);
 
-  // Fetch message time series data
   useEffect(() => {
     let isMounted = true;
     const abortController = new AbortController();
 
     const fetchMessageTimeSeries = async () => {
-      if (!user?.organization_id) return;
+      const organizationId = getEffectiveOrgId();
+      if (!organizationId) return;
 
       setLoading(prev => ({ ...prev, messageChart: true }));
 
@@ -178,7 +204,8 @@ export const useStatistics = (
                 body: {
                   startDate: startOfDay.toISOString(),
                   endDate: endOfDay.toISOString(),
-                  queryType: 'interactions'
+                  queryType: 'interactions',
+                  isPreviewMode: isInPreviewMode
                 },
               });
 
@@ -194,7 +221,8 @@ export const useStatistics = (
                 body: {
                   startDate: frame.start.toISOString(),
                   endDate: frame.end.toISOString(),
-                  queryType: 'interactions'
+                  queryType: 'interactions',
+                  isPreviewMode: isInPreviewMode
                 },
               });
 
@@ -225,15 +253,15 @@ export const useStatistics = (
     return () => {
       isMounted = false;
     };
-  }, [user?.organization_id, dateRange, timeRange]);
+  }, [getEffectiveOrgId(), dateRange, timeRange, isInPreviewMode]);
 
-  // Fetch session time series data
   useEffect(() => {
     let isMounted = true;
     const abortController = new AbortController();
 
     const fetchSessionTimeSeries = async () => {
-      if (!user?.organization_id) return;
+      const organizationId = getEffectiveOrgId();
+      if (!organizationId) return;
 
       setLoading(prev => ({ ...prev, sessionChart: true }));
 
@@ -254,7 +282,8 @@ export const useStatistics = (
                 body: {
                   startDate: startOfDay.toISOString(),
                   endDate: endOfDay.toISOString(),
-                  queryType: 'sessions'
+                  queryType: 'sessions',
+                  isPreviewMode: isInPreviewMode
                 },
               });
 
@@ -270,7 +299,8 @@ export const useStatistics = (
                 body: {
                   startDate: frame.start.toISOString(),
                   endDate: frame.end.toISOString(),
-                  queryType: 'sessions'
+                  queryType: 'sessions',
+                  isPreviewMode: isInPreviewMode
                 },
               });
 
@@ -301,15 +331,15 @@ export const useStatistics = (
     return () => {
       isMounted = false;
     };
-  }, [user?.organization_id, dateRange, timeRange]);
+  }, [getEffectiveOrgId(), dateRange, timeRange, isInPreviewMode]);
 
-  // Fetch user time series data
   useEffect(() => {
     let isMounted = true;
     const abortController = new AbortController();
 
     const fetchUserTimeSeries = async () => {
-      if (!user?.organization_id) return;
+      const organizationId = getEffectiveOrgId();
+      if (!organizationId) return;
 
       setLoading(prev => ({ ...prev, userChart: true }));
 
@@ -317,7 +347,7 @@ export const useStatistics = (
         const { data: org, error: orgError } = await supabase
           .from('organizations')
           .select('voiceflow_api_key, voiceflow_project_id')
-          .eq('id', user.organization_id)
+          .eq('id', organizationId)
           .single();
 
         if (orgError) throw orgError;
@@ -390,9 +420,8 @@ export const useStatistics = (
       isMounted = false;
       abortController.abort();
     };
-  }, [user?.organization_id, dateRange, timeRange]);
+  }, [getEffectiveOrgId(), dateRange, timeRange, isInPreviewMode]);
 
-  // Fetch top intents data
   useEffect(() => {
     let isMounted = true;
     const abortController = new AbortController();
@@ -403,7 +432,6 @@ export const useStatistics = (
       setLoading(prev => ({ ...prev, intentChart: true }));
 
       try {
-        // Fetch top intents data
         const { data: intentData, error: intentError } = await supabase.functions
           .invoke('get-voiceflow-analytics', {
             body: {
@@ -415,7 +443,6 @@ export const useStatistics = (
 
         if (intentError) throw intentError;
 
-        // Extract intents from the response and filter out VF prefixed ones
         const topIntents: IntentData[] = intentData?.result?.[0]?.intents || [];
 
         if (isMounted) {
@@ -439,7 +466,6 @@ export const useStatistics = (
     };
   }, [user?.organization_id, dateRange, timeRange]);
 
-  // Fetch feedback and escalation metrics
   useEffect(() => {
     let isMounted = true;
     const abortController = new AbortController();
@@ -454,7 +480,6 @@ export const useStatistics = (
       }));
 
       try {
-        // Query the database directly for metrics
         const { data: metricsData, error: metricsError } = await supabase
           .from('conversation_metrics')
           .select('*')
@@ -464,7 +489,6 @@ export const useStatistics = (
 
         if (metricsError) throw metricsError;
 
-        // Process metrics data
         const happyFaceCount = metricsData.filter(m => m.metric_type === 'happy_face').length;
         const neutralFaceCount = metricsData.filter(m => m.metric_type === 'neutral_face').length;
         const sadFaceCount = metricsData.filter(m => m.metric_type === 'sad_face').length;
@@ -472,7 +496,6 @@ export const useStatistics = (
         const thumbsUpCount = metricsData.filter(m => m.metric_type === 'thumbs_up').length;
         const thumbsDownCount = metricsData.filter(m => m.metric_type === 'thumbs_down').length;
 
-        // Process time series data
         const timeFrames = getTimeFrames(dateRange.from, dateRange.to);
         const feedbackTimeSeries: FeedbackTimeSeriesData[] = [];
         const escalationTimeSeries: TimeSeriesData[] = [];
@@ -490,7 +513,6 @@ export const useStatistics = (
           const sad = frameMetrics.filter(m => m.metric_type === 'sad_face').length;
           const escalated = frameMetrics.filter(m => m.metric_type === 'escalated_to_human').length;
 
-          // Format the date for display
           const dateLabel = formatDateLabel(frame.start, daysDiff);
         
           feedbackTimeSeries.push({
@@ -546,7 +568,6 @@ export const useStatistics = (
     };
   }, [user?.organization_id, dateRange, timeRange]);
 
-  // Fetch successful answers metrics and fallback requests
   useEffect(() => {
     let isMounted = true;
     const abortController = new AbortController();
@@ -560,7 +581,6 @@ export const useStatistics = (
       }));
 
       try {
-        // Query metrics for successful answers
         const { data: metricsData, error: metricsError } = await supabase
           .from('conversation_metrics')
           .select('*')
@@ -571,7 +591,6 @@ export const useStatistics = (
 
         if (metricsError) throw metricsError;
 
-        // Query fallback requests
         const { data: fallbackData, error: fallbackError } = await supabase
           .from('fallback_requests')
           .select('*')
@@ -581,30 +600,25 @@ export const useStatistics = (
 
         if (fallbackError) throw fallbackError;
 
-        // Get counts
         const successfulAnswerCount = metricsData.length;
         const fallbackCount = fallbackData.length;
 
-        // Process time series data
         const timeFrames = getTimeFrames(dateRange.from, dateRange.to);
         const successVsFallbackTimeSeries: SuccessVsFallbackTimeSeriesData[] = [];
         
         const daysDiff = differenceInDays(dateRange.to, dateRange.from);
         
         for (const frame of timeFrames) {
-          // Count successful answers in this timeframe
           const successfulAnswers = metricsData.filter(m => {
             const date = new Date(m.timestamp);
             return date >= frame.start && date <= frame.end;
           }).length;
 
-          // Count fallbacks in this timeframe
           const fallbacks = fallbackData.filter(f => {
             const date = new Date(f.created_at);
             return date >= frame.start && date <= frame.end;
           }).length;
 
-          // Format the date for display
           const dateLabel = formatDateLabel(frame.start, daysDiff);
           
           successVsFallbackTimeSeries.push({
@@ -614,7 +628,6 @@ export const useStatistics = (
           });
         }
 
-        // Debug log
         console.log('Success vs Fallback time series:', successVsFallbackTimeSeries);
 
         if (isMounted) {

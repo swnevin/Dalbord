@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
@@ -26,6 +25,23 @@ const extractOrgIds = (concatenatedId: string) => {
   
   const [adminOrgId, clientOrgId] = concatenatedId.split(ORG_ID_SEPARATOR);
   return { adminOrgId, clientOrgId };
+};
+
+// This function ensures we get the actual org ID to use for database queries
+// Always returns the client org ID when in preview mode
+const getEffectiveClientOrgId = (userId?: string, previewUserId?: string, isInPreviewMode?: boolean) => {
+  if (!userId) return undefined;
+  
+  if (isInPreviewMode && previewUserId) {
+    return previewUserId;
+  }
+  
+  if (userId.includes(ORG_ID_SEPARATOR)) {
+    const { clientOrgId, adminOrgId } = extractOrgIds(userId);
+    return isInPreviewMode ? clientOrgId : adminOrgId;
+  }
+  
+  return userId;
 };
 
 interface VoiceflowTranscript {
@@ -93,10 +109,13 @@ const ClientDashboard = () => {
     if (!user?.organization_id) return;
 
     try {
+      const effectiveOrgId = getEffectiveOrgId();
+      if (!effectiveOrgId) throw new Error('No organization ID available');
+
       const { data: org, error: orgError } = await supabase
         .from('organizations')
         .select('voiceflow_api_key, voiceflow_project_id')
-        .eq('id', user.organization_id)
+        .eq('id', effectiveOrgId)
         .single();
 
       if (orgError) throw orgError;
@@ -184,13 +203,16 @@ const ClientDashboard = () => {
   };
 
   const handleDeleteConfirm = async () => {
-    if (!conversationToDelete || !user?.organization_id) return;
+    if (!conversationToDelete) return;
 
     try {
+      const effectiveOrgId = getEffectiveOrgId();
+      if (!effectiveOrgId) throw new Error('No organization ID available');
+
       const { data: org, error: orgError } = await supabase
         .from('organizations')
         .select('voiceflow_api_key, voiceflow_project_id')
-        .eq('id', user.organization_id)
+        .eq('id', effectiveOrgId)
         .single();
 
       if (orgError) throw orgError;
@@ -307,7 +329,11 @@ const ClientDashboard = () => {
           .eq('id', organizationId)
           .single();
 
-        if (orgError) throw orgError;
+        if (orgError) {
+          console.error('Error fetching organization:', orgError);
+          throw orgError;
+        }
+        
         if (!org.voiceflow_api_key || !org.voiceflow_project_id) {
           console.error('Missing Voiceflow credentials');
           return;
@@ -349,6 +375,7 @@ const ClientDashboard = () => {
       }
       
       try {
+        setIsLoadingDialog(true);
         const { data: org, error: orgError } = await supabase
           .from('organizations')
           .select('voiceflow_api_key, voiceflow_project_id')
