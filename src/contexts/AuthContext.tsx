@@ -1,3 +1,4 @@
+
 import { createContext, useContext, useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,6 +29,7 @@ interface AuthContextType {
   isInPreviewMode: boolean;
 }
 
+// Separator used to distinguish between admin and client org IDs
 const ORG_ID_SEPARATOR = "::preview::";
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -218,35 +220,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       sessionStorage.setItem('previewReturnPath', location.pathname);
       
       if (user?.organization_id) {
-        if (user.organization_id.includes(ORG_ID_SEPARATOR)) {
-          const { adminOrgId } = extractOrgIds(user.organization_id);
-          setOriginalOrgId(adminOrgId);
-        } else {
-          setOriginalOrgId(user.organization_id);
-        }
+        // Store the original org ID in state (not in the database)
+        setOriginalOrgId(user.organization_id);
         
-        const concatOrgId = getConcatenatedOrgId(
-          user.organization_id.includes(ORG_ID_SEPARATOR) 
-            ? extractOrgIds(user.organization_id).adminOrgId 
-            : user.organization_id,
+        // Store the virtual concatenated ID in local state
+        const virtualConcatId = getConcatenatedOrgId(
+          user.organization_id,
           member.organization_id
         );
         
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .update({ organization_id: concatOrgId })
-          .eq('id', user.id);
-          
-        if (updateError) {
-          console.error('Error updating organization ID for preview:', updateError);
-          throw new Error('Kunne ikke oppdatere organisasjons-ID for forhåndsvisning');
-        }
-        
+        // Set the user state with the virtual concatenated ID
         setUser(prev => {
           if (!prev) return null;
           return { 
             ...prev, 
-            organization_id: concatOrgId 
+            organization_id: virtualConcatId 
           };
         });
       }
@@ -272,9 +260,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       await new Promise(resolve => setTimeout(resolve, 300));
       
+      // Restore the original org ID to the user state
+      if (originalOrgId) {
+        setUser(prev => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            organization_id: originalOrgId
+          };
+        });
+      }
+      
       setPreviewUser(null);
       setIsInPreviewMode(false);
-      
       setOriginalOrgId(undefined);
       
       const returnPath = sessionStorage.getItem('previewReturnPath') || '/admin';

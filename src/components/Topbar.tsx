@@ -40,6 +40,9 @@ const Topbar = () => {
         } else if (isInPreviewMode && previewUser) {
           // Fallback to previewUser if needed
           organizationId = previewUser.organization_id;
+        } else if (organizationId.includes(ORG_ID_SEPARATOR)) {
+          // If not in preview mode but ID is still concatenated, use admin part
+          organizationId = extractOrgIds(organizationId).adminOrgId;
         }
         
         const {
