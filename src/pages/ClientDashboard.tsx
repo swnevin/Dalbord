@@ -14,36 +14,6 @@ import { Home } from "@/components/home/Home";
 import { AdministratorTab } from "@/components/administrator/AdministratorTab";
 import { useDialogPreloader } from "@/hooks/use-dialog-preloader";
 
-// Separator used to distinguish between admin and client org IDs
-const ORG_ID_SEPARATOR = "::preview::";
-
-// Extract org IDs from concatenated string
-const extractOrgIds = (concatenatedId: string) => {
-  if (!concatenatedId.includes(ORG_ID_SEPARATOR)) {
-    return { adminOrgId: concatenatedId, clientOrgId: concatenatedId };
-  }
-  
-  const [adminOrgId, clientOrgId] = concatenatedId.split(ORG_ID_SEPARATOR);
-  return { adminOrgId, clientOrgId };
-};
-
-// This function ensures we get the actual org ID to use for database queries
-// Always returns the client org ID when in preview mode
-const getEffectiveClientOrgId = (userId?: string, previewUserId?: string, isInPreviewMode?: boolean) => {
-  if (!userId) return undefined;
-  
-  if (isInPreviewMode && previewUserId) {
-    return previewUserId;
-  }
-  
-  if (userId.includes(ORG_ID_SEPARATOR)) {
-    const { clientOrgId, adminOrgId } = extractOrgIds(userId);
-    return isInPreviewMode ? clientOrgId : adminOrgId;
-  }
-  
-  return userId;
-};
-
 interface VoiceflowTranscript {
   _id: string;
   name: string;
@@ -78,21 +48,9 @@ const ClientDashboard = () => {
   const [preloadingTimerRef, setPreloadingTimerRef] = useState<NodeJS.Timeout | null>(null);
 
   const getEffectiveOrgId = useCallback(() => {
-    if (isInPreviewMode && previewUser) {
-      return previewUser.organization_id;
-    }
-    
-    if (user?.organization_id) {
-      // If the org ID is concatenated, extract the appropriate part
-      if (user.organization_id.includes(ORG_ID_SEPARATOR)) {
-        return isInPreviewMode
-          ? extractOrgIds(user.organization_id).clientOrgId
-          : extractOrgIds(user.organization_id).adminOrgId;
-      }
-      return user.organization_id;
-    }
-    
-    return undefined;
+    return isInPreviewMode && previewUser 
+      ? previewUser.organization_id 
+      : user?.organization_id;
   }, [isInPreviewMode, previewUser, user]);
 
   const {
@@ -109,13 +67,10 @@ const ClientDashboard = () => {
     if (!user?.organization_id) return;
 
     try {
-      const effectiveOrgId = getEffectiveOrgId();
-      if (!effectiveOrgId) throw new Error('No organization ID available');
-
       const { data: org, error: orgError } = await supabase
         .from('organizations')
         .select('voiceflow_api_key, voiceflow_project_id')
-        .eq('id', effectiveOrgId)
+        .eq('id', user.organization_id)
         .single();
 
       if (orgError) throw orgError;
@@ -203,16 +158,13 @@ const ClientDashboard = () => {
   };
 
   const handleDeleteConfirm = async () => {
-    if (!conversationToDelete) return;
+    if (!conversationToDelete || !user?.organization_id) return;
 
     try {
-      const effectiveOrgId = getEffectiveOrgId();
-      if (!effectiveOrgId) throw new Error('No organization ID available');
-
       const { data: org, error: orgError } = await supabase
         .from('organizations')
         .select('voiceflow_api_key, voiceflow_project_id')
-        .eq('id', effectiveOrgId)
+        .eq('id', user.organization_id)
         .single();
 
       if (orgError) throw orgError;
@@ -329,11 +281,7 @@ const ClientDashboard = () => {
           .eq('id', organizationId)
           .single();
 
-        if (orgError) {
-          console.error('Error fetching organization:', orgError);
-          throw orgError;
-        }
-        
+        if (orgError) throw orgError;
         if (!org.voiceflow_api_key || !org.voiceflow_project_id) {
           console.error('Missing Voiceflow credentials');
           return;
@@ -375,7 +323,6 @@ const ClientDashboard = () => {
       }
       
       try {
-        setIsLoadingDialog(true);
         const { data: org, error: orgError } = await supabase
           .from('organizations')
           .select('voiceflow_api_key, voiceflow_project_id')

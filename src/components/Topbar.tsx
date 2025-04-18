@@ -6,19 +6,6 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
-// Separator used to distinguish between admin and client org IDs
-const ORG_ID_SEPARATOR = "::preview::";
-
-// Extract org IDs from concatenated string
-const extractOrgIds = (concatenatedId: string) => {
-  if (!concatenatedId.includes(ORG_ID_SEPARATOR)) {
-    return { adminOrgId: concatenatedId, clientOrgId: concatenatedId };
-  }
-  
-  const [adminOrgId, clientOrgId] = concatenatedId.split(ORG_ID_SEPARATOR);
-  return { adminOrgId, clientOrgId };
-};
-
 const Topbar = () => {
   const {
     logout,
@@ -31,20 +18,11 @@ const Topbar = () => {
   
   useEffect(() => {
     const fetchOrgName = async () => {
-      let organizationId = user?.organization_id;
-      
-      if (organizationId) {
-        // If in preview mode and the org ID is concatenated, extract the client org ID
-        if (isInPreviewMode && organizationId.includes(ORG_ID_SEPARATOR)) {
-          organizationId = extractOrgIds(organizationId).clientOrgId;
-        } else if (isInPreviewMode && previewUser) {
-          // Fallback to previewUser if needed
-          organizationId = previewUser.organization_id;
-        } else if (organizationId.includes(ORG_ID_SEPARATOR)) {
-          // If not in preview mode but ID is still concatenated, use admin part
-          organizationId = extractOrgIds(organizationId).adminOrgId;
-        }
+      const organizationId = isInPreviewMode && previewUser 
+        ? previewUser.organization_id 
+        : user?.organization_id;
         
+      if (organizationId) {
         const {
           data,
           error
