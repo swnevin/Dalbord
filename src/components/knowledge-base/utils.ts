@@ -1,4 +1,3 @@
-
 import { QAPair } from "./types";
 
 export const normalizeUrl = (url: string): string => {
@@ -24,7 +23,7 @@ export const createTextFile = (text: string, fileName: string): File => {
   return file;
 };
 
-export const createQAPayload = (title: string, qaPairs: QAPair[]) => {
+export const createQAPayload = (title: string, qaPairs: QAPair[], tags?: string[]) => {
   const formattedTitle = ensureQATitleSuffix(title.trim());
   
   const qaItems = qaPairs.map(pair => ({
@@ -34,9 +33,13 @@ export const createQAPayload = (title: string, qaPairs: QAPair[]) => {
 
   return {
     data: {
-      schema: { searchableFields: ['question', 'answer'] },
+      schema: { 
+        searchableFields: ['question', 'answer'],
+        metadataFields: ['tags']
+      },
       name: formattedTitle,
-      items: qaItems
+      items: qaItems,
+      metadata: tags ? { tags } : undefined
     }
   };
 };
