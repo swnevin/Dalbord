@@ -191,7 +191,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const enterPreviewMode = async (member: PreviewUser) => {
     try {
       setIsTransitioning(true);
-      
       // Store original path to return to later
       sessionStorage.setItem('previewReturnPath', location.pathname);
       
@@ -206,10 +205,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setPreviewUser(member);
       setIsInPreviewMode(true);
       
-      // Update the user object in state with the temporary organization_id
-      // But we don't update the database anymore
-      if (user) {
-        setUser(prev => prev ? { ...prev, organization_id: member.organization_id } : null);
+      // If the current user is an admin, temporarily update their organization_id
+      if (user && user.id) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('role, organization_id')
+          .eq('id', user.id)
+          .single();
+        
+        if (profileData && profileData.role === 'admin') {
+          // Temporarily set the admin's organization_id to the member's organization_id
+          const { error: updateError } = await supabase
+            .from('profiles')
+            .update({ organization_id: member.organization_id })
+            .eq('id', user.id);
+          
+          if (updateError) {
+            console.error('Error updating temporary organization_id:', updateError);
+          } else {
+            // Update the user object with the temporary organization_id
+            setUser(prev => prev ? { ...prev, organization_id: member.organization_id } : null);
+          }
+        }
       }
       
       // Navigate to dashboard
@@ -230,9 +247,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // Wait for a brief moment for the transition UI to appear
       await new Promise(resolve => setTimeout(resolve, 300));
       
-      // Restore the original organization_id in the user state
-      if (user && originalOrgId) {
-        setUser(prev => prev ? { ...prev, organization_id: originalOrgId } : null);
+      // If the current user is an admin, restore their original organization_id
+      if (user && user.id && originalOrgId) {
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({ organization_id: originalOrgId })
+          .eq('id', user.id);
+        
+        if (updateError) {
+          console.error('Error restoring original organization_id:', updateError);
+        } else {
+          // Update the user object with the original organization_id
+          setUser(prev => prev ? { ...prev, organization_id: originalOrgId } : null);
+        }
+        
+        // Clear the stored original organization ID
         setOriginalOrgId(undefined);
       }
       
