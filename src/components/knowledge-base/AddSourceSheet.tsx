@@ -360,13 +360,8 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
 
         response = await fetch('https://api.voiceflow.com/v1/knowledge-base/docs/upload?maxChunkSize=1000', options);
       } else if (selectedSourceType === "qa" && qaTitle) {
-        const qaPayload = createQAPayload(qaTitle, qaPairs);
+        const qaPayload = createQAPayload(qaTitle, qaPairs, tags.length > 0 ? tags : undefined);
         const shouldOverwrite = duplicateQATitleWarning;
-
-        if (tags.length) {
-          if (!qaPayload.data.metadata) qaPayload.data.metadata = {};
-          qaPayload.data.metadata.tags = tags;
-        }
 
         const options = {
           method: 'POST',
