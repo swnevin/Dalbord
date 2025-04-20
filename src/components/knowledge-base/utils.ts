@@ -24,7 +24,7 @@ export const createTextFile = (text: string, fileName: string): File => {
   return file;
 };
 
-export const createQAPayload = (title: string, qaPairs: QAPair[], tags?: string[]) => {
+export const createQAPayload = (title: string, qaPairs: QAPair[]) => {
   const formattedTitle = ensureQATitleSuffix(title.trim());
   
   const qaItems = qaPairs.map(pair => ({
@@ -32,26 +32,13 @@ export const createQAPayload = (title: string, qaPairs: QAPair[], tags?: string[
     answer: pair.answer.trim()
   }));
 
-  const payload: {
-    data: {
-      schema: { searchableFields: string[] };
-      name: string;
-      items: { question: string; answer: string }[];
-      metadata?: { tags?: string[] };
-    }
-  } = {
+  return {
     data: {
       schema: { searchableFields: ['question', 'answer'] },
       name: formattedTitle,
       items: qaItems
     }
   };
-
-  if (tags && tags.length > 0) {
-    payload.data.metadata = { tags };
-  }
-
-  return payload;
 };
 
 export const formatDate = (dateString: string): string => {
