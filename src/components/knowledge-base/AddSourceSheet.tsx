@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +29,7 @@ import { URLSourceForm } from "./source-forms/URLSourceForm";
 import { FileSourceForm } from "./source-forms/FileSourceForm";
 import { TextSourceForm } from "./source-forms/TextSourceForm";
 import { QASourceForm } from "./source-forms/QASourceForm";
+import { TagInput } from "./source-forms/TagInput";
 
 interface AddSourceSheetProps {
   isOpen: boolean;
@@ -38,7 +38,7 @@ interface AddSourceSheetProps {
   onSourceAdded: () => void;
 }
 
-export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({ 
+export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
   isOpen, 
   onOpenChange, 
   sources,
@@ -49,23 +49,19 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
   const [selectedSourceType, setSelectedSourceType] = useState<"url" | "file" | "text" | "qa">("url");
   const [isLoading, setIsLoading] = useState(false);
   
-  // URL form state
   const [url, setUrl] = useState("");
   const [urlTitle, setUrlTitle] = useState("");
   const [urlError, setUrlError] = useState("");
   const [duplicateUrlWarning, setDuplicateUrlWarning] = useState(false);
   
-  // File form state
   const [file, setFile] = useState<File | null>(null);
   const [fileTitle, setFileTitle] = useState("");
   const [duplicateFileWarning, setDuplicateFileWarning] = useState(false);
   
-  // Text form state
   const [rawText, setRawText] = useState("");
   const [textFileName, setTextFileName] = useState("custom-text.txt");
   const [textFileNameError, setTextFileNameError] = useState("");
   
-  // Q&A form state
   const [qaTitle, setQaTitle] = useState("");
   const [qaPairs, setQaPairs] = useState<QAPair[]>([
     { question: "", answer: "", id: crypto.randomUUID() }
@@ -74,7 +70,8 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
   const [bulkQAText, setBulkQAText] = useState("");
   const [duplicateQATitleWarning, setDuplicateQATitleWarning] = useState(false);
 
-  // URL validation
+  const [tags, setTags] = useState<string[]>([]);
+
   useEffect(() => {
     if (url && !url.startsWith('https://')) {
       setUrlError('URL må starte med https://');
@@ -83,7 +80,6 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
     }
   }, [url]);
 
-  // Text filename validation
   useEffect(() => {
     if (textFileName && !textFileName.endsWith('.txt')) {
       setTextFileNameError('Filnavnet må slutte med .txt');
@@ -92,7 +88,6 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
     }
   }, [textFileName]);
 
-  // Check for duplicate QA title
   useEffect(() => {
     if (selectedSourceType === 'qa' && qaTitle.trim()) {
       const formattedTitle = ensureQATitleSuffix(qaTitle.trim());
@@ -105,7 +100,6 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
     }
   }, [qaTitle, sources, selectedSourceType]);
 
-  // Check for duplicate URL
   useEffect(() => {
     if (selectedSourceType === 'url' && url.trim()) {
       const normalizedInputUrl = normalizeUrl(url.trim());
@@ -120,7 +114,6 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
     }
   }, [url, sources, selectedSourceType]);
 
-  // Check for duplicate file
   useEffect(() => {
     if (selectedSourceType === 'file' && file && fileTitle.trim()) {
       const titleExists = sources.some(source => 
@@ -209,7 +202,6 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
       return;
     }
 
-    // Validate based on source type
     if (selectedSourceType === "url") {
       if (!url) {
         toast({
@@ -323,7 +315,8 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
             data: {
               type: "url",
               name: formattedUrl,
-              url: formattedUrl
+              url: formattedUrl,
+              metadata: tags.length ? { tags } : undefined
             }
           })
         };
@@ -332,7 +325,9 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
       } else if (selectedSourceType === "file" && file) {
         const formData = new FormData();
         formData.append('file', file);
-
+        if (tags.length) {
+          formData.append('metadata', JSON.stringify({ tags }));
+        }
         const options = {
           method: 'POST',
           headers: {
@@ -351,7 +346,9 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
         
         const formData = new FormData();
         formData.append('file', textFile);
-
+        if (tags.length) {
+          formData.append('metadata', JSON.stringify({ tags }));
+        }
         const options = {
           method: 'POST',
           headers: {
@@ -365,6 +362,11 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
       } else if (selectedSourceType === "qa" && qaTitle) {
         const qaPayload = createQAPayload(qaTitle, qaPairs);
         const shouldOverwrite = duplicateQATitleWarning;
+
+        if (tags.length) {
+          if (!qaPayload.data.metadata) qaPayload.data.metadata = {};
+          qaPayload.data.metadata.tags = tags;
+        }
 
         const options = {
           method: 'POST',
@@ -422,6 +424,7 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
     setQaPairs([{ question: "", answer: "", id: crypto.randomUUID() }]);
     setUrlError("");
     setTextFileNameError("");
+    setTags([]);
   };
 
   const handleFileChange = (file: File | null) => {
@@ -467,6 +470,10 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
                 <SelectItem value="qa">Spørsmål & Svar</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="mb-6">
+            <TagInput tags={tags} setTags={setTags} />
           </div>
           
           {selectedSourceType === "url" && (
