@@ -1,8 +1,8 @@
-
 import React from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { AlertCircle } from "lucide-react";
+import { TagInput } from "./TagInput";
 
 interface URLSourceFormProps {
   url: string;
@@ -11,6 +11,8 @@ interface URLSourceFormProps {
   duplicateUrlWarning: boolean;
   isLoading: boolean;
   onSubmit: () => void;
+  tags: string[];
+  setTags: (tags: string[]) => void;
 }
 
 export const URLSourceForm: React.FC<URLSourceFormProps> = ({
@@ -19,7 +21,9 @@ export const URLSourceForm: React.FC<URLSourceFormProps> = ({
   urlError,
   duplicateUrlWarning,
   isLoading,
-  onSubmit
+  onSubmit,
+  tags,
+  setTags
 }) => {
   return (
     <div className="space-y-4">
@@ -38,6 +42,13 @@ export const URLSourceForm: React.FC<URLSourceFormProps> = ({
           </div>
         )}
       </div>
+      <TagInput
+        tags={tags}
+        setTags={setTags}
+        label="Tags for URL"
+        placeholder="Skriv et tag og trykk +"
+        disabled={isLoading}
+      />
       <Button 
         className="w-full" 
         disabled={!url || !!urlError || duplicateUrlWarning || isLoading}

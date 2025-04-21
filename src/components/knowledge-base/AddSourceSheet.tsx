@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -26,6 +25,7 @@ import { normalizeUrl, ensureQATitleSuffix, createQAPayload } from "./utils";
 import { URLSourceForm } from "./source-forms/URLSourceForm";
 import { FileSourceForm } from "./source-forms/FileSourceForm";
 import { QASourceForm } from "./source-forms/QASourceForm";
+import { TagInput } from "./source-forms/TagInput";
 
 interface AddSourceSheetProps {
   isOpen: boolean;
@@ -50,7 +50,8 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
   const [urlTitle, setUrlTitle] = useState("");
   const [urlError, setUrlError] = useState("");
   const [duplicateUrlWarning, setDuplicateUrlWarning] = useState(false);
-  
+  const [urlTags, setUrlTags] = useState<string[]>([]);
+
   // File form state
   const [file, setFile] = useState<File | null>(null);
   const [fileTitle, setFileTitle] = useState("");
@@ -276,7 +277,9 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
 
       if (selectedSourceType === "url" && url) {
         const formattedUrl = url.startsWith('https://') ? url : `https://${url}`;
-        
+
+        const metadataObj = urlTags.length > 0 ? { tags: urlTags } : undefined;
+
         const options = {
           method: 'POST',
           headers: {
@@ -288,7 +291,8 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
             data: {
               type: "url",
               name: formattedUrl,
-              url: formattedUrl
+              url: formattedUrl,
+              ...(metadataObj && { metadata: metadataObj })
             }
           })
         };
@@ -298,7 +302,6 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
         const formData = new FormData();
         formData.append('file', file);
 
-        // Properly format the metadata with tags inside the inner object
         const metadataObj = { 
           inner: { 
             tags: fileTags 
@@ -376,6 +379,7 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
     setFile(null);
     setFileTitle("");
     setFileTags([]);
+    setUrlTags([]);
     setQaTitle("");
     setQaPairs([{ question: "", answer: "", id: crypto.randomUUID() }]);
     setUrlError("");
@@ -433,6 +437,8 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
               duplicateUrlWarning={duplicateUrlWarning}
               isLoading={isLoading}
               onSubmit={handleSourceAdd}
+              tags={urlTags}
+              setTags={setUrlTags}
             />
           )}
           
@@ -474,4 +480,3 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
     </Sheet>
   );
 };
-
