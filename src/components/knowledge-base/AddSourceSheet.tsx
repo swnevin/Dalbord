@@ -23,7 +23,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { VoiceflowDocument, QAPair } from "./types";
+import {
+  VoiceflowDocument, QAPair
+} from "./types";
 import { normalizeUrl, ensureQATitleSuffix, createTextFile, createQAPayload } from "./utils";
 import { URLSourceForm } from "./source-forms/URLSourceForm";
 import { FileSourceForm } from "./source-forms/FileSourceForm";
@@ -333,8 +335,16 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
         const formData = new FormData();
         formData.append('file', file);
 
-        const metadataObj = { inner: { tags: fileTags } };
+        // Properly format the metadata with tags inside the inner object
+        const metadataObj = { 
+          inner: { 
+            tags: fileTags 
+          } 
+        };
+        
         formData.append('metadata', JSON.stringify(metadataObj));
+
+        console.log('Sending file metadata:', JSON.stringify(metadataObj));
 
         const options = {
           method: 'POST',
@@ -387,7 +397,9 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
       }
 
       if (!response.ok) {
-        throw new Error('Feil ved opplasting til Voiceflow');
+        const errorData = await response.json();
+        console.error('Voiceflow error response:', errorData);
+        throw new Error(`Feil ved opplasting til Voiceflow: ${response.status} ${response.statusText}`);
       }
 
       const result = await response.json();

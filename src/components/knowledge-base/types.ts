@@ -1,43 +1,43 @@
-
-export type SourceType = "url" | "file" | "qa" | "all";
-
 export interface VoiceflowDocument {
+  documentID: string;
+  detectedType?: SourceType;
   data: {
-    type: "url" | "docx" | "text" | "pdf" | "qa" | "table";
     name: string;
     url?: string;
-    refreshRate?: string;
+    type?: string;
     canEdit?: boolean;
-    rowsCount?: number;
-    schema?: {
-      searchableFields: string[];
-    };
   };
-  tags: string[];
-  documentID: string;
-  updatedAt: string;
   status: {
     type: "SUCCESS" | "PENDING" | "FAILED";
-    data?: any;
+    message?: string;
   };
-  detectedType?: SourceType;
-}
-
-export interface VoiceflowResponse {
-  total: number;
-  data: VoiceflowDocument[];
+  updatedAt: string;
+  tags?: string[];
 }
 
 export interface Chunk {
   chunkID: string;
   content: string;
-  metadata: Record<string, any>;
+  documentID: string;
+  index: number;
+  relevance: number;
+}
+
+export interface VoiceflowResponse {
+  data: VoiceflowDocument[];
+  pagination: {
+    total: number;
+    offset: number;
+    limit: number;
+  };
+  total: number;
 }
 
 export interface VoiceflowChunksResponse {
-  data: VoiceflowDocument;
   chunks: Chunk[];
 }
+
+export type SourceType = "url" | "file" | "text" | "qa" | "all";
 
 export interface QAPair {
   question: string;

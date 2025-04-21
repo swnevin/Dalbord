@@ -87,7 +87,13 @@ export const FileSourceForm: React.FC<FileSourceFormProps> = ({
           />
         </div>
       </div>
-      <TagInput tags={tags} setTags={setTags} disabled={isLoading} />
+      <TagInput 
+        tags={tags} 
+        setTags={setTags} 
+        disabled={isLoading} 
+        label="Tags (valgfritt)"
+        placeholder="Skriv et tag og trykk +"
+      />
       <Button 
         className="w-full" 
         disabled={!file || duplicateFileWarning || isLoading}

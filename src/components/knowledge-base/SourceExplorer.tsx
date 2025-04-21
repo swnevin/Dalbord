@@ -49,6 +49,14 @@ export const SourceExplorer: React.FC<SourceExplorerProps> = ({
     return <File className="h-5 w-5 text-gray-500" />;
   };
 
+  React.useEffect(() => {
+    console.log('Sources with tags:', sources.map(s => ({
+      name: s.data.name,
+      tags: s.tags,
+      documentID: s.documentID
+    })));
+  }, [sources]);
+
   if (sources.length === 0) {
     return (
       <div className="text-center p-8 border border-dashed rounded-lg">
