@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Plus, Trash2, Upload } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { QAPair } from "../types";
+import { TagInput } from "../TagInput";
 
 interface QASourceFormProps {
   qaTitle: string;
@@ -17,6 +18,8 @@ interface QASourceFormProps {
   setBulkQAText: (text: string) => void;
   isLoading: boolean;
   isQAFormValid: boolean;
+  tags: string[];
+  setTags: (tags: string[]) => void;
   onAddQAPair: () => void;
   onUpdateQAPair: (id: string, field: "question" | "answer", value: string) => void;
   onRemoveQAPair: (id: string) => void;
@@ -35,6 +38,8 @@ export const QASourceForm: React.FC<QASourceFormProps> = ({
   setBulkQAText,
   isLoading,
   isQAFormValid,
+  tags,
+  setTags,
   onAddQAPair,
   onUpdateQAPair,
   onRemoveQAPair,
@@ -103,6 +108,12 @@ export const QASourceForm: React.FC<QASourceFormProps> = ({
           </div>
         ))}
       </div>
+      
+      <TagInput 
+        tags={tags} 
+        setTags={setTags} 
+        disabled={isLoading}
+      />
       
       <div className="space-y-3">
         <Button 
