@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -36,7 +35,6 @@ interface ProjectSettingsSheetProps {
   organizationName: string;
 }
 
-// Maps chart types to human-readable names
 const chartLabels: Record<ChartType, string> = {
   total_messages: "Antall meldinger",
   total_sessions: "Antall samtaler",
@@ -55,7 +53,6 @@ const chartLabels: Record<ChartType, string> = {
   savings_money: "Penger spart"
 };
 
-// Group chart types by section
 const chartGroups: Record<string, ChartType[]> = {
   summary: [
     "total_messages", 
@@ -82,7 +79,6 @@ const chartGroups: Record<string, ChartType[]> = {
   ]
 };
 
-// Translate section names
 const sectionLabels: Record<string, string> = {
   summary: "Sammendrag",
   detailed_analysis: "Detaljert analyse",
@@ -95,8 +91,25 @@ export const ProjectSettingsSheet = ({ organizationId, organizationName }: Proje
   const [sectionVisibility, setSectionVisibility] = useState<Record<string, boolean>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isAsk, setIsAsk] = useState(false);
+  const [isAskUpdating, setIsAskUpdating] = useState(false);
 
-  // Fetch chart preferences for this organization
+  const fetchOrganizationSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("organizations")
+        .select("isAsk")
+        .eq("id", organizationId)
+        .single();
+
+      if (error) throw error;
+      setIsAsk(!!data?.isAsk);
+    } catch (error) {
+      console.error("Feil ved henting av prosjektinnstillinger:", error);
+      toast.error("Kunne ikke hente informasjon om prosjektet");
+    }
+  };
+
   const fetchPreferences = async () => {
     setIsLoading(true);
     try {
@@ -109,7 +122,6 @@ export const ProjectSettingsSheet = ({ organizationId, organizationName }: Proje
       if (error) throw error;
       setPreferences(data || []);
       
-      // Initialize section visibility based on chart visibility
       const sections: Record<string, boolean> = {};
       Object.keys(chartGroups).forEach(section => {
         const sectionCharts = chartGroups[section];
@@ -127,7 +139,25 @@ export const ProjectSettingsSheet = ({ organizationId, organizationName }: Proje
     }
   };
 
-  // Update a single preference
+  const handleIsAskChange = async (checked: boolean) => {
+    setIsAskUpdating(true);
+    setIsAsk(checked);
+    try {
+      const { error } = await supabase
+        .from("organizations")
+        .update({ isAsk: checked })
+        .eq("id", organizationId);
+      if (error) throw error;
+      toast.success("Ask prosjektstatus er oppdatert");
+    } catch (error) {
+      console.error("Feil ved oppdatering av Ask prosjektstatus:", error);
+      toast.error("Kunne ikke oppdatere Ask-prosjektstatus");
+      fetchOrganizationSettings();
+    } finally {
+      setIsAskUpdating(false);
+    }
+  };
+
   const updateChartVisibility = async (chartType: ChartType, isVisible: boolean) => {
     const updatedPreferences = preferences.map(pref => 
       pref.chart_type === chartType ? { ...pref, is_visible: isVisible } : pref
@@ -146,12 +176,10 @@ export const ProjectSettingsSheet = ({ organizationId, organizationName }: Proje
     } catch (error) {
       console.error("Error updating chart visibility:", error);
       toast.error("Kunne ikke oppdatere innstillingene");
-      // Revert the local state change on error
       fetchPreferences();
     }
   };
 
-  // Toggle visibility for an entire section
   const updateSectionVisibility = async (sectionKey: string, isVisible: boolean) => {
     setSectionVisibility(prev => ({
       ...prev,
@@ -161,7 +189,6 @@ export const ProjectSettingsSheet = ({ organizationId, organizationName }: Proje
     const sectionCharts = chartGroups[sectionKey];
     const updatedPreferences = [...preferences];
     
-    // Update all charts in this section
     for (const chartType of sectionCharts) {
       const prefIndex = updatedPreferences.findIndex(p => p.chart_type === chartType);
       if (prefIndex >= 0) {
@@ -175,7 +202,6 @@ export const ProjectSettingsSheet = ({ organizationId, organizationName }: Proje
     setPreferences(updatedPreferences);
     
     try {
-      // Update all charts in the section at once
       const updates = sectionCharts.map(chartType => ({
         organization_id: organizationId,
         chart_type: chartType,
@@ -190,16 +216,13 @@ export const ProjectSettingsSheet = ({ organizationId, organizationName }: Proje
     } catch (error) {
       console.error("Error updating section visibility:", error);
       toast.error("Kunne ikke oppdatere seksjonens innstillinger");
-      // Revert the local state change on error
       fetchPreferences();
     }
   };
 
-  // Save all preferences at once
   const saveAllPreferences = async () => {
     setIsSaving(true);
     try {
-      // We need to type-cast the array properly for the upsert operation
       const { error } = await supabase
         .from("statistics_preferences")
         .upsert(
@@ -224,6 +247,7 @@ export const ProjectSettingsSheet = ({ organizationId, organizationName }: Proje
 
   useEffect(() => {
     fetchPreferences();
+    fetchOrganizationSettings();
   }, [organizationId]);
 
   return (
@@ -240,6 +264,26 @@ export const ProjectSettingsSheet = ({ organizationId, organizationName }: Proje
             Administrer innstillinger for prosjektet her.
           </SheetDescription>
         </SheetHeader>
+
+        <Card className="mb-3 p-4 bg-[#28483F]/10 border border-[#28483F]/40">
+          <div className="flex items-center gap-3">
+            <Switch
+              id="is-ask-checkbox"
+              checked={isAsk}
+              onCheckedChange={handleIsAskChange}
+              disabled={isAskUpdating}
+            />
+            <Label htmlFor="is-ask-checkbox" className="font-medium">
+              Dette er et Ask prosjekt
+            </Label>
+            {isAskUpdating && (
+              <span className="ml-2 text-xs text-muted-foreground">Lagrer...</span>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground mt-1 pl-11">
+            Gjør om prosjektet til et Ask prosjekt. Dette påvirker hvilke faner som vises for sluttbrukere.
+          </p>
+        </Card>
 
         <Card className="mt-4">
           <CardHeader>
