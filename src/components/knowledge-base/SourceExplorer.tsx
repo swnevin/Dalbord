@@ -1,4 +1,3 @@
-
 import React from "react";
 import { VoiceflowDocument, Chunk } from "./types";
 import { Loader } from "@/components/ui/loader";
@@ -72,7 +71,16 @@ export const SourceExplorer: React.FC<SourceExplorerProps> = ({
             <div className="flex items-center gap-3">
               {getSourceIcon(source)}
               <div>
-                <h3 className="font-medium">{source.data.name}</h3>
+                <h3 className="font-medium">
+                  {source.data.name}
+                  {source.tags && source.tags.length > 0 && (
+                    <span className="ml-2 text-xs text-gray-400 align-middle">
+                      (
+                        {source.tags.join(', ')}
+                      )
+                    </span>
+                  )}
+                </h3>
                 <p className="text-sm text-gray-500">
                   {source.status.type === "SUCCESS" ? (
                     <>Sist oppdatert: {formatDate(source.updatedAt)}</>
