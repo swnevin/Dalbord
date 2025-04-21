@@ -1,4 +1,3 @@
-
 import React from "react";
 import { VoiceflowDocument, Chunk } from "./types";
 import { Loader } from "@/components/ui/loader";
@@ -57,16 +56,6 @@ export const SourceExplorer: React.FC<SourceExplorerProps> = ({
       documentID: s.documentID
     })));
   }, [sources]);
-
-  React.useEffect(() => {
-    if (chunks.length > 0) {
-      console.log('Chunks with tags:', chunks.map(chunk => ({
-        chunkID: chunk.chunkID,
-        content: chunk.content.substring(0, 30) + '...',
-        tags: chunk.tags
-      })));
-    }
-  }, [chunks]);
 
   if (sources.length === 0) {
     return (
@@ -146,18 +135,13 @@ export const SourceExplorer: React.FC<SourceExplorerProps> = ({
                       </a>
                     </div>
                   )}
+                  
                   <h4 className="font-medium text-sm text-gray-500">Innhold:</h4>
+                  
                   <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
                     {chunks.map((chunk) => (
                       <div key={chunk.chunkID} className="p-3 bg-white border rounded-md">
-                        <p className="whitespace-pre-wrap text-sm">
-                          {chunk.content}
-                        </p>
-                        {chunk.tags && chunk.tags.length > 0 && (
-                          <div className="mt-2 text-xs text-gray-400 font-medium">
-                            Tags: {chunk.tags.join(", ")}
-                          </div>
-                        )}
+                        <p className="whitespace-pre-wrap text-sm">{chunk.content}</p>
                       </div>
                     ))}
                   </div>
