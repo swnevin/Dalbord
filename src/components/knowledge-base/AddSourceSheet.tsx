@@ -61,7 +61,7 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
   // Q&A form state
   const [qaTitle, setQaTitle] = useState("");
   const [qaPairs, setQaPairs] = useState<QAPair[]>([
-    { question: "", answer: "", id: crypto.randomUUID() }
+    { question: "", answer: "", id: crypto.randomUUID(), tags: [] }
   ]);
   const [showQABulkUpload, setShowQABulkUpload] = useState(false);
   const [bulkQAText, setBulkQAText] = useState("");
@@ -117,12 +117,18 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
   }, [fileTitle, file, sources, selectedSourceType]);
 
   const addQAPair = () => {
-    setQaPairs([...qaPairs, { question: "", answer: "", id: crypto.randomUUID() }]);
+    setQaPairs([...qaPairs, { question: "", answer: "", id: crypto.randomUUID(), tags: [] }]);
   };
 
   const updateQAPair = (id: string, field: "question" | "answer", value: string) => {
     setQaPairs(qaPairs.map(pair => 
       pair.id === id ? { ...pair, [field]: value } : pair
+    ));
+  };
+
+  const updateQAPairTags = (id: string, tags: string[]) => {
+    setQaPairs(qaPairs.map(pair =>
+      pair.id === id ? { ...pair, tags } : pair
     ));
   };
 
@@ -158,7 +164,8 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
           newQAPairs.push({
             question,
             answer,
-            id: crypto.randomUUID()
+            id: crypto.randomUUID(),
+            tags: [],
           });
         }
       }
@@ -323,9 +330,22 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
 
         response = await fetch('https://api.voiceflow.com/v1/knowledge-base/docs/upload?maxChunkSize=1000', options);
       } else if (selectedSourceType === "qa" && qaTitle) {
-        const qaPayload = createQAPayload(qaTitle, qaPairs);
+        const allTags = [...new Set(qaPairs.flatMap(pair => pair.tags))];
+        const qaPayload = {
+          data: {
+            schema: { 
+              searchableFields: ["question", "answer"],
+              ...(allTags.length > 0 && { metadataFields: ["tag"] }),
+            },
+            name: ensureQATitleSuffix(qaTitle.trim()),
+            items: qaPairs.map(pair => ({
+              question: pair.question.trim(),
+              answer: pair.answer.trim(),
+              ...(pair.tags.length > 0 ? { tag: pair.tags.join(", ") } : {})
+            }))
+          }
+        };
         const shouldOverwrite = duplicateQATitleWarning;
-
         const options = {
           method: 'POST',
           headers: {
@@ -335,7 +355,6 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
           },
           body: JSON.stringify(qaPayload)
         };
-
         const endpoint = `https://api.voiceflow.com/v1/knowledge-base/docs/upload/table?overwrite=${shouldOverwrite}`;
         
         response = await fetch(endpoint, options);
@@ -381,7 +400,7 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
     setFileTags([]);
     setUrlTags([]);
     setQaTitle("");
-    setQaPairs([{ question: "", answer: "", id: crypto.randomUUID() }]);
+    setQaPairs([{ question: "", answer: "", id: crypto.randomUUID(), tags: [] }]);
     setUrlError("");
   };
 
@@ -470,6 +489,7 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
               onAddQAPair={addQAPair}
               onUpdateQAPair={updateQAPair}
               onRemoveQAPair={removeQAPair}
+              onUpdateQAPairTags={updateQAPairTags}
               onToggleBulkUpload={() => setShowQABulkUpload(!showQABulkUpload)}
               onProcessBulk={processBulkQAText}
               onSubmit={handleSourceAdd}

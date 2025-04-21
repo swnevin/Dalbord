@@ -1,10 +1,10 @@
-
 import React from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Trash2, Upload } from "lucide-react";
 import { Label } from "@/components/ui/label";
+import { TagInput } from "./TagInput";
 import { QAPair } from "../types";
 
 interface QASourceFormProps {
@@ -20,6 +20,7 @@ interface QASourceFormProps {
   onAddQAPair: () => void;
   onUpdateQAPair: (id: string, field: "question" | "answer", value: string) => void;
   onRemoveQAPair: (id: string) => void;
+  onUpdateQAPairTags: (id: string, tags: string[]) => void;
   onToggleBulkUpload: () => void;
   onProcessBulk: () => void;
   onSubmit: () => void;
@@ -38,6 +39,7 @@ export const QASourceForm: React.FC<QASourceFormProps> = ({
   onAddQAPair,
   onUpdateQAPair,
   onRemoveQAPair,
+  onUpdateQAPairTags,
   onToggleBulkUpload,
   onProcessBulk,
   onSubmit
@@ -62,7 +64,6 @@ export const QASourceForm: React.FC<QASourceFormProps> = ({
           </p>
         )}
       </div>
-      
       <div className="overflow-y-auto max-h-[400px] pr-2">
         {qaPairs.map((pair, index) => (
           <div key={pair.id} className="space-y-3 p-4 border rounded-lg bg-gray-50 mb-4">
@@ -79,7 +80,6 @@ export const QASourceForm: React.FC<QASourceFormProps> = ({
                 </Button>
               )}
             </div>
-            
             <div className="space-y-2">
               <Label htmlFor={`question-${pair.id}`}>Spørsmål:</Label>
               <Input
@@ -89,7 +89,6 @@ export const QASourceForm: React.FC<QASourceFormProps> = ({
                 onChange={(e) => onUpdateQAPair(pair.id, "question", e.target.value)}
               />
             </div>
-            
             <div className="space-y-2">
               <Label htmlFor={`answer-${pair.id}`}>Svar:</Label>
               <Textarea
@@ -100,10 +99,16 @@ export const QASourceForm: React.FC<QASourceFormProps> = ({
                 className="min-h-20 resize-y"
               />
             </div>
+            <TagInput
+              tags={pair.tags}
+              setTags={(newTags) => onUpdateQAPairTags(pair.id, newTags)}
+              label="Tags for dette spørsmål og svar"
+              placeholder="Legg til tag(s)"
+              disabled={isLoading}
+            />
           </div>
         ))}
       </div>
-      
       <div className="space-y-3">
         <Button 
           variant="outline" 
@@ -112,7 +117,6 @@ export const QASourceForm: React.FC<QASourceFormProps> = ({
         >
           <Plus className="h-4 w-4" /> Legg til spørsmål og svar
         </Button>
-        
         <Button 
           variant="outline"
           className="w-full flex items-center gap-2"
@@ -121,7 +125,6 @@ export const QASourceForm: React.FC<QASourceFormProps> = ({
           <Upload className="h-4 w-4" /> Last opp Q&A set
         </Button>
       </div>
-      
       {showQABulkUpload && (
         <div className="space-y-3 p-4 border rounded-lg bg-gray-50">
           <div className="space-y-2">
@@ -149,7 +152,6 @@ export const QASourceForm: React.FC<QASourceFormProps> = ({
           </Button>
         </div>
       )}
-      
       <Button 
         className="w-full bg-primary text-white" 
         disabled={!isQAFormValid || isLoading}

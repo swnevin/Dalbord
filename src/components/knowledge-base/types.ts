@@ -1,3 +1,4 @@
+
 export interface VoiceflowDocument {
   documentID: string;
   detectedType?: SourceType;
@@ -39,8 +40,10 @@ export interface VoiceflowChunksResponse {
 
 export type SourceType = "url" | "file" | "text" | "qa" | "all";
 
+// Add tags as string[] to QAPair
 export interface QAPair {
   question: string;
   answer: string;
   id: string;
+  tags: string[];
 }
