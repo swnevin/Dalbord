@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -66,6 +67,7 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
   const [rawText, setRawText] = useState("");
   const [textFileName, setTextFileName] = useState("custom-text.txt");
   const [textFileNameError, setTextFileNameError] = useState("");
+  const [textTags, setTextTags] = useState<string[]>([]);
   
   // Q&A form state
   const [qaTitle, setQaTitle] = useState("");
@@ -365,6 +367,17 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
         const formData = new FormData();
         formData.append('file', textFile);
 
+        // Add metadata with tags similar to file upload
+        const metadataObj = { 
+          inner: { 
+            tags: textTags 
+          } 
+        };
+        
+        formData.append('metadata', JSON.stringify(metadataObj));
+        
+        console.log('Sending text metadata:', JSON.stringify(metadataObj));
+
         const options = {
           method: 'POST',
           headers: {
@@ -434,6 +447,7 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
     setFileTags([]);
     setRawText("");
     setTextFileName("custom-text.txt");
+    setTextTags([]);
     setQaTitle("");
     setQaPairs([{ question: "", answer: "", id: crypto.randomUUID() }]);
     setUrlError("");
@@ -519,6 +533,8 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
               setRawText={setRawText}
               isLoading={isLoading}
               onSubmit={handleSourceAdd}
+              tags={textTags}
+              setTags={setTextTags}
             />
           )}
           

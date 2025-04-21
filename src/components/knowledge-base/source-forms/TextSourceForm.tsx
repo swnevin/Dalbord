@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { TagInput } from "./TagInput";
 
 interface TextSourceFormProps {
   textFileName: string;
@@ -13,6 +14,8 @@ interface TextSourceFormProps {
   setRawText: (text: string) => void;
   isLoading: boolean;
   onSubmit: () => void;
+  tags: string[];
+  setTags: (tags: string[]) => void;
 }
 
 export const TextSourceForm: React.FC<TextSourceFormProps> = ({
@@ -22,7 +25,9 @@ export const TextSourceForm: React.FC<TextSourceFormProps> = ({
   rawText,
   setRawText,
   isLoading,
-  onSubmit
+  onSubmit,
+  tags,
+  setTags
 }) => {
   return (
     <div className="space-y-4">
@@ -40,6 +45,13 @@ export const TextSourceForm: React.FC<TextSourceFormProps> = ({
         value={rawText}
         onChange={(e) => setRawText(e.target.value)}
         className="min-h-32 resize-y"
+      />
+      <TagInput 
+        tags={tags} 
+        setTags={setTags} 
+        disabled={isLoading} 
+        label="Tags (valgfritt)"
+        placeholder="Skriv et tag og trykk +"
       />
       <Button 
         className="w-full" 
