@@ -140,6 +140,7 @@ const KnowledgeBase = () => {
       }
 
       const result: VoiceflowChunksResponse = await response.json();
+      console.log('Received chunks data:', result);
       setChunks(result.chunks);
     } catch (error) {
       console.error('Error fetching chunks:', error);
