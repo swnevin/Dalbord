@@ -52,10 +52,14 @@ export const TagInput: React.FC<TagInputProps> = ({
   const askPlaceholder = "Skriv inn produktnavn...";
   const allProductsTag = "All";
 
+  // Use the isAsk prop to determine which label and placeholder to show
+  const displayLabel = isAsk ? askLabel : label;
+  const displayPlaceholder = isAsk ? askPlaceholder : placeholder;
+
   return (
     <div>
       <label className="block text-sm font-medium mb-1">
-        {isAsk ? askLabel : label}
+        {displayLabel}
         {required && <span className="text-red-500 ml-1">*</span>}
       </label>
       <div className="flex gap-2">
@@ -64,7 +68,7 @@ export const TagInput: React.FC<TagInputProps> = ({
           value={inputValue}
           onChange={e => setInputValue(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={isAsk ? askPlaceholder : placeholder}
+          placeholder={displayPlaceholder}
           className={
             showError
               ? "border-red-500"
