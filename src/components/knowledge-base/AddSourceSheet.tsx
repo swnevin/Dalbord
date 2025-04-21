@@ -31,6 +31,10 @@ import { URLSourceForm } from "./source-forms/URLSourceForm";
 import { FileSourceForm } from "./source-forms/FileSourceForm";
 import { TextSourceForm } from "./source-forms/TextSourceForm";
 import { QASourceForm } from "./source-forms/QASourceForm";
+import { AddSourceSheetUrlForm } from "./AddSourceSheetUrlForm";
+import { AddSourceSheetFileForm } from "./AddSourceSheetFileForm";
+import { AddSourceSheetTextForm } from "./AddSourceSheetTextForm";
+import { AddSourceSheetQAForm } from "./AddSourceSheetQAForm";
 
 interface AddSourceSheetProps {
   isOpen: boolean;
@@ -484,61 +488,40 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
               </SelectContent>
             </Select>
           </div>
-          
+
           {selectedSourceType === "url" && (
-            <URLSourceForm
-              url={url}
-              setUrl={setUrl}
-              urlError={urlError}
-              duplicateUrlWarning={duplicateUrlWarning}
+            <AddSourceSheetUrlForm
+              sources={sources}
               isLoading={isLoading}
-              onSubmit={handleSourceAdd}
+              onSourceAdded={onSourceAdded}
+              onOpenChange={onOpenChange}
             />
           )}
-          
+
           {selectedSourceType === "file" && (
-            <FileSourceForm
-              file={file}
-              fileTitle={fileTitle}
-              setFileTitle={setFileTitle}
-              duplicateFileWarning={duplicateFileWarning}
+            <AddSourceSheetFileForm
+              sources={sources}
               isLoading={isLoading}
-              onFileChange={handleFileChange}
-              onSubmit={handleSourceAdd}
-              tags={fileTags}
-              setTags={setFileTags}
+              onSourceAdded={onSourceAdded}
+              onOpenChange={onOpenChange}
             />
           )}
-          
+
           {selectedSourceType === "text" && (
-            <TextSourceForm
-              textFileName={textFileName}
-              setTextFileName={setTextFileName}
-              textFileNameError={textFileNameError}
-              rawText={rawText}
-              setRawText={setRawText}
+            <AddSourceSheetTextForm
+              sources={sources}
               isLoading={isLoading}
-              onSubmit={handleSourceAdd}
+              onSourceAdded={onSourceAdded}
+              onOpenChange={onOpenChange}
             />
           )}
-          
+
           {selectedSourceType === "qa" && (
-            <QASourceForm
-              qaTitle={qaTitle}
-              setQaTitle={setQaTitle}
-              qaPairs={qaPairs}
-              duplicateQATitleWarning={duplicateQATitleWarning}
-              showQABulkUpload={showQABulkUpload}
-              bulkQAText={bulkQAText}
-              setBulkQAText={setBulkQAText}
+            <AddSourceSheetQAForm
+              sources={sources}
               isLoading={isLoading}
-              isQAFormValid={isQAFormValid}
-              onAddQAPair={addQAPair}
-              onUpdateQAPair={updateQAPair}
-              onRemoveQAPair={removeQAPair}
-              onToggleBulkUpload={() => setShowQABulkUpload(!showQABulkUpload)}
-              onProcessBulk={processBulkQAText}
-              onSubmit={handleSourceAdd}
+              onSourceAdded={onSourceAdded}
+              onOpenChange={onOpenChange}
             />
           )}
         </div>
