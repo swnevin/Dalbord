@@ -367,7 +367,7 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
         const formData = new FormData();
         formData.append('file', textFile);
 
-        // Add metadata with tags similar to file upload
+        // Add metadata with tags
         const metadataObj = { 
           inner: { 
             tags: textTags 
