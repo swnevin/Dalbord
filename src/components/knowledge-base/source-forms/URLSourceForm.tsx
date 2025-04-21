@@ -14,6 +14,8 @@ interface URLSourceFormProps {
   onSubmit: () => void;
   tags: string[];
   setTags: (tags: string[]) => void;
+  isAsk?: boolean;
+  required?: boolean;
 }
 
 export const URLSourceForm: React.FC<URLSourceFormProps> = ({
@@ -24,7 +26,9 @@ export const URLSourceForm: React.FC<URLSourceFormProps> = ({
   isLoading,
   onSubmit,
   tags,
-  setTags
+  setTags,
+  isAsk = false,
+  required = false,
 }) => {
   return (
     <div className="space-y-4">
@@ -49,10 +53,12 @@ export const URLSourceForm: React.FC<URLSourceFormProps> = ({
         label="Tags (valgfri)"
         placeholder="Skriv inn tag og trykk +"
         disabled={isLoading}
+        isAsk={isAsk}
+        required={required}
       />
       <Button 
         className="w-full" 
-        disabled={!url || !!urlError || duplicateUrlWarning || isLoading}
+        disabled={(!url || !!urlError || duplicateUrlWarning || isLoading) || (isAsk && tags.length === 0)}
         onClick={onSubmit}
       >
         {isLoading ? "Laster opp..." : "Last opp URL"}

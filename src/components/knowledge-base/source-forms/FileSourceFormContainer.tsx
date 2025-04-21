@@ -24,6 +24,28 @@ export const FileSourceFormContainer: React.FC<FileSourceFormContainerProps> = (
   const [duplicateFileWarning, setDuplicateFileWarning] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [fileTags, setFileTags] = useState<string[]>([]);
+  const [isAsk, setIsAsk] = useState(false);
+
+  useEffect(() => {
+    if (user?.organization_id) {
+      fetchOrganizationSettings();
+    }
+  }, [user?.organization_id]);
+
+  const fetchOrganizationSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("organizations")
+        .select("isAsk")
+        .eq("id", user?.organization_id)
+        .single();
+
+      if (error) throw error;
+      setIsAsk(!!data?.isAsk);
+    } catch (error) {
+      console.error("Error fetching organization settings:", error);
+    }
+  };
 
   useEffect(() => {
     if (file && fileTitle.trim()) {
@@ -154,6 +176,8 @@ export const FileSourceFormContainer: React.FC<FileSourceFormContainerProps> = (
       onSubmit={handleSourceAdd}
       tags={fileTags}
       setTags={setFileTags}
+      isAsk={isAsk}
+      required={isAsk}
     />
   );
 };

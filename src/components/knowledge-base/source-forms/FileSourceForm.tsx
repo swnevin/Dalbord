@@ -17,6 +17,8 @@ interface FileSourceFormProps {
   onSubmit: () => void;
   tags: string[];
   setTags: (tags: string[]) => void;
+  isAsk?: boolean;
+  required?: boolean;
 }
 
 export const FileSourceForm: React.FC<FileSourceFormProps> = ({
@@ -29,6 +31,8 @@ export const FileSourceForm: React.FC<FileSourceFormProps> = ({
   onSubmit,
   tags,
   setTags,
+  isAsk = false,
+  required = false,
 }) => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -93,10 +97,12 @@ export const FileSourceForm: React.FC<FileSourceFormProps> = ({
         disabled={isLoading}
         label="Tags (valgfri)"
         placeholder="Skriv inn tag og trykk +"
+        isAsk={isAsk}
+        required={required}
       />
       <Button 
         className="w-full" 
-        disabled={!file || duplicateFileWarning || isLoading}
+        disabled={(!file || duplicateFileWarning || isLoading) || (isAsk && tags.length === 0)}
         onClick={onSubmit}
       >
         {isLoading ? "Laster opp..." : "Last opp fil"}

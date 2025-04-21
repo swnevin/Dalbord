@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { URLSourceForm } from "./URLSourceForm";
 import { VoiceflowDocument } from "../types";
@@ -25,6 +24,28 @@ export const URLSourceFormContainer: React.FC<URLSourceFormContainerProps> = ({
   const [duplicateUrlWarning, setDuplicateUrlWarning] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [urlTags, setUrlTags] = useState<string[]>([]);
+  const [isAsk, setIsAsk] = useState(false);
+
+  useEffect(() => {
+    if (user?.organization_id) {
+      fetchOrganizationSettings();
+    }
+  }, [user?.organization_id]);
+
+  const fetchOrganizationSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("organizations")
+        .select("isAsk")
+        .eq("id", user?.organization_id)
+        .single();
+
+      if (error) throw error;
+      setIsAsk(!!data?.isAsk);
+    } catch (error) {
+      console.error("Error fetching organization settings:", error);
+    }
+  };
 
   useEffect(() => {
     if (url && !url.startsWith("https://")) {
@@ -165,6 +186,8 @@ export const URLSourceFormContainer: React.FC<URLSourceFormContainerProps> = ({
       onSubmit={handleSourceAdd}
       tags={urlTags}
       setTags={setUrlTags}
+      isAsk={isAsk}
+      required={isAsk}
     />
   );
 };
