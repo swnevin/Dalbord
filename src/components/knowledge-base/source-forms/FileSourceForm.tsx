@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { AlertCircle, Upload } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { TagInput } from "../TagInput";
 
 interface FileSourceFormProps {
   file: File | null;
@@ -13,8 +12,6 @@ interface FileSourceFormProps {
   setFileTitle: (title: string) => void;
   duplicateFileWarning: boolean;
   isLoading: boolean;
-  tags: string[];
-  setTags: (tags: string[]) => void;
   onFileChange: (file: File | null) => void;
   onSubmit: () => void;
 }
@@ -25,8 +22,6 @@ export const FileSourceForm: React.FC<FileSourceFormProps> = ({
   setFileTitle,
   duplicateFileWarning,
   isLoading,
-  tags,
-  setTags,
   onFileChange,
   onSubmit
 }) => {
@@ -86,13 +81,6 @@ export const FileSourceForm: React.FC<FileSourceFormProps> = ({
           />
         </div>
       </div>
-      
-      <TagInput 
-        tags={tags} 
-        setTags={setTags} 
-        disabled={isLoading}
-      />
-      
       <Button 
         className="w-full" 
         disabled={!file || duplicateFileWarning || isLoading}

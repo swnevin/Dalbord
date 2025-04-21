@@ -73,9 +73,6 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
   const [showQABulkUpload, setShowQABulkUpload] = useState(false);
   const [bulkQAText, setBulkQAText] = useState("");
   const [duplicateQATitleWarning, setDuplicateQATitleWarning] = useState(false);
-  
-  // Tags state (shared across all source types)
-  const [tags, setTags] = useState<string[]>([]);
 
   // URL validation
   useEffect(() => {
@@ -134,11 +131,6 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
       setDuplicateFileWarning(false);
     }
   }, [fileTitle, file, sources, selectedSourceType]);
-  
-  // Reset tags when source type changes
-  useEffect(() => {
-    setTags([]);
-  }, [selectedSourceType]);
 
   const addQAPair = () => {
     setQaPairs([...qaPairs, { question: "", answer: "", id: crypto.randomUUID() }]);
@@ -331,8 +323,7 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
             data: {
               type: "url",
               name: formattedUrl,
-              url: formattedUrl,
-              metadata: tags.length > 0 ? { tags } : undefined
+              url: formattedUrl
             }
           })
         };
@@ -341,11 +332,6 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
       } else if (selectedSourceType === "file" && file) {
         const formData = new FormData();
         formData.append('file', file);
-        
-        // Add metadata with tags if available
-        if (tags.length > 0) {
-          formData.append('metadata', JSON.stringify({ tags }));
-        }
 
         const options = {
           method: 'POST',
@@ -365,11 +351,6 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
         
         const formData = new FormData();
         formData.append('file', textFile);
-        
-        // Add metadata with tags if available
-        if (tags.length > 0) {
-          formData.append('metadata', JSON.stringify({ tags }));
-        }
 
         const options = {
           method: 'POST',
@@ -382,7 +363,7 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
 
         response = await fetch('https://api.voiceflow.com/v1/knowledge-base/docs/upload?maxChunkSize=1000', options);
       } else if (selectedSourceType === "qa" && qaTitle) {
-        const qaPayload = createQAPayload(qaTitle, qaPairs, tags.length > 0 ? tags : undefined);
+        const qaPayload = createQAPayload(qaTitle, qaPairs);
         const shouldOverwrite = duplicateQATitleWarning;
 
         const options = {
@@ -441,7 +422,6 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
     setQaPairs([{ question: "", answer: "", id: crypto.randomUUID() }]);
     setUrlError("");
     setTextFileNameError("");
-    setTags([]);
   };
 
   const handleFileChange = (file: File | null) => {
@@ -496,8 +476,6 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
               urlError={urlError}
               duplicateUrlWarning={duplicateUrlWarning}
               isLoading={isLoading}
-              tags={tags}
-              setTags={setTags}
               onSubmit={handleSourceAdd}
             />
           )}
@@ -509,8 +487,6 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
               setFileTitle={setFileTitle}
               duplicateFileWarning={duplicateFileWarning}
               isLoading={isLoading}
-              tags={tags}
-              setTags={setTags}
               onFileChange={handleFileChange}
               onSubmit={handleSourceAdd}
             />
@@ -524,8 +500,6 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
               rawText={rawText}
               setRawText={setRawText}
               isLoading={isLoading}
-              tags={tags}
-              setTags={setTags}
               onSubmit={handleSourceAdd}
             />
           )}
@@ -541,8 +515,6 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
               setBulkQAText={setBulkQAText}
               isLoading={isLoading}
               isQAFormValid={isQAFormValid}
-              tags={tags}
-              setTags={setTags}
               onAddQAPair={addQAPair}
               onUpdateQAPair={updateQAPair}
               onRemoveQAPair={removeQAPair}

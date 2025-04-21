@@ -4,7 +4,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { TagInput } from "../TagInput";
 
 interface TextSourceFormProps {
   textFileName: string;
@@ -13,8 +12,6 @@ interface TextSourceFormProps {
   rawText: string;
   setRawText: (text: string) => void;
   isLoading: boolean;
-  tags: string[];
-  setTags: (tags: string[]) => void;
   onSubmit: () => void;
 }
 
@@ -25,8 +22,6 @@ export const TextSourceForm: React.FC<TextSourceFormProps> = ({
   rawText,
   setRawText,
   isLoading,
-  tags,
-  setTags,
   onSubmit
 }) => {
   return (
@@ -46,13 +41,6 @@ export const TextSourceForm: React.FC<TextSourceFormProps> = ({
         onChange={(e) => setRawText(e.target.value)}
         className="min-h-32 resize-y"
       />
-      
-      <TagInput 
-        tags={tags} 
-        setTags={setTags} 
-        disabled={isLoading} 
-      />
-      
       <Button 
         className="w-full" 
         disabled={!rawText || !!textFileNameError || isLoading}
