@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -258,35 +259,6 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
         });
         return;
       }
-      
-      const textFile = createTextFile(
-        rawText, 
-        textFileName.endsWith('.txt') ? textFileName : `${textFileName}.txt`
-      );
-      
-      const formData = new FormData();
-      formData.append('file', textFile);
-
-      // Include tags in metadata, same as file
-      const metadataObj = { 
-        inner: { 
-          tags: textTags 
-        }
-      };
-      formData.append('metadata', JSON.stringify(metadataObj));
-
-      console.log('Sending text upload metadata:', JSON.stringify(metadataObj));
-
-      const options = {
-        method: 'POST',
-        headers: {
-          accept: 'application/json',
-          Authorization: org.voiceflow_api_key
-        },
-        body: formData
-      };
-
-      response = await fetch('https://api.voiceflow.com/v1/knowledge-base/docs/upload?maxChunkSize=1000', options);
     } else if (selectedSourceType === "file") {
       if (!file) {
         toast({
@@ -361,6 +333,35 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
         };
 
         response = await fetch('https://api.voiceflow.com/v1/knowledge-base/docs/upload?maxChunkSize=1000', options);
+      } else if (selectedSourceType === "text" && rawText) {
+        const textFile = createTextFile(
+          rawText, 
+          textFileName.endsWith('.txt') ? textFileName : `${textFileName}.txt`
+        );
+        
+        const formData = new FormData();
+        formData.append('file', textFile);
+
+        // Include tags in metadata, same as file
+        const metadataObj = { 
+          inner: { 
+            tags: textTags 
+          }
+        };
+        formData.append('metadata', JSON.stringify(metadataObj));
+
+        console.log('Sending text upload metadata:', JSON.stringify(metadataObj));
+
+        const options = {
+          method: 'POST',
+          headers: {
+            accept: 'application/json',
+            Authorization: org.voiceflow_api_key
+          },
+          body: formData
+        };
+
+        response = await fetch('https://api.voiceflow.com/v1/knowledge-base/docs/upload?maxChunkSize=1000', options);
       } else if (selectedSourceType === "file" && file) {
         const formData = new FormData();
         formData.append('file', file);
@@ -375,25 +376,6 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
         formData.append('metadata', JSON.stringify(metadataObj));
 
         console.log('Sending file metadata:', JSON.stringify(metadataObj));
-
-        const options = {
-          method: 'POST',
-          headers: {
-            accept: 'application/json',
-            Authorization: org.voiceflow_api_key
-          },
-          body: formData
-        };
-
-        response = await fetch('https://api.voiceflow.com/v1/knowledge-base/docs/upload?maxChunkSize=1000', options);
-      } else if (selectedSourceType === "text" && rawText) {
-        const textFile = createTextFile(
-          rawText, 
-          textFileName.endsWith('.txt') ? textFileName : `${textFileName}.txt`
-        );
-        
-        const formData = new FormData();
-        formData.append('file', textFile);
 
         const options = {
           method: 'POST',
