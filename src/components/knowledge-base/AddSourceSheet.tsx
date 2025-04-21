@@ -31,10 +31,6 @@ import { URLSourceForm } from "./source-forms/URLSourceForm";
 import { FileSourceForm } from "./source-forms/FileSourceForm";
 import { TextSourceForm } from "./source-forms/TextSourceForm";
 import { QASourceForm } from "./source-forms/QASourceForm";
-import { AddSourceSheetUrlForm } from "./AddSourceSheetUrlForm";
-import { AddSourceSheetFileForm } from "./AddSourceSheetFileForm";
-import { AddSourceSheetTextForm } from "./AddSourceSheetTextForm";
-import { AddSourceSheetQAForm } from "./AddSourceSheetQAForm";
 
 interface AddSourceSheetProps {
   isOpen: boolean;
@@ -70,7 +66,6 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
   const [rawText, setRawText] = useState("");
   const [textFileName, setTextFileName] = useState("custom-text.txt");
   const [textFileNameError, setTextFileNameError] = useState("");
-  const [textTags, setTextTags] = useState<string[]>([]); // NEW
   
   // Q&A form state
   const [qaTitle, setQaTitle] = useState("");
@@ -370,16 +365,6 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
         const formData = new FormData();
         formData.append('file', textFile);
 
-        // Add tags to metadata, same as in file upload
-        const metadataObj = { 
-          inner: { 
-            tags: textTags 
-          } 
-        };
-        formData.append('metadata', JSON.stringify(metadataObj));
-
-        console.log('Sending text metadata:', JSON.stringify(metadataObj));
-
         const options = {
           method: 'POST',
           headers: {
@@ -421,6 +406,7 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
       console.log('Voiceflow response:', result);
 
       onSourceAdded();
+
       toast({
         title: "Suksess",
         description: "Kilde lagt til i kunnskapsbasen",
@@ -448,7 +434,6 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
     setFileTags([]);
     setRawText("");
     setTextFileName("custom-text.txt");
-    setTextTags([]); // NEW
     setQaTitle("");
     setQaPairs([{ question: "", answer: "", id: crypto.randomUUID() }]);
     setUrlError("");
@@ -499,48 +484,61 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
               </SelectContent>
             </Select>
           </div>
-
+          
           {selectedSourceType === "url" && (
-            <AddSourceSheetUrlForm
-              sources={sources}
+            <URLSourceForm
+              url={url}
+              setUrl={setUrl}
+              urlError={urlError}
+              duplicateUrlWarning={duplicateUrlWarning}
               isLoading={isLoading}
-              onSourceAdded={onSourceAdded}
-              onOpenChange={onOpenChange}
+              onSubmit={handleSourceAdd}
             />
           )}
-
+          
           {selectedSourceType === "file" && (
-            <AddSourceSheetFileForm
-              sources={sources}
+            <FileSourceForm
+              file={file}
+              fileTitle={fileTitle}
+              setFileTitle={setFileTitle}
+              duplicateFileWarning={duplicateFileWarning}
               isLoading={isLoading}
-              onSourceAdded={onSourceAdded}
-              onOpenChange={onOpenChange}
+              onFileChange={handleFileChange}
+              onSubmit={handleSourceAdd}
+              tags={fileTags}
+              setTags={setFileTags}
             />
           )}
-
+          
           {selectedSourceType === "text" && (
-            <AddSourceSheetTextForm
-              sources={sources}
-              isLoading={isLoading}
-              onSourceAdded={onSourceAdded}
-              onOpenChange={onOpenChange}
+            <TextSourceForm
               textFileName={textFileName}
               setTextFileName={setTextFileName}
               textFileNameError={textFileNameError}
               rawText={rawText}
               setRawText={setRawText}
-              tags={textTags}
-              setTags={setTextTags}
+              isLoading={isLoading}
               onSubmit={handleSourceAdd}
             />
           )}
-
+          
           {selectedSourceType === "qa" && (
-            <AddSourceSheetQAForm
-              sources={sources}
+            <QASourceForm
+              qaTitle={qaTitle}
+              setQaTitle={setQaTitle}
+              qaPairs={qaPairs}
+              duplicateQATitleWarning={duplicateQATitleWarning}
+              showQABulkUpload={showQABulkUpload}
+              bulkQAText={bulkQAText}
+              setBulkQAText={setBulkQAText}
               isLoading={isLoading}
-              onSourceAdded={onSourceAdded}
-              onOpenChange={onOpenChange}
+              isQAFormValid={isQAFormValid}
+              onAddQAPair={addQAPair}
+              onUpdateQAPair={updateQAPair}
+              onRemoveQAPair={removeQAPair}
+              onToggleBulkUpload={() => setShowQABulkUpload(!showQABulkUpload)}
+              onProcessBulk={processBulkQAText}
+              onSubmit={handleSourceAdd}
             />
           )}
         </div>
