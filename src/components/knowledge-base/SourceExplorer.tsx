@@ -135,13 +135,18 @@ export const SourceExplorer: React.FC<SourceExplorerProps> = ({
                       </a>
                     </div>
                   )}
-                  
                   <h4 className="font-medium text-sm text-gray-500">Innhold:</h4>
-                  
                   <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
                     {chunks.map((chunk) => (
                       <div key={chunk.chunkID} className="p-3 bg-white border rounded-md">
-                        <p className="whitespace-pre-wrap text-sm">{chunk.content}</p>
+                        <p className="whitespace-pre-wrap text-sm">
+                          {chunk.content}
+                        </p>
+                        {chunk.tags && chunk.tags.length > 0 && (
+                          <div className="mt-2 text-xs text-gray-400">
+                            ({chunk.tags.join(", ")})
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

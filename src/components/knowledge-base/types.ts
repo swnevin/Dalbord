@@ -1,3 +1,4 @@
+
 export interface VoiceflowDocument {
   documentID: string;
   detectedType?: SourceType;
@@ -21,6 +22,7 @@ export interface Chunk {
   documentID: string;
   index: number;
   relevance: number;
+  tags?: string[]; // New: tags for the chunk
 }
 
 export interface VoiceflowResponse {
