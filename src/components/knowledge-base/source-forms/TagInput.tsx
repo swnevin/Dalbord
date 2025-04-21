@@ -104,11 +104,6 @@ export const TagInput: React.FC<TagInputProps> = ({
           <span
             key={tag}
             className="inline-flex items-center bg-[#F1F5F9] text-[#28483F] border border-[#cbd5e1] text-xs px-2 py-1 rounded mr-1 mt-1 font-medium"
-            style={{
-              background: "#F1F5F9",
-              color: "#28483F",
-              border: "1px solid #cbd5e1"
-            }}
           >
             {tag}
             <button

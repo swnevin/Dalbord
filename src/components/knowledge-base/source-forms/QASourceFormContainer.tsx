@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { QASourceForm } from "./QASourceForm";
 import { VoiceflowDocument, QAPair } from "../types";
@@ -28,6 +27,12 @@ export const QASourceFormContainer: React.FC<QASourceFormContainerProps> = ({
   const [bulkQAText, setBulkQAText] = useState("");
   const [duplicateQATitleWarning, setDuplicateQATitleWarning] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isAsk, setIsAsk] = useState(false);
+
+  useEffect(() => {
+    const askMode = localStorage.getItem("askModeQAKB") === "true";
+    setIsAsk(askMode);
+  }, []);
 
   useEffect(() => {
     if (qaTitle.trim()) {
@@ -253,6 +258,7 @@ export const QASourceFormContainer: React.FC<QASourceFormContainerProps> = ({
       setBulkQAText={setBulkQAText}
       isLoading={isLoading}
       isQAFormValid={isQAFormValid}
+      isAsk={isAsk}
       onAddQAPair={addQAPair}
       onUpdateQAPair={updateQAPair}
       onRemoveQAPair={removeQAPair}

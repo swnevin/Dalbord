@@ -18,6 +18,7 @@ interface QASourceFormProps {
   setBulkQAText: (text: string) => void;
   isLoading: boolean;
   isQAFormValid: boolean;
+  isAsk?: boolean;
   onAddQAPair: () => void;
   onUpdateQAPair: (id: string, field: "question" | "answer", value: string) => void;
   onRemoveQAPair: (id: string) => void;
@@ -37,6 +38,7 @@ export const QASourceForm: React.FC<QASourceFormProps> = ({
   setBulkQAText,
   isLoading,
   isQAFormValid,
+  isAsk = false,
   onAddQAPair,
   onUpdateQAPair,
   onRemoveQAPair,
@@ -45,13 +47,6 @@ export const QASourceForm: React.FC<QASourceFormProps> = ({
   onProcessBulk,
   onSubmit
 }) => {
-  // Add support for Ask project style tag input by reading isAsk from the first QAPair (if exists) or from props if you pass isAsk directly in future enhancements
-  const isAsk =
-    (typeof window !== "undefined" &&
-      window.localStorage &&
-      window.localStorage.getItem("askModeQAKB") === "true") ||
-    undefined; // fallback if you later want a global flag
-
   return (
     <div className="space-y-4">
       <div className="space-y-2">
@@ -110,8 +105,6 @@ export const QASourceForm: React.FC<QASourceFormProps> = ({
             <TagInput
               tags={pair.tags}
               setTags={(newTags) => onUpdateQAPairTags(pair.id, newTags)}
-              label="Tags (valgfri)"
-              placeholder="Skriv inn tag og trykk +"
               disabled={isLoading}
               isAsk={isAsk}
               required={isAsk}
