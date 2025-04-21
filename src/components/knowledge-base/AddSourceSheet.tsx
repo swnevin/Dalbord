@@ -70,6 +70,7 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
   const [rawText, setRawText] = useState("");
   const [textFileName, setTextFileName] = useState("custom-text.txt");
   const [textFileNameError, setTextFileNameError] = useState("");
+  const [textTags, setTextTags] = useState<string[]>([]); // NEW
   
   // Q&A form state
   const [qaTitle, setQaTitle] = useState("");
@@ -369,6 +370,16 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
         const formData = new FormData();
         formData.append('file', textFile);
 
+        // Add tags to metadata, same as in file upload
+        const metadataObj = { 
+          inner: { 
+            tags: textTags 
+          } 
+        };
+        formData.append('metadata', JSON.stringify(metadataObj));
+
+        console.log('Sending text metadata:', JSON.stringify(metadataObj));
+
         const options = {
           method: 'POST',
           headers: {
@@ -410,7 +421,6 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
       console.log('Voiceflow response:', result);
 
       onSourceAdded();
-
       toast({
         title: "Suksess",
         description: "Kilde lagt til i kunnskapsbasen",
@@ -438,6 +448,7 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
     setFileTags([]);
     setRawText("");
     setTextFileName("custom-text.txt");
+    setTextTags([]); // NEW
     setQaTitle("");
     setQaPairs([{ question: "", answer: "", id: crypto.randomUUID() }]);
     setUrlError("");
@@ -513,6 +524,14 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
               isLoading={isLoading}
               onSourceAdded={onSourceAdded}
               onOpenChange={onOpenChange}
+              textFileName={textFileName}
+              setTextFileName={setTextFileName}
+              textFileNameError={textFileNameError}
+              rawText={rawText}
+              setRawText={setRawText}
+              tags={textTags}
+              setTags={setTextTags}
+              onSubmit={handleSourceAdd}
             />
           )}
 
