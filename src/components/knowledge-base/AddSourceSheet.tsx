@@ -1,13 +1,9 @@
+
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Upload, Plus, AlertCircle } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Label } from "@/components/ui/label";
 import {
   Sheet,
   SheetContent,
@@ -26,10 +22,9 @@ import {
 import {
   VoiceflowDocument, QAPair
 } from "./types";
-import { normalizeUrl, ensureQATitleSuffix, createTextFile, createQAPayload } from "./utils";
+import { normalizeUrl, ensureQATitleSuffix, createQAPayload } from "./utils";
 import { URLSourceForm } from "./source-forms/URLSourceForm";
 import { FileSourceForm } from "./source-forms/FileSourceForm";
-import { TextSourceForm } from "./source-forms/TextSourceForm";
 import { QASourceForm } from "./source-forms/QASourceForm";
 
 interface AddSourceSheetProps {
@@ -47,7 +42,7 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
 }) => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [selectedSourceType, setSelectedSourceType] = useState<"url" | "file" | "text" | "qa">("url");
+  const [selectedSourceType, setSelectedSourceType] = useState<"url" | "file" | "qa">("url");
   const [isLoading, setIsLoading] = useState(false);
   
   // URL form state
@@ -62,11 +57,6 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
   const [duplicateFileWarning, setDuplicateFileWarning] = useState(false);
   const [fileTags, setFileTags] = useState<string[]>([]);
 
-  // Text form state
-  const [rawText, setRawText] = useState("");
-  const [textFileName, setTextFileName] = useState("custom-text.txt");
-  const [textFileNameError, setTextFileNameError] = useState("");
-  
   // Q&A form state
   const [qaTitle, setQaTitle] = useState("");
   const [qaPairs, setQaPairs] = useState<QAPair[]>([
@@ -84,15 +74,6 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
       setUrlError('');
     }
   }, [url]);
-
-  // Text filename validation
-  useEffect(() => {
-    if (textFileName && !textFileName.endsWith('.txt')) {
-      setTextFileNameError('Filnavnet må slutte med .txt');
-    } else {
-      setTextFileNameError('');
-    }
-  }, [textFileName]);
 
   // Check for duplicate QA title
   useEffect(() => {
@@ -239,24 +220,6 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
         });
         return;
       }
-    } else if (selectedSourceType === "text") {
-      if (!rawText) {
-        toast({
-          title: "Feil",
-          description: "Tekst kan ikke være tom.",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      if (!textFileName.endsWith('.txt')) {
-        toast({
-          title: "Feil",
-          description: "Filnavnet må slutte med .txt",
-          variant: "destructive",
-        });
-        return;
-      }
     } else if (selectedSourceType === "file") {
       if (!file) {
         toast({
@@ -356,25 +319,6 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
         };
 
         response = await fetch('https://api.voiceflow.com/v1/knowledge-base/docs/upload?maxChunkSize=1000', options);
-      } else if (selectedSourceType === "text" && rawText) {
-        const textFile = createTextFile(
-          rawText, 
-          textFileName.endsWith('.txt') ? textFileName : `${textFileName}.txt`
-        );
-        
-        const formData = new FormData();
-        formData.append('file', textFile);
-
-        const options = {
-          method: 'POST',
-          headers: {
-            accept: 'application/json',
-            Authorization: org.voiceflow_api_key
-          },
-          body: formData
-        };
-
-        response = await fetch('https://api.voiceflow.com/v1/knowledge-base/docs/upload?maxChunkSize=1000', options);
       } else if (selectedSourceType === "qa" && qaTitle) {
         const qaPayload = createQAPayload(qaTitle, qaPairs);
         const shouldOverwrite = duplicateQATitleWarning;
@@ -432,12 +376,9 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
     setFile(null);
     setFileTitle("");
     setFileTags([]);
-    setRawText("");
-    setTextFileName("custom-text.txt");
     setQaTitle("");
     setQaPairs([{ question: "", answer: "", id: crypto.randomUUID() }]);
     setUrlError("");
-    setTextFileNameError("");
   };
 
   const handleFileChange = (file: File | null) => {
@@ -463,7 +404,7 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
         <SheetHeader>
           <SheetTitle>Legg til ny kilde</SheetTitle>
           <SheetDescription>
-            Last opp en fil, legg til en URL eller skriv inn tekst til kunnskapsbasen.
+            Last opp en fil, legg til en URL eller spørsmål og svar til kunnskapsbasen.
           </SheetDescription>
         </SheetHeader>
         
@@ -471,7 +412,7 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
           <div className="mb-4">
             <Select 
               value={selectedSourceType} 
-              onValueChange={(value) => setSelectedSourceType(value as "url" | "file" | "text" | "qa")}
+              onValueChange={(value) => setSelectedSourceType(value as "url" | "file" | "qa")}
             >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Velg kildetype" />
@@ -479,7 +420,6 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
               <SelectContent>
                 <SelectItem value="url">URL</SelectItem>
                 <SelectItem value="file">Filopplasting</SelectItem>
-                <SelectItem value="text">Rå tekst</SelectItem>
                 <SelectItem value="qa">Spørsmål & Svar</SelectItem>
               </SelectContent>
             </Select>
@@ -510,18 +450,6 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
             />
           )}
           
-          {selectedSourceType === "text" && (
-            <TextSourceForm
-              textFileName={textFileName}
-              setTextFileName={setTextFileName}
-              textFileNameError={textFileNameError}
-              rawText={rawText}
-              setRawText={setRawText}
-              isLoading={isLoading}
-              onSubmit={handleSourceAdd}
-            />
-          )}
-          
           {selectedSourceType === "qa" && (
             <QASourceForm
               qaTitle={qaTitle}
@@ -546,3 +474,4 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
     </Sheet>
   );
 };
+
