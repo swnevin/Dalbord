@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { AlertCircle, Upload } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { TagInput } from "./TagInput";
 
 interface FileSourceFormProps {
   file: File | null;
@@ -14,6 +15,8 @@ interface FileSourceFormProps {
   isLoading: boolean;
   onFileChange: (file: File | null) => void;
   onSubmit: () => void;
+  tags: string[];
+  setTags: (tags: string[]) => void;
 }
 
 export const FileSourceForm: React.FC<FileSourceFormProps> = ({
@@ -23,7 +26,9 @@ export const FileSourceForm: React.FC<FileSourceFormProps> = ({
   duplicateFileWarning,
   isLoading,
   onFileChange,
-  onSubmit
+  onSubmit,
+  tags,
+  setTags,
 }) => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -51,6 +56,7 @@ export const FileSourceForm: React.FC<FileSourceFormProps> = ({
               value={fileTitle}
               onChange={(e) => setFileTitle(e.target.value)}
               className={duplicateFileWarning ? "border-red-500 mb-1" : "mb-2"}
+              disabled={isLoading}
             />
             {duplicateFileWarning && (
               <div className="flex gap-2 items-center mt-1 mb-2 text-yellow-600 text-sm">
@@ -60,13 +66,12 @@ export const FileSourceForm: React.FC<FileSourceFormProps> = ({
             )}
           </>
         )}
-      
         <div 
           className={cn(
             "border-2 border-dashed rounded-lg p-6 text-center transition-colors",
             "hover:border-primary/50 hover:bg-primary/5 cursor-pointer"
           )}
-          onClick={() => document.getElementById("file-upload")?.click()}
+          onClick={() => !isLoading && document.getElementById("file-upload")?.click()}
         >
           <Upload className="mx-auto h-8 w-8 text-gray-400 mb-2" />
           <p className="text-sm text-gray-500">
@@ -78,9 +83,11 @@ export const FileSourceForm: React.FC<FileSourceFormProps> = ({
             accept=".pdf,.txt,.docx"
             className="hidden"
             onChange={handleFileChange}
+            disabled={isLoading}
           />
         </div>
       </div>
+      <TagInput tags={tags} setTags={setTags} disabled={isLoading} />
       <Button 
         className="w-full" 
         disabled={!file || duplicateFileWarning || isLoading}

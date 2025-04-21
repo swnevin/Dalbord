@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,7 +58,8 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
   const [file, setFile] = useState<File | null>(null);
   const [fileTitle, setFileTitle] = useState("");
   const [duplicateFileWarning, setDuplicateFileWarning] = useState(false);
-  
+  const [fileTags, setFileTags] = useState<string[]>([]);
+
   // Text form state
   const [rawText, setRawText] = useState("");
   const [textFileName, setTextFileName] = useState("custom-text.txt");
@@ -333,6 +333,9 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
         const formData = new FormData();
         formData.append('file', file);
 
+        const metadataObj = { inner: { tags: fileTags } };
+        formData.append('metadata', JSON.stringify(metadataObj));
+
         const options = {
           method: 'POST',
           headers: {
@@ -416,6 +419,7 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
     setUrlTitle("");
     setFile(null);
     setFileTitle("");
+    setFileTags([]);
     setRawText("");
     setTextFileName("custom-text.txt");
     setQaTitle("");
@@ -489,6 +493,8 @@ export const AddSourceSheet: React.FC<AddSourceSheetProps> = ({
               isLoading={isLoading}
               onFileChange={handleFileChange}
               onSubmit={handleSourceAdd}
+              tags={fileTags}
+              setTags={setFileTags}
             />
           )}
           
