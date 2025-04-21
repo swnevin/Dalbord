@@ -3,7 +3,6 @@ import React from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { AlertCircle } from "lucide-react";
-import { TagInput } from "../TagInput";
 
 interface URLSourceFormProps {
   url: string;
@@ -11,8 +10,6 @@ interface URLSourceFormProps {
   urlError: string;
   duplicateUrlWarning: boolean;
   isLoading: boolean;
-  tags: string[];
-  onTagsChange: (tags: string[]) => void;
   onSubmit: () => void;
 }
 
@@ -22,8 +19,6 @@ export const URLSourceForm: React.FC<URLSourceFormProps> = ({
   urlError,
   duplicateUrlWarning,
   isLoading,
-  tags,
-  onTagsChange,
   onSubmit
 }) => {
   return (
@@ -43,9 +38,6 @@ export const URLSourceForm: React.FC<URLSourceFormProps> = ({
           </div>
         )}
       </div>
-      
-      <TagInput tags={tags} onChange={onTagsChange} />
-      
       <Button 
         className="w-full" 
         disabled={!url || !!urlError || duplicateUrlWarning || isLoading}
