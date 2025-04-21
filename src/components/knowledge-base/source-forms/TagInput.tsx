@@ -89,13 +89,9 @@ export const TagInput: React.FC<TagInputProps> = ({
           <button
             type="button"
             className={
-              "inline-block bg-[#e9ecef] hover:bg-[#d9dee2] text-sm font-medium rounded px-3 py-1 transition-colors" +
+              "inline-block bg-[#F1F5F9] text-[#28483F] hover:bg-[#E2B808] hover:text-[#28483F] text-sm font-medium rounded px-3 py-1 transition-colors border border-[#cbd5e1] mb-1" +
               (tags.includes(allProductsTag) ? " opacity-60 cursor-not-allowed" : " cursor-pointer")
             }
-            style={{
-              border: "1px solid #cbd5e1",
-              marginBottom: "2px"
-            }}
             disabled={tags.includes(allProductsTag) || disabled}
             onClick={() => addTag(allProductsTag)}
           >
@@ -105,7 +101,15 @@ export const TagInput: React.FC<TagInputProps> = ({
       )}
       <div className="flex flex-wrap gap-1 mt-2">
         {tags.map(tag => (
-          <span key={tag} className="inline-flex items-center bg-secondary text-xs px-2 py-1 rounded mr-1 mt-1">
+          <span
+            key={tag}
+            className="inline-flex items-center bg-[#F1F5F9] text-[#28483F] border border-[#cbd5e1] text-xs px-2 py-1 rounded mr-1 mt-1 font-medium"
+            style={{
+              background: "#F1F5F9",
+              color: "#28483F",
+              border: "1px solid #cbd5e1"
+            }}
+          >
             {tag}
             <button
               type="button"
@@ -114,7 +118,7 @@ export const TagInput: React.FC<TagInputProps> = ({
               aria-label={`Fjern tag: ${tag}`}
               disabled={disabled}
             >
-              <X className="w-3 h-3 text-gray-500 hover:text-destructive" />
+              <X className="w-3 h-3 text-[#28483F] hover:text-destructive" />
             </button>
           </span>
         ))}
