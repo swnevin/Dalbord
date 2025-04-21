@@ -14,8 +14,8 @@ interface TagInputProps {
 export const TagInput: React.FC<TagInputProps> = ({
   tags,
   setTags,
-  label = "Tags",
-  placeholder = "Skriv et tag og trykk +",
+  label = "Tags (valgfri)",
+  placeholder = "Skriv inn tag og trykk +",
   disabled = false,
 }) => {
   const [inputValue, setInputValue] = useState("");

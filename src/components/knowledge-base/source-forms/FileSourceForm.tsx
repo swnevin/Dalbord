@@ -89,10 +89,10 @@ export const FileSourceForm: React.FC<FileSourceFormProps> = ({
       </div>
       <TagInput 
         tags={tags} 
-        setTags={setTags} 
-        disabled={isLoading} 
-        label="Tags (valgfritt)"
-        placeholder="Skriv et tag og trykk +"
+        setTags={setTags}
+        disabled={isLoading}
+        label="Tags (valgfri)"
+        placeholder="Skriv inn tag og trykk +"
       />
       <Button 
         className="w-full" 

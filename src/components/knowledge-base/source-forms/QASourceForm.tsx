@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -102,8 +103,8 @@ export const QASourceForm: React.FC<QASourceFormProps> = ({
             <TagInput
               tags={pair.tags}
               setTags={(newTags) => onUpdateQAPairTags(pair.id, newTags)}
-              label="Tags for dette spørsmål og svar"
-              placeholder="Legg til tag(s)"
+              label="Tags (valgfri)"
+              placeholder="Skriv inn tag og trykk +"
               disabled={isLoading}
             />
           </div>

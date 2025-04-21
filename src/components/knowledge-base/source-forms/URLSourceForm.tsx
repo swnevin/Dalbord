@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -45,8 +46,8 @@ export const URLSourceForm: React.FC<URLSourceFormProps> = ({
       <TagInput
         tags={tags}
         setTags={setTags}
-        label="Tags for URL"
-        placeholder="Skriv et tag og trykk +"
+        label="Tags (valgfri)"
+        placeholder="Skriv inn tag og trykk +"
         disabled={isLoading}
       />
       <Button 
