@@ -56,6 +56,11 @@ export const TagInput: React.FC<TagInputProps> = ({
   const displayLabel = isAsk ? askLabel : label;
   const displayPlaceholder = isAsk ? askPlaceholder : placeholder;
 
+  // For debugging - remove in production
+  console.log("TagInput isAsk:", isAsk);
+  console.log("TagInput displayLabel:", displayLabel);
+  console.log("TagInput displayPlaceholder:", displayPlaceholder);
+
   return (
     <div>
       <label className="block text-sm font-medium mb-1">

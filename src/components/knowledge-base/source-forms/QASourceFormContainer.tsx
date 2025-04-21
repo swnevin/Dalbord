@@ -32,7 +32,22 @@ export const QASourceFormContainer: React.FC<QASourceFormContainerProps> = ({
   useEffect(() => {
     const askMode = localStorage.getItem("askModeQAKB") === "true";
     setIsAsk(askMode);
-  }, []);
+    
+    if (user?.organization_id) {
+      supabase
+        .from("organizations")
+        .select("isAsk")
+        .eq("id", user.organization_id)
+        .single()
+        .then(({ data, error }) => {
+          if (!error && data) {
+            const orgIsAsk = !!data.isAsk;
+            setIsAsk(orgIsAsk);
+            localStorage.setItem("askModeQAKB", orgIsAsk.toString());
+          }
+        });
+    }
+  }, [user?.organization_id]);
 
   useEffect(() => {
     if (qaTitle.trim()) {
