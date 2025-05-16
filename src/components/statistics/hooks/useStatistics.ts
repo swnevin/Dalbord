@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -527,9 +528,9 @@ export const useStatistics = (
             escalationChart: false
           }));
         }
-      } catch (error) {
+      } catch (err) {
         if (isMounted && !abortController.signal.aborted) {
-          console.error('Error fetching feedback metrics:', error);
+          console.error('Error fetching feedback metrics:', err);
           toast.error('Kunne ikke hente tilbakemeldingsdata');
           setLoading(prev => ({
             ...prev,
