@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -11,46 +10,40 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Loader } from "@/components/ui/loader";
 import { Database } from "@/integrations/supabase/types";
-import { ChartType, ChartPreference, SectionType } from "../statistics/hooks/useChartPreferences";
-
+import { ChartPreference, ChartType } from "../statistics/hooks/useChartPreferences";
 interface ProjectSettingsSheetProps {
   organizationId: string;
   organizationName: string;
 }
-
-const chartLabels: Record<string, string> = {
+const chartLabels: Record<ChartType, string> = {
   total_messages: "Antall meldinger",
+  total_sessions: "Antall samtaler",
+  total_conversations: "Antall brukere",
+  escalated_count: "Eskalerte samtaler",
+  thumbs_up: "Tommel opp",
+  thumbs_down: "Tommel ned",
+  success_metrics: "Vellykkede svar og Fallback",
   users_over_time: "Brukere over tid",
   sessions_over_time: "Samtaler over tid",
   messages_over_time: "Meldinger over tid",
   topics: "Temaer",
   feedback_pie: "Tilbakemeldinger på svar",
-  thumbs_up: "Tommel opp",
-  thumbs_down: "Tommel ned",
   success_vs_fallback: "Svar vs Fallback",
-  success_metrics: "Vellykkede svar og Fallback",
-  escalations: "Eskalerte samtaler",
   savings_time: "Timer spart",
-  savings_money: "Penger spart",
-  add_to_cart: "Legg til i handlekurv"
+  savings_money: "Penger spart"
 };
-
-const chartGroups: Record<string, string[]> = {
-  summary: ["total_messages", "thumbs_up", "thumbs_down", "success_metrics"],
+const chartGroups: Record<string, ChartType[]> = {
+  summary: ["total_messages", "total_sessions", "total_conversations", "escalated_count", "thumbs_up", "thumbs_down", "success_metrics"],
   detailed_analysis: ["users_over_time", "sessions_over_time", "messages_over_time", "topics"],
-  question_handling: ["feedback_pie", "success_vs_fallback", "escalations"],
-  savings: ["savings_time", "savings_money"],
-  cart_metrics: ["add_to_cart"]
+  question_handling: ["feedback_pie", "success_vs_fallback"],
+  savings: ["savings_time", "savings_money"]
 };
-
 const sectionLabels: Record<string, string> = {
   summary: "Sammendrag",
   detailed_analysis: "Detaljert analyse",
   question_handling: "Håndtering av spørsmål",
-  savings: "Besparelser",
-  cart_metrics: "Handlekurv-statistikk"
+  savings: "Besparelser"
 };
-
 export const ProjectSettingsSheet = ({
   organizationId,
   organizationName
@@ -61,7 +54,6 @@ export const ProjectSettingsSheet = ({
   const [isSaving, setIsSaving] = useState(false);
   const [isAsk, setIsAsk] = useState(false);
   const [isAskUpdating, setIsAskUpdating] = useState(false);
-
   const fetchOrganizationSettings = async () => {
     try {
       const {
@@ -75,7 +67,6 @@ export const ProjectSettingsSheet = ({
       toast.error("Kunne ikke hente informasjon om prosjektet");
     }
   };
-
   const fetchPreferences = async () => {
     setIsLoading(true);
     try {
@@ -101,7 +92,6 @@ export const ProjectSettingsSheet = ({
       setIsLoading(false);
     }
   };
-
   const handleIsAskChange = async (checked: boolean) => {
     setIsAskUpdating(true);
     setIsAsk(checked);
@@ -121,8 +111,7 @@ export const ProjectSettingsSheet = ({
       setIsAskUpdating(false);
     }
   };
-
-  const updateChartVisibility = async (chartType: string, isVisible: boolean) => {
+  const updateChartVisibility = async (chartType: ChartType, isVisible: boolean) => {
     const updatedPreferences = preferences.map(pref => pref.chart_type === chartType ? {
       ...pref,
       is_visible: isVisible
@@ -141,7 +130,6 @@ export const ProjectSettingsSheet = ({
       fetchPreferences();
     }
   };
-
   const updateSectionVisibility = async (sectionKey: string, isVisible: boolean) => {
     setSectionVisibility(prev => ({
       ...prev,
@@ -160,47 +148,36 @@ export const ProjectSettingsSheet = ({
     }
     setPreferences(updatedPreferences);
     try {
-      // Create an array of updates for all chart types in this section
       const updates = sectionCharts.map(chartType => ({
         organization_id: organizationId,
         chart_type: chartType,
         is_visible: isVisible
       }));
-      
-      // Update each chart preference individually to avoid type errors
-      for (const update of updates) {
-        const { error } = await supabase
-          .from("statistics_preferences")
-          .upsert(update, {
-            onConflict: 'organization_id,chart_type'
-          });
-          
-        if (error) throw error;
-      }
+      const {
+        error
+      } = await supabase.from("statistics_preferences").upsert(updates, {
+        onConflict: 'organization_id,chart_type'
+      });
+      if (error) throw error;
     } catch (error) {
       console.error("Error updating section visibility:", error);
       toast.error("Kunne ikke oppdatere seksjonens innstillinger");
       fetchPreferences();
     }
   };
-
   const saveAllPreferences = async () => {
     setIsSaving(true);
     try {
-      // To avoid type issues, we'll update each preference individually
-      for (const pref of preferences) {
-        const { error } = await supabase
-          .from("statistics_preferences")
-          .upsert({
-            id: pref.id,
-            organization_id: pref.organization_id,
-            chart_type: pref.chart_type,
-            is_visible: pref.is_visible,
-            display_order: pref.display_order
-          });
-          
-        if (error) throw error;
-      }
+      const {
+        error
+      } = await supabase.from("statistics_preferences").upsert(preferences.map(pref => ({
+        id: pref.id,
+        organization_id: pref.organization_id,
+        chart_type: pref.chart_type as ChartType,
+        is_visible: pref.is_visible,
+        display_order: pref.display_order
+      })));
+      if (error) throw error;
       toast.success("Innstillingene ble lagret");
     } catch (error) {
       console.error("Error saving preferences:", error);
@@ -209,12 +186,10 @@ export const ProjectSettingsSheet = ({
       setIsSaving(false);
     }
   };
-
   useEffect(() => {
     fetchPreferences();
     fetchOrganizationSettings();
   }, [organizationId]);
-
   return <Sheet>
       <SheetTrigger asChild>
         <Button variant="outline" size="icon" title="Prosjektinnstillinger">
@@ -266,20 +241,15 @@ export const ProjectSettingsSheet = ({
                     <AccordionContent>
                       <div className="space-y-4 pt-2">
                         {chartTypes.map(chartType => {
-                          const preference = preferences.find(p => p.chart_type === chartType);
-                          if (!preference) return null;
-                          return <div key={chartType} className="flex items-center justify-between">
-                            <Label htmlFor={`chart-${chartType}`} className="cursor-pointer">
-                              {chartLabels[chartType] || chartType}
-                            </Label>
-                            <Switch 
-                              id={`chart-${chartType}`} 
-                              checked={preference.is_visible} 
-                              onCheckedChange={checked => updateChartVisibility(chartType, checked)} 
-                              disabled={!sectionVisibility[sectionKey]} 
-                            />
-                          </div>;
-                        })}
+                    const preference = preferences.find(p => p.chart_type === chartType);
+                    if (!preference) return null;
+                    return <div key={chartType} className="flex items-center justify-between">
+                              <Label htmlFor={`chart-${chartType}`} className="cursor-pointer">
+                                {chartLabels[chartType] || chartType}
+                              </Label>
+                              <Switch id={`chart-${chartType}`} checked={preference.is_visible} onCheckedChange={checked => updateChartVisibility(chartType, checked)} disabled={!sectionVisibility[sectionKey]} />
+                            </div>;
+                  })}
                       </div>
                     </AccordionContent>
                   </AccordionItem>)}

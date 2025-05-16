@@ -92,7 +92,7 @@ serve(async (req) => {
     const endDate = body.end_date ? new Date(body.end_date) : new Date() // Default to now
     
     // Prepare the metrics filter
-    const metricTypes = body.metrics || ['happy_face', 'neutral_face', 'sad_face', 'escalated_to_human', 'successful_answer', 'thumbs_up', 'thumbs_down', 'add_to_cart']
+    const metricTypes = body.metrics || ['happy_face', 'neutral_face', 'sad_face', 'escalated_to_human', 'successful_answer', 'thumbs_up', 'thumbs_down']
 
     // Query the metrics from the database
     let query = supabaseClient
