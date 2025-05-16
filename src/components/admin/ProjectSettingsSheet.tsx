@@ -10,7 +10,6 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Loader } from "@/components/ui/loader";
-import { Database } from "@/integrations/supabase/types";
 import { ChartType, ChartPreference } from "../statistics/hooks/useChartPreferences";
 
 interface ProjectSettingsSheetProps {
