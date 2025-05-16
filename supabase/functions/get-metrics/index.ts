@@ -1,4 +1,3 @@
-
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.21.0'
 
@@ -92,7 +91,7 @@ serve(async (req) => {
     const endDate = body.end_date ? new Date(body.end_date) : new Date() // Default to now
     
     // Prepare the metrics filter
-    const metricTypes = body.metrics || ['happy_face', 'neutral_face', 'sad_face', 'escalated_to_human', 'successful_answer', 'thumbs_up', 'thumbs_down']
+    const metricTypes = body.metrics || ['happy_face', 'neutral_face', 'sad_face', 'escalated_to_human', 'successful_answer', 'thumbs_up', 'thumbs_down', 'add_to_cart']
 
     // Query the metrics from the database
     let query = supabaseClient

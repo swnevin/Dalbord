@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { updateDateRange } from "./utils/dateUtils";
 import { StatisticsHeader } from "./StatisticsHeader";
@@ -9,11 +10,12 @@ import { FeedbackPieChart } from "./FeedbackPieChart";
 import { SavingsCharts } from "./SavingsCharts";
 import { SuccessMetricsCards } from "./SuccessMetricsCards";
 import { SuccessVsFallbackPieChart } from "./SuccessVsFallbackPieChart";
+import { CartMetricsSection } from "./CartMetricsSection";
 import { DateRange, TimeRange, SavingsSettings } from "./types";
 import { useStatistics } from "./hooks/useStatistics";
 import { useChartPreferences, ChartType } from "./hooks/useChartPreferences";
 import { Separator } from "@/components/ui/separator";
-import { ChartBarIcon, TrendingUpIcon, MessageSquareIcon, UserRoundIcon } from "lucide-react";
+import { ChartBarIcon, TrendingUpIcon, MessageSquareIcon, UserRoundIcon, ShoppingCartIcon } from "lucide-react";
 
 export const Statistics = () => {
   const [timeRange, setTimeRange] = useState<TimeRange>('7d');
@@ -88,6 +90,14 @@ export const Statistics = () => {
           </div>
         </div>
       )}
+
+      {/* Cart Metrics Section */}
+      <CartMetricsSection
+        addToCartCount={data.addToCartCount ?? 0}
+        addToCartTimeSeries={data.addToCartTimeSeries ?? []}
+        isLoading={loading.feedbackChart || isLoadingPreferences}
+        isVisible={isChartVisible('add_to_cart' as ChartType)}
+      />
 
       {/* Detailed Analytics Section */}
       {isSectionVisible('detailed_analysis') && (

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -33,7 +32,9 @@ export const useStatistics = (
     escalationTimeSeries: [],
     successVsFallbackTimeSeries: [],
     thumbsUpCount: 0,
-    thumbsDownCount: 0
+    thumbsDownCount: 0,
+    addToCartCount: 0,
+    addToCartTimeSeries: []
   });
   const [loading, setLoading] = useState<LoadingState>({
     summaryCards: true,
@@ -471,11 +472,13 @@ export const useStatistics = (
         const escalatedCount = metricsData.filter(m => m.metric_type === 'escalated_to_human').length;
         const thumbsUpCount = metricsData.filter(m => m.metric_type === 'thumbs_up').length;
         const thumbsDownCount = metricsData.filter(m => m.metric_type === 'thumbs_down').length;
+        const addToCartCount = metricsData.filter(m => m.metric_type === 'add_to_cart').length;
 
         // Process time series data
         const timeFrames = getTimeFrames(dateRange.from, dateRange.to);
         const feedbackTimeSeries: FeedbackTimeSeriesData[] = [];
         const escalationTimeSeries: TimeSeriesData[] = [];
+        const addToCartTimeSeries: TimeSeriesData[] = [];
       
         const daysDiff = differenceInDays(dateRange.to, dateRange.from);
       
@@ -489,6 +492,7 @@ export const useStatistics = (
           const neutral = frameMetrics.filter(m => m.metric_type === 'neutral_face').length;
           const sad = frameMetrics.filter(m => m.metric_type === 'sad_face').length;
           const escalated = frameMetrics.filter(m => m.metric_type === 'escalated_to_human').length;
+          const addToCart = frameMetrics.filter(m => m.metric_type === 'add_to_cart').length;
 
           // Format the date for display
           const dateLabel = formatDateLabel(frame.start, daysDiff);
@@ -504,6 +508,11 @@ export const useStatistics = (
             date: dateLabel,
             value: escalated
           });
+
+          addToCartTimeSeries.push({
+            date: dateLabel,
+            add_to_cart: addToCart
+          });
         }
 
         if (isMounted) {
@@ -515,8 +524,10 @@ export const useStatistics = (
             escalatedCount,
             thumbsUpCount,
             thumbsDownCount,
+            addToCartCount,
             feedbackTimeSeries,
-            escalationTimeSeries
+            escalationTimeSeries,
+            addToCartTimeSeries
           }));
         
           setLoading(prev => ({
