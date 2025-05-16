@@ -10,12 +10,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Loader } from "@/components/ui/loader";
 import { Database } from "@/integrations/supabase/types";
-import { ChartPreference, ChartType } from "../statistics/hooks/useChartPreferences";
+import { ChartType, ChartPreference } from "../statistics/hooks/useChartPreferences";
+
 interface ProjectSettingsSheetProps {
   organizationId: string;
   organizationName: string;
 }
-const chartLabels: Record<ChartType, string> = {
+
+const chartLabels: Record<string, string> = {
   total_messages: "Antall meldinger",
   total_sessions: "Antall samtaler",
   total_conversations: "Antall brukere",
@@ -30,20 +32,24 @@ const chartLabels: Record<ChartType, string> = {
   feedback_pie: "Tilbakemeldinger på svar",
   success_vs_fallback: "Svar vs Fallback",
   savings_time: "Timer spart",
-  savings_money: "Penger spart"
+  savings_money: "Penger spart",
+  add_to_cart: "Lagt til i handlekurv"
 };
-const chartGroups: Record<string, ChartType[]> = {
-  summary: ["total_messages", "total_sessions", "total_conversations", "escalated_count", "thumbs_up", "thumbs_down", "success_metrics"],
+
+const chartGroups: Record<string, string[]> = {
+  summary: ["total_messages", "total_sessions", "total_conversations", "escalated_count", "thumbs_up", "thumbs_down", "success_metrics", "add_to_cart"],
   detailed_analysis: ["users_over_time", "sessions_over_time", "messages_over_time", "topics"],
   question_handling: ["feedback_pie", "success_vs_fallback"],
   savings: ["savings_time", "savings_money"]
 };
+
 const sectionLabels: Record<string, string> = {
   summary: "Sammendrag",
   detailed_analysis: "Detaljert analyse",
   question_handling: "Håndtering av spørsmål",
   savings: "Besparelser"
 };
+
 export const ProjectSettingsSheet = ({
   organizationId,
   organizationName
@@ -54,6 +60,7 @@ export const ProjectSettingsSheet = ({
   const [isSaving, setIsSaving] = useState(false);
   const [isAsk, setIsAsk] = useState(false);
   const [isAskUpdating, setIsAskUpdating] = useState(false);
+
   const fetchOrganizationSettings = async () => {
     try {
       const {
@@ -67,6 +74,7 @@ export const ProjectSettingsSheet = ({
       toast.error("Kunne ikke hente informasjon om prosjektet");
     }
   };
+
   const fetchPreferences = async () => {
     setIsLoading(true);
     try {
@@ -81,7 +89,9 @@ export const ProjectSettingsSheet = ({
       const sections: Record<string, boolean> = {};
       Object.keys(chartGroups).forEach(section => {
         const sectionCharts = chartGroups[section];
-        const allChartsInSection = sectionCharts.map(chartType => data?.find(pref => pref.chart_type === chartType)?.is_visible || false);
+        const allChartsInSection = sectionCharts.map(chartType => 
+          data?.find(pref => pref.chart_type === chartType)?.is_visible || false
+        );
         sections[section] = allChartsInSection.some(isVisible => isVisible);
       });
       setSectionVisibility(sections);
@@ -92,6 +102,7 @@ export const ProjectSettingsSheet = ({
       setIsLoading(false);
     }
   };
+
   const handleIsAskChange = async (checked: boolean) => {
     setIsAskUpdating(true);
     setIsAsk(checked);
@@ -111,11 +122,14 @@ export const ProjectSettingsSheet = ({
       setIsAskUpdating(false);
     }
   };
-  const updateChartVisibility = async (chartType: ChartType, isVisible: boolean) => {
-    const updatedPreferences = preferences.map(pref => pref.chart_type === chartType ? {
-      ...pref,
-      is_visible: isVisible
-    } : pref);
+
+  const updateChartVisibility = async (chartType: string, isVisible: boolean) => {
+    const updatedPreferences = preferences.map(pref => 
+      pref.chart_type === chartType ? {
+        ...pref,
+        is_visible: isVisible
+      } : pref
+    );
     setPreferences(updatedPreferences);
     try {
       const {
@@ -130,6 +144,7 @@ export const ProjectSettingsSheet = ({
       fetchPreferences();
     }
   };
+
   const updateSectionVisibility = async (sectionKey: string, isVisible: boolean) => {
     setSectionVisibility(prev => ({
       ...prev,
@@ -148,36 +163,39 @@ export const ProjectSettingsSheet = ({
     }
     setPreferences(updatedPreferences);
     try {
-      const updates = sectionCharts.map(chartType => ({
-        organization_id: organizationId,
-        chart_type: chartType,
-        is_visible: isVisible
-      }));
-      const {
-        error
-      } = await supabase.from("statistics_preferences").upsert(updates, {
-        onConflict: 'organization_id,chart_type'
-      });
-      if (error) throw error;
+      // Prepare updates
+      for (const chartType of sectionCharts) {
+        const {
+          error
+        } = await supabase.from("statistics_preferences").update({
+          is_visible: isVisible
+        }).eq("organization_id", organizationId).eq("chart_type", chartType);
+        
+        if (error) throw error;
+      }
     } catch (error) {
       console.error("Error updating section visibility:", error);
       toast.error("Kunne ikke oppdatere seksjonens innstillinger");
       fetchPreferences();
     }
   };
+
   const saveAllPreferences = async () => {
     setIsSaving(true);
     try {
-      const {
-        error
-      } = await supabase.from("statistics_preferences").upsert(preferences.map(pref => ({
-        id: pref.id,
-        organization_id: pref.organization_id,
-        chart_type: pref.chart_type as ChartType,
-        is_visible: pref.is_visible,
-        display_order: pref.display_order
-      })));
-      if (error) throw error;
+      for (const pref of preferences) {
+        const {
+          error
+        } = await supabase.from("statistics_preferences").update({
+          id: pref.id,
+          organization_id: pref.organization_id,
+          chart_type: pref.chart_type,
+          is_visible: pref.is_visible,
+          display_order: pref.display_order
+        }).eq("id", pref.id);
+        
+        if (error) throw error;
+      }
       toast.success("Innstillingene ble lagret");
     } catch (error) {
       console.error("Error saving preferences:", error);
@@ -186,10 +204,12 @@ export const ProjectSettingsSheet = ({
       setIsSaving(false);
     }
   };
+
   useEffect(() => {
     fetchPreferences();
     fetchOrganizationSettings();
   }, [organizationId]);
+
   return <Sheet>
       <SheetTrigger asChild>
         <Button variant="outline" size="icon" title="Prosjektinnstillinger">

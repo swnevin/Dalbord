@@ -29,7 +29,8 @@ export const useChartPreferences = () => {
       "escalated_count", 
       "thumbs_up", 
       "thumbs_down", 
-      "success_metrics"
+      "success_metrics",
+      "add_to_cart"
     ],
     detailed_analysis: [
       "users_over_time", 

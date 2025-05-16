@@ -24,6 +24,9 @@ export interface StatisticsData {
   // Thumbs up/down feedback metrics
   thumbsUpCount?: number;
   thumbsDownCount?: number;
+
+  // Add to cart metrics
+  addToCartCount?: number;
 }
 
 export interface LoadingState {

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { updateDateRange } from "./utils/dateUtils";
 import { StatisticsHeader } from "./StatisticsHeader";
@@ -9,6 +10,7 @@ import { FeedbackPieChart } from "./FeedbackPieChart";
 import { SavingsCharts } from "./SavingsCharts";
 import { SuccessMetricsCards } from "./SuccessMetricsCards";
 import { SuccessVsFallbackPieChart } from "./SuccessVsFallbackPieChart";
+import { AddToCartCard } from "./AddToCartCard";
 import { DateRange, TimeRange, SavingsSettings } from "./types";
 import { useStatistics } from "./hooks/useStatistics";
 import { useChartPreferences, ChartType } from "./hooks/useChartPreferences";
@@ -66,6 +68,15 @@ export const Statistics = () => {
                   totalConversations={data.totalConversations ?? 0}
                   isLoading={loading.summaryCards || isLoadingPreferences}
                 />
+              )}
+              
+              {isChartVisible('add_to_cart' as ChartType) && (
+                <div className="mt-2">
+                  <AddToCartCard
+                    addToCartCount={data.addToCartCount ?? 0}
+                    isLoading={loading.feedbackChart || isLoadingPreferences}
+                  />
+                </div>
               )}
               
               {isChartVisible('thumbs_up' as ChartType) && (
