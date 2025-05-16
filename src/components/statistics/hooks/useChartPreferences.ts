@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -25,6 +26,14 @@ export type SectionType =
   | 'savings'
   | 'cart_metrics';
 
+export interface ChartPreference {
+  id?: string;
+  organization_id: string;
+  chart_type: ChartType;
+  is_visible: boolean;
+  display_order?: number;
+}
+
 type ChartPreferences = {
   [key in ChartType]?: boolean;
 };
@@ -35,7 +44,7 @@ type SectionPreferences = {
 
 export const useChartPreferences = () => {
   const { user } = useAuth();
-  const [preferences, setPreferences] = useState<ChartPreferences>({});
+  const [preferences, setPreferences] = useState<ChartPreference[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
   // Define which charts belong to which sections
@@ -57,7 +66,8 @@ export const useChartPreferences = () => {
 
   const isChartVisible = (chartType: ChartType): boolean => {
     if (isLoading) return true; // Default to showing all charts while loading
-    return preferences[chartType] !== false;
+    const chartPreference = preferences.find(p => p.chart_type === chartType);
+    return chartPreference !== undefined ? chartPreference.is_visible : true;
   };
 
   const isSectionVisible = (sectionType: SectionType): boolean => {
@@ -78,18 +88,17 @@ export const useChartPreferences = () => {
 
       try {
         const { data, error } = await supabase
-          .from('chart_preferences')
-          .select('preferences')
-          .eq('organization_id', user.organization_id)
-          .single();
+          .from('statistics_preferences')
+          .select('*')
+          .eq('organization_id', user.organization_id);
 
         if (error) {
           console.error("Failed to fetch chart preferences:", error);
           toast.error("Failed to load chart preferences.");
         }
 
-        if (data?.preferences) {
-          setPreferences(data.preferences as ChartPreferences);
+        if (data) {
+          setPreferences(data as ChartPreference[]);
         }
       } catch (error) {
         console.error("Error fetching chart preferences:", error);

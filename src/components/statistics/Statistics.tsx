@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { updateDateRange } from "./utils/dateUtils";
 import { StatisticsHeader } from "./StatisticsHeader";
@@ -92,12 +91,14 @@ export const Statistics = () => {
       )}
 
       {/* Cart Metrics Section */}
-      <CartMetricsSection
-        addToCartCount={data.addToCartCount ?? 0}
-        addToCartTimeSeries={data.addToCartTimeSeries ?? []}
-        isLoading={loading.feedbackChart || isLoadingPreferences}
-        isVisible={isChartVisible('add_to_cart' as ChartType)}
-      />
+      {isSectionVisible('cart_metrics') && (
+        <CartMetricsSection
+          addToCartCount={data.addToCartCount ?? 0}
+          addToCartTimeSeries={data.addToCartTimeSeries ?? []}
+          isLoading={loading.feedbackChart || isLoadingPreferences}
+          isVisible={isChartVisible('add_to_cart' as ChartType)}
+        />
+      )}
 
       {/* Detailed Analytics Section */}
       {isSectionVisible('detailed_analysis') && (
