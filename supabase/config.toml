@@ -26,8 +26,14 @@ enabled = true
 [functions.add-metrics]
 verify_jwt = false
 
+[functions.add-cart-metric]
+verify_jwt = false
+
 [functions.get-metrics]
 verify_jwt = false
 
 [functions.get-voiceflow-analytics]
+verify_jwt = false
+
+[functions.add-successful-answer]
 verify_jwt = false
