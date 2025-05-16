@@ -4,7 +4,23 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Database } from "@/integrations/supabase/types";
 
-export type ChartType = Database["public"]["Enums"]["chart_type"];
+export type ChartType = 
+  | "total_messages" 
+  | "total_sessions" 
+  | "total_conversations" 
+  | "escalated_count" 
+  | "thumbs_up" 
+  | "thumbs_down" 
+  | "success_metrics"
+  | "users_over_time" 
+  | "sessions_over_time" 
+  | "messages_over_time" 
+  | "topics"
+  | "feedback_pie" 
+  | "success_vs_fallback"
+  | "savings_time" 
+  | "savings_money"
+  | "add_to_cart";
 
 export interface ChartPreference {
   id: string;

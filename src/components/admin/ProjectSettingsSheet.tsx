@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -36,7 +37,7 @@ const chartLabels: Record<string, string> = {
   add_to_cart: "Lagt til i handlekurv"
 };
 
-const chartGroups: Record<string, string[]> = {
+const chartGroups: Record<string, ChartType[]> = {
   summary: ["total_messages", "total_sessions", "total_conversations", "escalated_count", "thumbs_up", "thumbs_down", "success_metrics", "add_to_cart"],
   detailed_analysis: ["users_over_time", "sessions_over_time", "messages_over_time", "topics"],
   question_handling: ["feedback_pie", "success_vs_fallback"],
@@ -123,7 +124,7 @@ export const ProjectSettingsSheet = ({
     }
   };
 
-  const updateChartVisibility = async (chartType: string, isVisible: boolean) => {
+  const updateChartVisibility = async (chartType: ChartType, isVisible: boolean) => {
     const updatedPreferences = preferences.map(pref => 
       pref.chart_type === chartType ? {
         ...pref,
