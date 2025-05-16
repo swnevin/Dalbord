@@ -1,4 +1,5 @@
 
+
 export interface StatisticsData {
   totalMessages?: number;
   totalConversations?: number;
@@ -87,6 +88,7 @@ export interface MetricsResponse {
     successful_answer: number;
     thumbs_up: number;
     thumbs_down: number;
+    add_to_cart: number;
   };
   timeSeries: Array<{
     date: string;
@@ -97,11 +99,12 @@ export interface MetricsResponse {
     successful_answer: number;
     thumbs_up: number;
     thumbs_down: number;
+    add_to_cart: number;
   }>;
   rawMetrics: Array<{
     id: string;
     organization_id: string;
-    metric_type: 'happy_face' | 'neutral_face' | 'sad_face' | 'escalated_to_human' | 'successful_answer' | 'thumbs_up' | 'thumbs_down';
+    metric_type: 'happy_face' | 'neutral_face' | 'sad_face' | 'escalated_to_human' | 'successful_answer' | 'thumbs_up' | 'thumbs_down' | 'add_to_cart';
     timestamp: string;
     created_at: string;
   }>;
@@ -118,3 +121,4 @@ export interface ChartDataPoint {
   value: number;
   count?: number; // Make count optional to be compatible with IntentData
 }
+
