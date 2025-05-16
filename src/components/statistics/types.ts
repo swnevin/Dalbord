@@ -1,5 +1,4 @@
 
-
 export interface StatisticsData {
   totalMessages?: number;
   totalConversations?: number;
@@ -121,4 +120,3 @@ export interface ChartDataPoint {
   value: number;
   count?: number; // Make count optional to be compatible with IntentData
 }
-

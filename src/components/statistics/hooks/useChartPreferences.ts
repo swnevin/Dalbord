@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -61,6 +60,13 @@ export const useChartPreferences = () => {
       "savings_time", 
       "savings_money"
     ]
+  };
+
+  const sectionLabels: Record<string, string> = {
+    summary: "Sammendrag",
+    detailed_analysis: "Detaljert analyse",
+    question_handling: "Håndtering av spørsmål",
+    savings: "Besparelser"
   };
 
   useEffect(() => {
