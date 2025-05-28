@@ -1,10 +1,11 @@
+
 import React from "react";
 import { SummaryCards } from "./SummaryCards";
 import { TimeSeriesChart } from "./TimeSeriesChart";
 import { BarChart } from "./BarChart";
-import { FeedbackChart } from "./FeedbackChart";
+import { FeedbackLineChart } from "./FeedbackChart";
 import { FeedbackPieChart } from "./FeedbackPieChart";
-import { SuccessVsFallbackChart } from "./SuccessVsFallbackChart";
+import { SuccessVsFallbackLineChart } from "./SuccessVsFallbackChart";
 import { SuccessVsFallbackPieChart } from "./SuccessVsFallbackPieChart";
 import { SavingsCharts } from "./SavingsCharts";
 import { FeedbackSummaryCards } from "./FeedbackSummaryCards";
@@ -47,10 +48,9 @@ const Statistics = () => {
     <div className="space-y-6">
       <StatisticsHeader 
         dateRange={dateRange}
-        setDateRange={setDateRange}
         timeRange={timeRange}
-        setTimeRange={setTimeRange}
-        onRefresh={refetch}
+        onTimeRangeChange={setTimeRange}
+        onDateRangeChange={setDateRange}
       />
 
       {isSectionVisible('summary') && (
@@ -60,30 +60,30 @@ const Statistics = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {isChartVisible('total_messages') && (
               <SummaryCards 
-                title="Totale meldinger" 
                 value={data.totalMessages || 0} 
                 isLoading={loading.summaryCards}
+                title="Totale meldinger"
               />
             )}
             {isChartVisible('total_sessions') && (
               <SummaryCards 
-                title="Totale økter" 
                 value={data.totalSessions || 0} 
                 isLoading={loading.summaryCards}
+                title="Totale økter"
               />
             )}
             {isChartVisible('total_conversations') && (
               <SummaryCards 
-                title="Totale samtaler" 
                 value={data.totalConversations || 0} 
                 isLoading={loading.summaryCards}
+                title="Totale samtaler"
               />
             )}
             {isChartVisible('escalated_count') && (
               <SummaryCards 
-                title="Eskalerte samtaler" 
                 value={data.escalatedCount || 0} 
                 isLoading={loading.summaryCards}
+                title="Eskalerte samtaler"
               />
             )}
           </div>
@@ -91,16 +91,16 @@ const Statistics = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {isChartVisible('thumbs_up') && (
               <SummaryCards 
-                title="Thumbs Up" 
                 value={data.thumbsUpCount || 0} 
                 isLoading={loading.summaryCards}
+                title="Thumbs Up"
               />
             )}
             {isChartVisible('thumbs_down') && (
               <SummaryCards 
-                title="Thumbs Down" 
                 value={data.thumbsDownCount || 0} 
                 isLoading={loading.summaryCards}
+                title="Thumbs Down"
               />
             )}
             {isChartVisible('success_metrics') && (
@@ -113,9 +113,11 @@ const Statistics = () => {
           </div>
 
           <FeedbackSummaryCards
-            happyFaceCount={data.happyFaceCount || 0}
-            neutralFaceCount={data.neutralFaceCount || 0}
-            sadFaceCount={data.sadFaceCount || 0}
+            data={{
+              happyFaceCount: data.happyFaceCount || 0,
+              neutralFaceCount: data.neutralFaceCount || 0,
+              sadFaceCount: data.sadFaceCount || 0
+            }}
             isLoading={loading.summaryCards}
           />
         </div>
@@ -130,7 +132,6 @@ const Statistics = () => {
               title="Meldinger over tid" 
               data={data.messageTimeSeries} 
               isLoading={loading.messageChart} 
-              dataKey="value"
             />
           )}
           
@@ -139,7 +140,6 @@ const Statistics = () => {
               title="Brukere over tid" 
               data={data.userTimeSeries} 
               isLoading={loading.userChart} 
-              dataKey="value"
             />
           )}
           
@@ -148,7 +148,6 @@ const Statistics = () => {
               title="Økter over tid" 
               data={data.sessionTimeSeries} 
               isLoading={loading.sessionChart} 
-              dataKey="value"
             />
           )}
           
@@ -169,9 +168,11 @@ const Statistics = () => {
           
           {isChartVisible('feedback_pie') && (
             <FeedbackPieChart
-              happyFaceCount={data.happyFaceCount || 0}
-              neutralFaceCount={data.neutralFaceCount || 0}
-              sadFaceCount={data.sadFaceCount || 0}
+              data={{
+                happyFaceCount: data.happyFaceCount || 0,
+                neutralFaceCount: data.neutralFaceCount || 0,
+                sadFaceCount: data.sadFaceCount || 0
+              }}
               isLoading={loading.feedbackChart}
             />
           )}
@@ -179,24 +180,28 @@ const Statistics = () => {
           {isChartVisible('success_vs_fallback') && (
             <>
               {data.successVsFallbackTimeSeries && data.successVsFallbackTimeSeries.length > 0 && (
-                <SuccessVsFallbackChart
+                <SuccessVsFallbackLineChart
                   title="Suksess vs. Fallback over tid"
                   data={data.successVsFallbackTimeSeries}
+                  description="Sammenligning av vellykkede svar vs. fallback over tid"
                   isLoading={loading.fallbackChart}
                 />
               )}
               <SuccessVsFallbackPieChart
-                successfulAnswerCount={data.successfulAnswerCount || 0}
-                fallbackCount={data.fallbackCount || 0}
+                data={{
+                  successfulAnswerCount: data.successfulAnswerCount || 0,
+                  fallbackCount: data.fallbackCount || 0
+                }}
                 isLoading={loading.fallbackChart}
               />
             </>
           )}
 
           {isChartVisible('feedback_pie') && data.feedbackTimeSeries && data.feedbackTimeSeries.length > 0 && (
-            <FeedbackChart 
+            <FeedbackLineChart 
               title="Tilbakemeldinger over tid" 
               data={data.feedbackTimeSeries} 
+              description="Fordeling av tilbakemeldinger over tid"
               isLoading={loading.feedbackChart}
             />
           )}
@@ -207,7 +212,11 @@ const Statistics = () => {
         <SavingsCharts 
           timeSaved={data.timeSaved || 0}
           moneySaved={data.moneySaved || 0}
+          timePerMessage={5}
+          hourlyRate={500}
+          totalMessages={data.totalMessages || 0}
           isLoading={loading.summaryCards}
+          onSettingsChange={() => {}}
         />
       )}
     </div>

@@ -1,110 +1,81 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { subDays, subMonths, subYears, startOfDay, endOfDay } from 'date-fns';
+import { StatisticsData, LoadingState, DateRange, TimeRange, MetricsResponse } from "../types";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { StatisticsData, LoadingState, MetricsResponse, DateRange, TimeRange } from "../types";
-import { addDays, format, startOfDay, endOfDay } from "date-fns";
+
+const initialLoadingState: LoadingState = {
+  summaryCards: true,
+  messageChart: true,
+  userChart: true,
+  sessionChart: true,
+  intentChart: true,
+  feedbackChart: true,
+  escalationChart: true,
+  fallbackChart: true,
+};
 
 export const useStatistics = () => {
-  const { user } = useAuth();
-  const [data, setData] = useState<StatisticsData>({
-    totalMessages: 0,
-    totalConversations: 0,
-    totalSessions: 0,
-    happyFaceCount: 0,
-    neutralFaceCount: 0,
-    sadFaceCount: 0,
-    escalatedCount: 0,
-    successfulAnswerCount: 0,
-    fallbackCount: 0,
-    thumbsUpCount: 0,
-    thumbsDownCount: 0,
-  });
-  const [loading, setLoading] = useState<LoadingState>({
-    summaryCards: true,
-    messageChart: true,
-    userChart: true,
-    sessionChart: true,
-    intentChart: true,
-    feedbackChart: true,
-    escalationChart: true,
-    fallbackChart: true
-  });
+  const [data, setData] = useState<StatisticsData>({});
+  const [loading, setLoading] = useState<LoadingState>(initialLoadingState);
   const [error, setError] = useState<Error | null>(null);
   const [dateRange, setDateRange] = useState<DateRange>({
-    from: addDays(new Date(), -30),
+    from: subDays(new Date(), 7),
     to: new Date(),
   });
-  const [timeRange, setTimeRange] = useState<TimeRange>('30d');
+  const [timeRange, setTimeRange] = useState<TimeRange>('7d');
+  const { user } = useAuth();
 
-  const refetch = () => {
-    fetchData();
+  const getDatesForTimeRange = (timeRange: TimeRange): { from: Date; to: Date } | null => {
+    const today = new Date();
+    switch (timeRange) {
+      case '7d':
+        return { from: subDays(today, 7), to: today };
+      case '30d':
+        return { from: subMonths(today, 1), to: today };
+      case '90d':
+        return { from: subMonths(today, 3), to: today };
+      case '365d':
+        return { from: subYears(today, 1), to: today };
+      case 'all':
+        return null;
+      case 'custom':
+        return dateRange.from && dateRange.to ? { from: dateRange.from, to: dateRange.to } : null;
+      default:
+        return { from: subDays(today, 7), to: today };
+    }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, [user?.organization_id, dateRange, timeRange]);
-
-  const fetchData = async () => {
+  const fetchStatistics = useCallback(async () => {
     if (!user?.organization_id) return;
 
-    setLoading({
-      summaryCards: true,
-      messageChart: true,
-      userChart: true,
-      sessionChart: true,
-      intentChart: true,
-      feedbackChart: true,
-      escalationChart: true,
-      fallbackChart: true
-    });
+    setLoading(initialLoadingState);
     setError(null);
 
-    try {
-      const [analyticsData, supabaseMetrics] = await Promise.all([
-        fetchAnalyticsData(user.organization_id, dateRange),
-        fetchSupabaseMetrics(user.organization_id, dateRange.from, dateRange.to)
-      ]);
+    const dates = getDatesForTimeRange(timeRange);
+    const from = dates?.from ? startOfDay(dates.from).toISOString() : null;
+    const to = dates?.to ? endOfDay(dates.to).toISOString() : null;
 
-      setData(prevData => ({
-        ...prevData,
-        totalMessages: analyticsData.totalMessages,
-        totalConversations: analyticsData.totalConversations,
-        totalSessions: analyticsData.totalSessions,
-        messageTimeSeries: analyticsData.messageTimeSeries,
-        userTimeSeries: analyticsData.userTimeSeries,
-        sessionTimeSeries: analyticsData.sessionTimeSeries,
-        topIntents: analyticsData.topIntents,
-        timeSaved: analyticsData.timeSaved,
-        moneySaved: analyticsData.moneySaved,
-        happyFaceCount: supabaseMetrics.totals.happy_face || 0,
-        neutralFaceCount: supabaseMetrics.totals.neutral_face || 0,
-        sadFaceCount: supabaseMetrics.totals.sad_face || 0,
-        escalatedCount: supabaseMetrics.totals.escalated_to_human || 0,
-        successfulAnswerCount: supabaseMetrics.totals.successful_answer || 0,
-        thumbsUpCount: supabaseMetrics.totals.thumbs_up || 0,
-        thumbsDownCount: supabaseMetrics.totals.thumbs_down || 0,
-        feedbackTimeSeries: supabaseMetrics.timeSeries.map(item => ({
-          date: item.date,
-          happy_face: item.happy_face,
-          neutral_face: item.neutral_face,
-          sad_face: item.sad_face,
-        })),
-        escalationTimeSeries: supabaseMetrics.timeSeries.map(item => ({
-          date: item.date,
-          value: item.escalated_to_human,
-        })),
-        successVsFallbackTimeSeries: supabaseMetrics.timeSeries.map(item => ({
-          date: item.date,
-          successful_answer: item.successful_answer,
-          fallback: 0, // Assuming fallback data is not directly available
-        })),
-      }));
-    } catch (err) {
-      console.error("Error fetching statistics:", err);
-      setError(err instanceof Error ? err : new Error('Unknown error'));
+    try {
+      // Fetch statistics data from Supabase function
+      const { data: statistics, error: statisticsError } = await supabase.functions.invoke('statistics', {
+        body: {
+          organizationId: user.organization_id,
+          from,
+          to,
+        },
+      });
+
+      if (statisticsError) {
+        throw statisticsError;
+      }
+
+      setData(statistics);
+    } catch (error: any) {
+      console.error("Error fetching statistics:", error);
+      setError(error);
     } finally {
-      setLoading(prevLoading => ({
-        ...prevLoading,
+      setLoading({
         summaryCards: false,
         messageChart: false,
         userChart: false,
@@ -112,97 +83,104 @@ export const useStatistics = () => {
         intentChart: false,
         feedbackChart: false,
         escalationChart: false,
-        fallbackChart: false
-      }));
-    }
-  };
-
-  const fetchAnalyticsData = async (organizationId: string, dateRange: DateRange): Promise<StatisticsData> => {
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL;
-    const fromDate = dateRange.from ? format(dateRange.from, 'yyyy-MM-dd') : null;
-    const toDate = dateRange.to ? format(dateRange.to, 'yyyy-MM-dd') : null;
-
-    let url = `${baseUrl}/organizations/${organizationId}/analytics?`;
-    if (fromDate) url += `from=${fromDate}&`;
-    if (toDate) url += `to=${toDate}&`;
-
-    try {
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return await response.json();
-    } catch (error) {
-      console.error("Error fetching analytics data:", error);
-      throw error;
-    }
-  };
-
-  const fetchSupabaseMetrics = async (organizationId: string, startDate?: Date, endDate?: Date) => {
-    try {
-      let query = supabase
-        .from('conversation_metrics')
-        .select('*')
-        .eq('organization_id', organizationId);
-
-      if (startDate) {
-        query = query.gte('timestamp', startDate.toISOString());
-      }
-      if (endDate) {
-        query = query.lte('timestamp', endDate.toISOString());
-      }
-
-      const { data: metrics, error } = await query.order('timestamp', { ascending: true });
-
-      if (error) throw error;
-
-      const validMetrics = metrics?.filter(metric => 
-        metric.metric_type !== 'add_to_cart'
-      ) || [];
-
-      const totals = validMetrics.reduce((acc: any, metric) => {
-        acc[metric.metric_type] = (acc[metric.metric_type] || 0) + 1;
-        return acc;
-      }, {});
-
-      const timeSeriesData: { [date: string]: any } = {};
-
-      validMetrics.forEach(metric => {
-        const date = format(new Date(metric.timestamp), 'yyyy-MM-dd');
-        if (!timeSeriesData[date]) {
-          timeSeriesData[date] = {};
-        }
-        timeSeriesData[date][metric.metric_type] = (timeSeriesData[date][metric.metric_type] || 0) + 1;
+        fallbackChart: false,
       });
-
-      const timeSeries = Object.entries(timeSeriesData).map(([date, values]: [string, any]) => ({
-        date,
-        ...values,
-      }));
-
-      return {
-        totals,
-        timeSeries,
-        rawMetrics: validMetrics
-      };
-    } catch (error) {
-      console.error('Error fetching Supabase metrics:', error);
-      return {
-        totals: {},
-        timeSeries: [],
-        rawMetrics: []
-      };
     }
+  }, [user?.organization_id, timeRange, dateRange]);
+
+  const fetchMetrics = useCallback(async () => {
+    if (!user?.organization_id) return;
+
+    setLoading(initialLoadingState);
+    setError(null);
+
+    const dates = getDatesForTimeRange(timeRange);
+    const from = dates?.from ? startOfDay(dates.from).toISOString() : null;
+    const to = dates?.to ? endOfDay(dates.to).toISOString() : null;
+
+    try {
+      let url = `${process.env.NEXT_PUBLIC_SUPABASE_FUNCTIONS_URL}/metrics?organization_id=${user.organization_id}`;
+      if (from) url += `&from=${from}`;
+      if (to) url += `&to=${to}`;
+
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch metrics: ${response.status} ${response.statusText}`);
+      }
+
+      const metrics: MetricsResponse = await response.json();
+      const processedData = processMetricsData(metrics);
+      setData(prevData => ({ ...prevData, ...processedData }));
+
+    } catch (error: any) {
+      console.error("Error fetching metrics:", error);
+      setError(error);
+    } finally {
+      setLoading({
+        summaryCards: false,
+        messageChart: false,
+        userChart: false,
+        sessionChart: false,
+        intentChart: false,
+        feedbackChart: false,
+        escalationChart: false,
+        fallbackChart: false,
+      });
+    }
+  }, [user?.organization_id, timeRange, dateRange]);
+
+  useEffect(() => {
+    fetchStatistics();
+    fetchMetrics();
+  }, [fetchStatistics, fetchMetrics]);
+
+  const refetch = () => {
+    fetchStatistics();
+    fetchMetrics();
   };
 
-  return {
-    data,
-    loading,
-    error,
-    refetch,
-    dateRange,
-    setDateRange,
-    timeRange,
-    setTimeRange
+  return { data, loading, error, refetch, dateRange, setDateRange, timeRange, setTimeRange };
+};
+
+const processMetricsData = (metrics: MetricsResponse): StatisticsData => {
+  const processedData: StatisticsData = {
+    happyFaceCount: metrics.totals.happy_face,
+    neutralFaceCount: metrics.totals.neutral_face,
+    sadFaceCount: metrics.totals.sad_face,
+    escalatedCount: metrics.totals.escalated_to_human,
+    successfulAnswerCount: metrics.totals.successful_answer,
+    thumbsUpCount: metrics.totals.thumbs_up,
+    thumbsDownCount: metrics.totals.thumbs_down,
   };
+
+  // Process time series data for feedback charts
+  if (metrics.timeSeries && metrics.timeSeries.length > 0) {
+    const feedbackTimeSeries = metrics.timeSeries.map(item => ({
+      date: item.date,
+      happy_face: item.happy_face || 0,
+      neutral_face: item.neutral_face || 0,
+      sad_face: item.sad_face || 0
+    }));
+
+    const successVsFallbackTimeSeries = metrics.timeSeries.map(item => ({
+      date: item.date,
+      successful_answer: item.successful_answer || 0,
+      fallback: metrics.rawMetrics.filter(m => 
+        m.timestamp.startsWith(item.date) && 
+        m.metric_type !== 'happy_face' && 
+        m.metric_type !== 'neutral_face' && 
+        m.metric_type !== 'sad_face' && 
+        m.metric_type !== 'escalated_to_human' && 
+        m.metric_type !== 'successful_answer' && 
+        m.metric_type !== 'thumbs_up' && 
+        m.metric_type !== 'thumbs_down'
+      ).length
+    }));
+
+    processedData.feedbackTimeSeries = feedbackTimeSeries;
+    processedData.successVsFallbackTimeSeries = successVsFallbackTimeSeries;
+  }
+
+  return processedData;
 };

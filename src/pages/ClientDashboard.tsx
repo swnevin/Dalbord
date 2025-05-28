@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
@@ -9,7 +10,7 @@ import { toast } from "sonner";
 import { ConversationList } from "@/components/conversations/ConversationList";
 import { ConversationDialog } from "@/components/conversations/ConversationDialog";
 import { DeleteDialog } from "@/components/conversations/DeleteDialog";
-import { Statistics } from "@/components/statistics/Statistics";
+import Statistics from "@/components/statistics/Statistics";
 import { Home } from "@/components/home/Home";
 import { AdministratorTab } from "@/components/administrator/AdministratorTab";
 import { useDialogPreloader } from "@/hooks/use-dialog-preloader";
