@@ -1,222 +1,217 @@
-
-import React, { useState, useEffect } from "react";
-import { updateDateRange } from "./utils/dateUtils";
-import { StatisticsHeader } from "./StatisticsHeader";
+import React from "react";
 import { SummaryCards } from "./SummaryCards";
-import { FeedbackSummaryCards } from "./FeedbackSummaryCards";
 import { TimeSeriesChart } from "./TimeSeriesChart";
 import { BarChart } from "./BarChart";
+import { FeedbackChart } from "./FeedbackChart";
 import { FeedbackPieChart } from "./FeedbackPieChart";
-import { SavingsCharts } from "./SavingsCharts";
-import { SuccessMetricsCards } from "./SuccessMetricsCards";
+import { SuccessVsFallbackChart } from "./SuccessVsFallbackChart";
 import { SuccessVsFallbackPieChart } from "./SuccessVsFallbackPieChart";
-import { AddToCartCard } from "./AddToCartCard";
-import { DateRange, TimeRange, SavingsSettings } from "./types";
+import { SavingsCharts } from "./SavingsCharts";
+import { FeedbackSummaryCards } from "./FeedbackSummaryCards";
+import { SuccessMetricsCards } from "./SuccessMetricsCards";
+import { StatisticsHeader } from "./StatisticsHeader";
 import { useStatistics } from "./hooks/useStatistics";
-import { useChartPreferences, ChartType } from "./hooks/useChartPreferences";
-import { Separator } from "@/components/ui/separator";
-import { ChartBarIcon, TrendingUpIcon, MessageSquareIcon, UserRoundIcon } from "lucide-react";
+import { useChartPreferences } from "./hooks/useChartPreferences";
 
-export const Statistics = () => {
-  const [timeRange, setTimeRange] = useState<TimeRange>('7d');
-  const [dateRange, setDateRange] = useState<DateRange>(updateDateRange('7d'));
-  const [savingsSettings, setSavingsSettings] = useState<SavingsSettings>({
-    timePerMessage: 2, // default: 2 minutes per message
-    hourlyRate: 300    // default: 300 NOK per hour
-  });
+const Statistics = () => {
+  const { 
+    data, 
+    loading, 
+    error, 
+    refetch, 
+    dateRange, 
+    setDateRange, 
+    timeRange, 
+    setTimeRange 
+  } = useStatistics();
+  
+  const { isChartVisible, isSectionVisible } = useChartPreferences();
 
-  const { data, loading } = useStatistics(dateRange, timeRange, savingsSettings);
-  const { isChartVisible, isSectionVisible, isLoading: isLoadingPreferences } = useChartPreferences();
-
-  useEffect(() => {
-    if (timeRange !== 'custom') {
-      setDateRange(updateDateRange(timeRange));
-    }
-  }, [timeRange]);
-
-  const handleSavingsSettingsChange = (settings: Partial<SavingsSettings>) => {
-    setSavingsSettings(prev => ({
-      ...prev,
-      ...settings
-    }));
-  };
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">Feil ved lasting av statistikk</p>
+          <button 
+            onClick={refetch}
+            className="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90"
+          >
+            Prøv igjen
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-8 space-y-8">
-      <StatisticsHeader
-        timeRange={timeRange}
+    <div className="space-y-6">
+      <StatisticsHeader 
         dateRange={dateRange}
-        onTimeRangeChange={setTimeRange}
-        onDateRangeChange={setDateRange}
+        setDateRange={setDateRange}
+        timeRange={timeRange}
+        setTimeRange={setTimeRange}
+        onRefresh={refetch}
       />
 
-      {/* Summary Section */}
       {isSectionVisible('summary') && (
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 text-primary">
-            <ChartBarIcon size={20} />
-            <h2 className="text-xl font-semibold">Sammendrag</h2>
-          </div>
-          <Separator className="bg-primary/10" />
+        <div className="space-y-6">
+          <h2 className="text-lg font-semibold">Sammendrag</h2>
           
-          <div className="grid gap-4 grid-cols-1">
-            <div className="grid grid-cols-1 gap-4">
-              {isChartVisible('total_messages' as ChartType) && (
-                <SummaryCards
-                  totalMessages={data.totalMessages ?? 0}
-                  totalSessions={data.totalSessions ?? 0}
-                  totalConversations={data.totalConversations ?? 0}
-                  isLoading={loading.summaryCards || isLoadingPreferences}
-                />
-              )}
-              
-              {isChartVisible('add_to_cart' as ChartType) && (
-                <div className="mt-2">
-                  <AddToCartCard
-                    addToCartCount={data.addToCartCount ?? 0}
-                    isLoading={loading.feedbackChart || isLoadingPreferences}
-                  />
-                </div>
-              )}
-              
-              {isChartVisible('thumbs_up' as ChartType) && (
-                <FeedbackSummaryCards
-                  escalatedCount={data.escalatedCount ?? 0}
-                  thumbsUpCount={data.thumbsUpCount ?? 0}
-                  thumbsDownCount={data.thumbsDownCount ?? 0}
-                  isLoading={loading.feedbackChart || isLoadingPreferences}
-                />
-              )}
-              
-              {isChartVisible('success_metrics' as ChartType) && (
-                <SuccessMetricsCards
-                  successfulAnswerCount={data.successfulAnswerCount ?? 0}
-                  fallbackCount={data.fallbackCount ?? 0}
-                  isLoading={loading.fallbackChart || isLoadingPreferences}
-                />
-              )}
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {isChartVisible('total_messages') && (
+              <SummaryCards 
+                title="Totale meldinger" 
+                value={data.totalMessages || 0} 
+                isLoading={loading.summaryCards}
+              />
+            )}
+            {isChartVisible('total_sessions') && (
+              <SummaryCards 
+                title="Totale økter" 
+                value={data.totalSessions || 0} 
+                isLoading={loading.summaryCards}
+              />
+            )}
+            {isChartVisible('total_conversations') && (
+              <SummaryCards 
+                title="Totale samtaler" 
+                value={data.totalConversations || 0} 
+                isLoading={loading.summaryCards}
+              />
+            )}
+            {isChartVisible('escalated_count') && (
+              <SummaryCards 
+                title="Eskalerte samtaler" 
+                value={data.escalatedCount || 0} 
+                isLoading={loading.summaryCards}
+              />
+            )}
           </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {isChartVisible('thumbs_up') && (
+              <SummaryCards 
+                title="Thumbs Up" 
+                value={data.thumbsUpCount || 0} 
+                isLoading={loading.summaryCards}
+              />
+            )}
+            {isChartVisible('thumbs_down') && (
+              <SummaryCards 
+                title="Thumbs Down" 
+                value={data.thumbsDownCount || 0} 
+                isLoading={loading.summaryCards}
+              />
+            )}
+            {isChartVisible('success_metrics') && (
+              <SuccessMetricsCards
+                successfulAnswerCount={data.successfulAnswerCount || 0}
+                fallbackCount={data.fallbackCount || 0}
+                isLoading={loading.summaryCards}
+              />
+            )}
+          </div>
+
+          <FeedbackSummaryCards
+            happyFaceCount={data.happyFaceCount || 0}
+            neutralFaceCount={data.neutralFaceCount || 0}
+            sadFaceCount={data.sadFaceCount || 0}
+            isLoading={loading.summaryCards}
+          />
         </div>
       )}
 
-      {/* Detailed Analytics Section */}
       {isSectionVisible('detailed_analysis') && (
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 text-primary">
-            <UserRoundIcon size={20} />
-            <h2 className="text-xl font-semibold">Detaljert analyse</h2>
-          </div>
-          <Separator className="bg-primary/10" />
+        <div className="space-y-6">
+          <h2 className="text-lg font-semibold">Detaljert analyse</h2>
           
-          <div className="grid gap-4 grid-cols-1">
-            {isChartVisible('users_over_time' as ChartType) && (
-              <TimeSeriesChart
-                data={data.userTimeSeries}
-                title="Brukere over tid"
-                description="Antall unike brukere som har interagert med systemet over tid."
-                color="#28483f"
-                isLoading={loading.userChart || isLoadingPreferences}
-                loadingText="Laster brukerstatistikk..."
-              />
-            )}
-            
-            {isChartVisible('sessions_over_time' as ChartType) && (
-              <TimeSeriesChart
-                data={data.sessionTimeSeries}
-                title="Samtaler over tid"
-                description="Totalt antall samtaler (økter) gjennomført i systemet over tid."
-                color="#28483F"
-                isLoading={loading.sessionChart || isLoadingPreferences}
-                loadingText="Laster samtalestatistikk..."
-              />
-            )}
-            
-            {isChartVisible('messages_over_time' as ChartType) && (
-              <TimeSeriesChart
-                data={data.messageTimeSeries}
-                title="Meldinger over tid"
-                description="Totalt antall meldinger sendt i systemet over tid."
-                color="#28483F"
-                isLoading={loading.messageChart || isLoadingPreferences}
-                loadingText="Laster meldingsstatistikk..."
-              />
-            )}
-            
-            {isChartVisible('topics' as ChartType) && (
-              <BarChart
-                data={data.topIntents}
-                title="Temaer"
-                description="De vanligste temaene brukerne spør om i systemet."
-                color="#28483F"
-                isLoading={loading.intentChart || isLoadingPreferences}
-                loadingText="Laster tema-statistikk..."
-                limit={10}
-                layout="horizontal" 
-              />
-            )}
-          </div>
+          {isChartVisible('messages_over_time') && data.messageTimeSeries && data.messageTimeSeries.length > 0 && (
+            <TimeSeriesChart 
+              title="Meldinger over tid" 
+              data={data.messageTimeSeries} 
+              isLoading={loading.messageChart} 
+              dataKey="value"
+            />
+          )}
+          
+          {isChartVisible('users_over_time') && data.userTimeSeries && data.userTimeSeries.length > 0 && (
+            <TimeSeriesChart 
+              title="Brukere over tid" 
+              data={data.userTimeSeries} 
+              isLoading={loading.userChart} 
+              dataKey="value"
+            />
+          )}
+          
+          {isChartVisible('sessions_over_time') && data.sessionTimeSeries && data.sessionTimeSeries.length > 0 && (
+            <TimeSeriesChart 
+              title="Økter over tid" 
+              data={data.sessionTimeSeries} 
+              isLoading={loading.sessionChart} 
+              dataKey="value"
+            />
+          )}
+          
+          {isChartVisible('topics') && data.topIntents && data.topIntents.length > 0 && (
+            <BarChart 
+              title="Mest populære emner" 
+              data={data.topIntents} 
+              isLoading={loading.intentChart} 
+              dataKey="count"
+            />
+          )}
         </div>
       )}
 
-      {/* Håndtering av spørsmål Section */}
       {isSectionVisible('question_handling') && (
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 text-primary">
-            <MessageSquareIcon size={20} />
-            <h2 className="text-xl font-semibold">Håndtering av spørsmål</h2>
-          </div>
-          <Separator className="bg-primary/10" />
+        <div className="space-y-6">
+          <h2 className="text-lg font-semibold">Håndtering av spørsmål</h2>
           
-          <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
-            {isChartVisible('feedback_pie' as ChartType) && (
-              <FeedbackPieChart
-                thumbsUpCount={data.thumbsUpCount ?? 0}
-                thumbsDownCount={data.thumbsDownCount ?? 0}
-                successfulAnswerCount={data.successfulAnswerCount ?? 0}
-                isLoading={loading.feedbackChart || loading.fallbackChart || isLoadingPreferences}
-              />
-            )}
-            
-            {isChartVisible('success_vs_fallback' as ChartType) && (
+          {isChartVisible('feedback_pie') && (
+            <FeedbackPieChart
+              happyFaceCount={data.happyFaceCount || 0}
+              neutralFaceCount={data.neutralFaceCount || 0}
+              sadFaceCount={data.sadFaceCount || 0}
+              isLoading={loading.feedbackChart}
+            />
+          )}
+
+          {isChartVisible('success_vs_fallback') && (
+            <>
+              {data.successVsFallbackTimeSeries && data.successVsFallbackTimeSeries.length > 0 && (
+                <SuccessVsFallbackChart
+                  title="Suksess vs. Fallback over tid"
+                  data={data.successVsFallbackTimeSeries}
+                  isLoading={loading.fallbackChart}
+                />
+              )}
               <SuccessVsFallbackPieChart
-                successfulAnswerCount={data.successfulAnswerCount ?? 0}
-                fallbackCount={data.fallbackCount ?? 0}
-                isLoading={loading.fallbackChart || isLoadingPreferences}
+                successfulAnswerCount={data.successfulAnswerCount || 0}
+                fallbackCount={data.fallbackCount || 0}
+                isLoading={loading.fallbackChart}
               />
-            )}
-          </div>
+            </>
+          )}
+
+          {isChartVisible('feedback_pie') && data.feedbackTimeSeries && data.feedbackTimeSeries.length > 0 && (
+            <FeedbackChart 
+              title="Tilbakemeldinger over tid" 
+              data={data.feedbackTimeSeries} 
+              isLoading={loading.feedbackChart}
+            />
+          )}
         </div>
       )}
 
-      {/* Savings Section */}
       {isSectionVisible('savings') && (
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 text-primary">
-            <TrendingUpIcon size={20} />
-            <h2 className="text-xl font-semibold">Besparelser</h2>
-          </div>
-          <Separator className="bg-primary/10" />
-          
-          <div className="grid gap-4 grid-cols-1">
-            {(isChartVisible('savings_time' as ChartType) || isChartVisible('savings_money' as ChartType)) && (
-              <SavingsCharts
-                timeSaved={data.timeSaved ?? 0}
-                moneySaved={data.moneySaved ?? 0}
-                isLoading={loading.summaryCards || isLoadingPreferences}
-                timePerMessage={savingsSettings.timePerMessage}
-                hourlyRate={savingsSettings.hourlyRate}
-                onSettingsChange={handleSavingsSettingsChange}
-                totalMessages={data.totalMessages ?? 0}
-                visibleCharts={{
-                  time: isChartVisible('savings_time' as ChartType),
-                  money: isChartVisible('savings_money' as ChartType)
-                }}
-              />
-            )}
-          </div>
-        </div>
+        <SavingsCharts 
+          timeSaved={data.timeSaved || 0}
+          moneySaved={data.moneySaved || 0}
+          isLoading={loading.summaryCards}
+        />
       )}
     </div>
   );
 };
+
+export default Statistics;

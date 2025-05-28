@@ -1,3 +1,4 @@
+
 import { Loader } from "@/components/ui/loader";
 import { formatTime, filterDialog, formatText, containsIframe, extractIframeAndCleanText } from "@/utils/conversation-utils";
 import { useEffect, useRef, useState } from "react";
@@ -407,55 +408,60 @@ export const ConversationDialog = ({
       )}
 
       <Sheet open={isQASheetOpen} onOpenChange={setIsQASheetOpen}>
-        <SheetContent className="bg-cream w-[400px] sm:w-[540px] overflow-y-auto">
-          <SheetHeader>
+        <SheetContent className="w-[400px] sm:w-[540px] flex flex-col h-full">
+          <SheetHeader className="flex-shrink-0 pb-6">
             <SheetTitle className="text-primary">Opprett Q&A sett</SheetTitle>
             <SheetDescription>
               Opprett et nytt spørsmål og svar-par basert på de valgte meldingene.
             </SheetDescription>
           </SheetHeader>
           
-          <div className="mt-6 space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="qa-title">Tittel</Label>
-              <Input
-                id="qa-title"
-                value={qaTitle}
-                onChange={(e) => setQaTitle(e.target.value)}
-                placeholder="Skriv inn en tittel for Q&A settet"
-                className="border-primary/20 focus:border-primary"
-              />
-              <p className="text-xs text-muted-foreground">
-                "- Q&A" vil automatisk legges til på slutten av tittelen.
-              </p>
+          <div className="flex-1 overflow-y-auto">
+            <div className="space-y-6 pb-6">
+              <div className="space-y-2">
+                <Label htmlFor="qa-title">Tittel</Label>
+                <Input
+                  id="qa-title"
+                  value={qaTitle}
+                  onChange={(e) => setQaTitle(e.target.value)}
+                  placeholder="Skriv inn en tittel for Q&A settet"
+                  className="border-primary/20 focus:border-primary"
+                />
+                <p className="text-xs text-muted-foreground">
+                  "- Q&A" vil automatisk legges til på slutten av tittelen.
+                </p>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="qa-question">Spørsmål</Label>
+                <Textarea
+                  id="qa-question"
+                  value={qaPair.question}
+                  onChange={(e) => setQaPair({ ...qaPair, question: e.target.value })}
+                  placeholder="Spørsmål"
+                  className="min-h-[100px] border-primary/20 focus:border-primary resize-none"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="qa-answer">Svar</Label>
+                <Textarea
+                  id="qa-answer"
+                  value={qaPair.answer}
+                  onChange={(e) => setQaPair({ ...qaPair, answer: e.target.value })}
+                  placeholder="Svar"
+                  className="min-h-[150px] border-primary/20 focus:border-primary resize-none"
+                />
+              </div>
             </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="qa-question">Spørsmål</Label>
-              <Textarea
-                id="qa-question"
-                value={qaPair.question}
-                onChange={(e) => setQaPair({ ...qaPair, question: e.target.value })}
-                placeholder="Spørsmål"
-                className="min-h-[80px] border-primary/20 focus:border-primary"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="qa-answer">Svar</Label>
-              <Textarea
-                id="qa-answer"
-                value={qaPair.answer}
-                onChange={(e) => setQaPair({ ...qaPair, answer: e.target.value })}
-                placeholder="Svar"
-                className="min-h-[150px] border-primary/20 focus:border-primary"
-              />
-            </div>
-            
-            <div className="flex justify-end gap-2 pt-4">
+          </div>
+          
+          <div className="flex-shrink-0 pt-4 border-t">
+            <div className="flex justify-end gap-2">
               <Button 
                 variant="outline" 
                 onClick={() => setIsQASheetOpen(false)}
+                disabled={isSaving}
               >
                 Avbryt
               </Button>
