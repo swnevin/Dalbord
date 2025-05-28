@@ -1,6 +1,6 @@
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { OrganizationsTab } from "@/components/admin/OrganizationsTab";
+import OrganizationsTab from "@/components/admin/OrganizationsTab";
 import { AdministratorTab } from "@/components/administrator/AdministratorTab";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useState } from "react";

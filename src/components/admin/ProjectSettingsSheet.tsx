@@ -31,12 +31,11 @@ const chartLabels: Record<string, string> = {
   feedback_pie: "Tilbakemeldinger på svar",
   success_vs_fallback: "Svar vs Fallback",
   savings_time: "Timer spart",
-  savings_money: "Penger spart",
-  add_to_cart: "Lagt til i handlekurv"
+  savings_money: "Penger spart"
 };
 
 const chartGroups: Record<string, ChartType[]> = {
-  summary: ["total_messages", "total_sessions", "total_conversations", "escalated_count", "thumbs_up", "thumbs_down", "success_metrics", "add_to_cart"],
+  summary: ["total_messages", "total_sessions", "total_conversations", "escalated_count", "thumbs_up", "thumbs_down", "success_metrics"],
   detailed_analysis: ["users_over_time", "sessions_over_time", "messages_over_time", "topics"],
   question_handling: ["feedback_pie", "success_vs_fallback"],
   savings: ["savings_time", "savings_money"]

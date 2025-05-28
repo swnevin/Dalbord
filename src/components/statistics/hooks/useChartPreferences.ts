@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -17,8 +18,7 @@ export type ChartType =
   | "feedback_pie" 
   | "success_vs_fallback"
   | "savings_time" 
-  | "savings_money"
-  | "add_to_cart";
+  | "savings_money";
 
 export interface ChartPreference {
   id: string;
@@ -43,8 +43,7 @@ export const useChartPreferences = () => {
       "escalated_count", 
       "thumbs_up", 
       "thumbs_down", 
-      "success_metrics",
-      "add_to_cart"
+      "success_metrics"
     ],
     detailed_analysis: [
       "users_over_time", 

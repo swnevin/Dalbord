@@ -24,9 +24,6 @@ export interface StatisticsData {
   // Thumbs up/down feedback metrics
   thumbsUpCount?: number;
   thumbsDownCount?: number;
-
-  // Add to cart metrics
-  addToCartCount?: number;
 }
 
 export interface LoadingState {
@@ -87,7 +84,6 @@ export interface MetricsResponse {
     successful_answer: number;
     thumbs_up: number;
     thumbs_down: number;
-    add_to_cart: number;
   };
   timeSeries: Array<{
     date: string;
@@ -98,12 +94,11 @@ export interface MetricsResponse {
     successful_answer: number;
     thumbs_up: number;
     thumbs_down: number;
-    add_to_cart: number;
   }>;
   rawMetrics: Array<{
     id: string;
     organization_id: string;
-    metric_type: 'happy_face' | 'neutral_face' | 'sad_face' | 'escalated_to_human' | 'successful_answer' | 'thumbs_up' | 'thumbs_down' | 'add_to_cart';
+    metric_type: 'happy_face' | 'neutral_face' | 'sad_face' | 'escalated_to_human' | 'successful_answer' | 'thumbs_up' | 'thumbs_down';
     timestamp: string;
     created_at: string;
   }>;
