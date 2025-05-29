@@ -57,52 +57,16 @@ const Statistics = () => {
         <div className="space-y-6">
           <h2 className="text-lg font-semibold">Sammendrag</h2>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {isChartVisible('total_messages') && (
-              <SummaryCards 
-                value={data.totalMessages || 0} 
-                isLoading={loading.summaryCards}
-                title="Totale meldinger"
-              />
-            )}
-            {isChartVisible('total_sessions') && (
-              <SummaryCards 
-                value={data.totalSessions || 0} 
-                isLoading={loading.summaryCards}
-                title="Totale økter"
-              />
-            )}
-            {isChartVisible('total_conversations') && (
-              <SummaryCards 
-                value={data.totalConversations || 0} 
-                isLoading={loading.summaryCards}
-                title="Totale samtaler"
-              />
-            )}
-            {isChartVisible('escalated_count') && (
-              <SummaryCards 
-                value={data.escalatedCount || 0} 
-                isLoading={loading.summaryCards}
-                title="Eskalerte samtaler"
-              />
-            )}
-          </div>
+          {isChartVisible('total_messages') && (
+            <SummaryCards 
+              totalMessages={data.totalMessages || 0}
+              totalSessions={data.totalSessions || 0}
+              totalConversations={data.totalConversations || 0}
+              isLoading={loading.summaryCards}
+            />
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {isChartVisible('thumbs_up') && (
-              <SummaryCards 
-                value={data.thumbsUpCount || 0} 
-                isLoading={loading.summaryCards}
-                title="Thumbs Up"
-              />
-            )}
-            {isChartVisible('thumbs_down') && (
-              <SummaryCards 
-                value={data.thumbsDownCount || 0} 
-                isLoading={loading.summaryCards}
-                title="Thumbs Down"
-              />
-            )}
             {isChartVisible('success_metrics') && (
               <SuccessMetricsCards
                 successfulAnswerCount={data.successfulAnswerCount || 0}
@@ -113,11 +77,9 @@ const Statistics = () => {
           </div>
 
           <FeedbackSummaryCards
-            data={{
-              happyFaceCount: data.happyFaceCount || 0,
-              neutralFaceCount: data.neutralFaceCount || 0,
-              sadFaceCount: data.sadFaceCount || 0
-            }}
+            escalatedCount={data.escalatedCount || 0}
+            thumbsUpCount={data.thumbsUpCount || 0}
+            thumbsDownCount={data.thumbsDownCount || 0}
             isLoading={loading.summaryCards}
           />
         </div>
@@ -168,11 +130,9 @@ const Statistics = () => {
           
           {isChartVisible('feedback_pie') && (
             <FeedbackPieChart
-              data={{
-                happyFaceCount: data.happyFaceCount || 0,
-                neutralFaceCount: data.neutralFaceCount || 0,
-                sadFaceCount: data.sadFaceCount || 0
-              }}
+              happyFaceCount={data.happyFaceCount || 0}
+              neutralFaceCount={data.neutralFaceCount || 0}
+              sadFaceCount={data.sadFaceCount || 0}
               isLoading={loading.feedbackChart}
             />
           )}
@@ -181,17 +141,13 @@ const Statistics = () => {
             <>
               {data.successVsFallbackTimeSeries && data.successVsFallbackTimeSeries.length > 0 && (
                 <SuccessVsFallbackLineChart
-                  title="Suksess vs. Fallback over tid"
                   data={data.successVsFallbackTimeSeries}
-                  description="Sammenligning av vellykkede svar vs. fallback over tid"
                   isLoading={loading.fallbackChart}
                 />
               )}
               <SuccessVsFallbackPieChart
-                data={{
-                  successfulAnswerCount: data.successfulAnswerCount || 0,
-                  fallbackCount: data.fallbackCount || 0
-                }}
+                successfulAnswerCount={data.successfulAnswerCount || 0}
+                fallbackCount={data.fallbackCount || 0}
                 isLoading={loading.fallbackChart}
               />
             </>

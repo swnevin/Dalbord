@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { subDays, subMonths, subYears, startOfDay, endOfDay } from 'date-fns';
 import { StatisticsData, LoadingState, DateRange, TimeRange, MetricsResponse } from "../types";
@@ -99,17 +100,19 @@ export const useStatistics = () => {
     const to = dates?.to ? endOfDay(dates.to).toISOString() : null;
 
     try {
-      let url = `${process.env.NEXT_PUBLIC_SUPABASE_FUNCTIONS_URL}/metrics?organization_id=${user.organization_id}`;
-      if (from) url += `&from=${from}`;
-      if (to) url += `&to=${to}`;
+      // Use Supabase client to call the get-metrics function
+      const { data: metrics, error: metricsError } = await supabase.functions.invoke('get-metrics', {
+        body: {
+          organization_id: user.organization_id,
+          start_date: from,
+          end_date: to,
+        },
+      });
 
-      const response = await fetch(url);
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch metrics: ${response.status} ${response.statusText}`);
+      if (metricsError) {
+        throw metricsError;
       }
 
-      const metrics: MetricsResponse = await response.json();
       const processedData = processMetricsData(metrics);
       setData(prevData => ({ ...prevData, ...processedData }));
 
