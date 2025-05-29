@@ -47,6 +47,48 @@ export const useStatistics = () => {
     }
   };
 
+  const fetchStatistics = useCallback(async () => {
+    if (!user?.organization_id) return;
+
+    setLoading(initialLoadingState);
+    setError(null);
+
+    const dates = getDatesForTimeRange(timeRange);
+    const from = dates?.from ? startOfDay(dates.from).toISOString() : null;
+    const to = dates?.to ? endOfDay(dates.to).toISOString() : null;
+
+    try {
+      // Fetch statistics data from Supabase function
+      const { data: statistics, error: statisticsError } = await supabase.functions.invoke('statistics', {
+        body: {
+          organizationId: user.organization_id,
+          from,
+          to,
+        },
+      });
+
+      if (statisticsError) {
+        throw statisticsError;
+      }
+
+      setData(statistics);
+    } catch (error: any) {
+      console.error("Error fetching statistics:", error);
+      setError(error);
+    } finally {
+      setLoading({
+        summaryCards: false,
+        messageChart: false,
+        userChart: false,
+        sessionChart: false,
+        intentChart: false,
+        feedbackChart: false,
+        escalationChart: false,
+        fallbackChart: false,
+      });
+    }
+  }, [user?.organization_id, timeRange, dateRange]);
+
   const fetchMetrics = useCallback(async () => {
     if (!user?.organization_id) return;
 
@@ -72,27 +114,7 @@ export const useStatistics = () => {
       }
 
       const processedData = processMetricsData(metrics);
-      
-      // Add some mock data for charts that aren't available in metrics
-      const mockData = {
-        totalMessages: 150,
-        totalSessions: 45,
-        totalConversations: 32,
-        fallbackCount: 5,
-        messageTimeSeries: generateMockTimeSeries('messages'),
-        userTimeSeries: generateMockTimeSeries('users'),
-        sessionTimeSeries: generateMockTimeSeries('sessions'),
-        topIntents: [
-          { name: 'Hjelp', count: 25 },
-          { name: 'Priser', count: 18 },
-          { name: 'Kontakt', count: 12 },
-          { name: 'Produkter', count: 10 },
-        ],
-        timeSaved: 120,
-        moneySaved: 15000,
-      };
-
-      setData({ ...processedData, ...mockData });
+      setData(prevData => ({ ...prevData, ...processedData }));
 
     } catch (error: any) {
       console.error("Error fetching metrics:", error);
@@ -112,10 +134,12 @@ export const useStatistics = () => {
   }, [user?.organization_id, timeRange, dateRange]);
 
   useEffect(() => {
+    fetchStatistics();
     fetchMetrics();
-  }, [fetchMetrics]);
+  }, [fetchStatistics, fetchMetrics]);
 
   const refetch = () => {
+    fetchStatistics();
     fetchMetrics();
   };
 
@@ -124,13 +148,13 @@ export const useStatistics = () => {
 
 const processMetricsData = (metrics: MetricsResponse): StatisticsData => {
   const processedData: StatisticsData = {
-    happyFaceCount: metrics.totals.happy_face || 0,
-    neutralFaceCount: metrics.totals.neutral_face || 0,
-    sadFaceCount: metrics.totals.sad_face || 0,
-    escalatedCount: metrics.totals.escalated_to_human || 0,
-    successfulAnswerCount: metrics.totals.successful_answer || 0,
-    thumbsUpCount: metrics.totals.thumbs_up || 0,
-    thumbsDownCount: metrics.totals.thumbs_down || 0,
+    happyFaceCount: metrics.totals.happy_face,
+    neutralFaceCount: metrics.totals.neutral_face,
+    sadFaceCount: metrics.totals.sad_face,
+    escalatedCount: metrics.totals.escalated_to_human,
+    successfulAnswerCount: metrics.totals.successful_answer,
+    thumbsUpCount: metrics.totals.thumbs_up,
+    thumbsDownCount: metrics.totals.thumbs_down,
   };
 
   // Process time series data for feedback charts
@@ -145,7 +169,16 @@ const processMetricsData = (metrics: MetricsResponse): StatisticsData => {
     const successVsFallbackTimeSeries = metrics.timeSeries.map(item => ({
       date: item.date,
       successful_answer: item.successful_answer || 0,
-      fallback: 0 // We don't have fallback data in current metrics
+      fallback: metrics.rawMetrics.filter(m => 
+        m.timestamp.startsWith(item.date) && 
+        m.metric_type !== 'happy_face' && 
+        m.metric_type !== 'neutral_face' && 
+        m.metric_type !== 'sad_face' && 
+        m.metric_type !== 'escalated_to_human' && 
+        m.metric_type !== 'successful_answer' && 
+        m.metric_type !== 'thumbs_up' && 
+        m.metric_type !== 'thumbs_down'
+      ).length
     }));
 
     processedData.feedbackTimeSeries = feedbackTimeSeries;
@@ -153,22 +186,4 @@ const processMetricsData = (metrics: MetricsResponse): StatisticsData => {
   }
 
   return processedData;
-};
-
-// Helper function to generate mock time series data
-const generateMockTimeSeries = (type: string) => {
-  const dates = [];
-  const today = new Date();
-  
-  for (let i = 6; i >= 0; i--) {
-    const date = new Date(today);
-    date.setDate(date.getDate() - i);
-    
-    dates.push({
-      date: date.toISOString().split('T')[0],
-      value: Math.floor(Math.random() * 50) + 10,
-    });
-  }
-  
-  return dates;
 };
