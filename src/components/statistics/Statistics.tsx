@@ -130,9 +130,9 @@ const Statistics = () => {
           
           {isChartVisible('feedback_pie') && (
             <FeedbackPieChart
-              happyFaceCount={data.happyFaceCount || 0}
-              neutralFaceCount={data.neutralFaceCount || 0}
-              sadFaceCount={data.sadFaceCount || 0}
+              thumbsUpCount={data.thumbsUpCount || 0}
+              thumbsDownCount={data.thumbsDownCount || 0}
+              successfulAnswerCount={data.successfulAnswerCount || 0}
               isLoading={loading.feedbackChart}
             />
           )}
