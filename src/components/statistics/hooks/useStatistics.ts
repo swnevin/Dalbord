@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { subDays, subMonths, subYears, startOfDay, endOfDay } from 'date-fns';
 import { StatisticsData, LoadingState, DateRange, TimeRange, MetricsResponse } from "../types";
@@ -26,7 +27,7 @@ export const useStatistics = () => {
   const [timeRange, setTimeRange] = useState<TimeRange>('7d');
   const { user } = useAuth();
 
-  const getDatesForTimeRange = (timeRange: TimeRange): { from: Date; to: Date } | null => {
+  const getDatesForTimeRange = (timeRange: TimeRange): { from: Date; to: Date } => {
     const today = new Date();
     switch (timeRange) {
       case '7d':
@@ -38,9 +39,10 @@ export const useStatistics = () => {
       case '365d':
         return { from: subDays(today, 365), to: today };
       case 'all':
-        return null;
+        // For 'all', use a very old date instead of null
+        return { from: new Date('2020-01-01'), to: today };
       case 'custom':
-        return dateRange.from && dateRange.to ? { from: dateRange.from, to: dateRange.to } : null;
+        return dateRange.from && dateRange.to ? { from: dateRange.from, to: dateRange.to } : { from: subDays(today, 7), to: today };
       default:
         return { from: subDays(today, 7), to: today };
     }
@@ -103,11 +105,12 @@ export const useStatistics = () => {
     setError(null);
 
     const dates = getDatesForTimeRange(timeRange);
-    const from = dates?.from ? startOfDay(dates.from).toISOString() : null;
-    const to = dates?.to ? endOfDay(dates.to).toISOString() : null;
+    const from = startOfDay(dates.from).toISOString();
+    const to = endOfDay(dates.to).toISOString();
 
     try {
       console.log('Fetching data for organization:', user.organization_id);
+      console.log('Date range being sent:', { from, to, timeRange });
       
       // Fetch metrics from database
       const { data: metrics, error: metricsError } = await supabase.functions.invoke('get-metrics', {
@@ -123,13 +126,13 @@ export const useStatistics = () => {
         throw metricsError;
       }
 
+      console.log('Metrics response received:', metrics);
+
       let voiceflowData = null;
-      if (from && to) {
-        try {
-          voiceflowData = await fetchVoiceflowData(from, to);
-        } catch (vfError) {
-          console.warn('Voiceflow data fetch failed, continuing with metrics only:', vfError);
-        }
+      try {
+        voiceflowData = await fetchVoiceflowData(from, to);
+      } catch (vfError) {
+        console.warn('Voiceflow data fetch failed, continuing with metrics only:', vfError);
       }
 
       console.log('All data received:', { metrics, voiceflowData });

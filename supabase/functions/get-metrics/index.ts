@@ -73,6 +73,13 @@ serve(async (req) => {
     // Parse the request body
     const body: MetricsRequest = await req.json()
     
+    console.log('Received metrics request:', {
+      organization_id: body.organization_id,
+      start_date: body.start_date,
+      end_date: body.end_date,
+      user_org: profileData.organization_id
+    })
+    
     // Use the specified organization_id if provided or default to the user's organization
     const organizationId = body.organization_id || profileData.organization_id
     
@@ -87,11 +94,16 @@ serve(async (req) => {
       }
     }
 
-    // Prepare the date range
-    const startDate = body.start_date ? new Date(body.start_date) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) // Default to 30 days ago
-    const endDate = body.end_date ? new Date(body.end_date) : new Date() // Default to now
+    // Use the provided dates directly without fallback defaults
+    const startDate = body.start_date ? new Date(body.start_date) : null
+    const endDate = body.end_date ? new Date(body.end_date) : null
     
-    // Prepare the metrics filter - removed 'add_to_cart' as it's not a valid enum value
+    console.log('Using date range:', {
+      startDate: startDate?.toISOString(),
+      endDate: endDate?.toISOString()
+    })
+    
+    // Prepare the metrics filter
     const metricTypes = body.metrics || ['happy_face', 'neutral_face', 'sad_face', 'escalated_to_human', 'successful_answer', 'thumbs_up', 'thumbs_down']
 
     // Query the metrics from the database
@@ -99,8 +111,14 @@ serve(async (req) => {
       .from('conversation_metrics')
       .select('*')
       .eq('organization_id', organizationId)
-      .gte('timestamp', startDate.toISOString())
-      .lte('timestamp', endDate.toISOString())
+    
+    // Only apply date filters if dates are provided
+    if (startDate) {
+      query = query.gte('timestamp', startDate.toISOString())
+    }
+    if (endDate) {
+      query = query.lte('timestamp', endDate.toISOString())
+    }
     
     if (metricTypes.length > 0) {
       query = query.in('metric_type', metricTypes)
@@ -116,14 +134,23 @@ serve(async (req) => {
       })
     }
 
+    console.log(`Found ${metrics.length} conversation metrics`)
+
     // Query fallback requests from the fallback_requests table
-    const { data: fallbackRequests, error: fallbackError } = await supabaseClient
+    let fallbackQuery = supabaseClient
       .from('fallback_requests')
       .select('*')
       .eq('organization_id', organizationId)
-      .gte('created_at', startDate.toISOString())
-      .lte('created_at', endDate.toISOString())
-      .order('created_at', { ascending: true })
+
+    // Only apply date filters if dates are provided
+    if (startDate) {
+      fallbackQuery = fallbackQuery.gte('created_at', startDate.toISOString())
+    }
+    if (endDate) {
+      fallbackQuery = fallbackQuery.lte('created_at', endDate.toISOString())
+    }
+
+    const { data: fallbackRequests, error: fallbackError } = await fallbackQuery.order('created_at', { ascending: true })
 
     if (fallbackError) {
       console.error('Error fetching fallback requests:', fallbackError)
@@ -132,6 +159,8 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
+    
+    console.log(`Found ${fallbackRequests.length} fallback requests`)
     
     // Process the metrics for different chart types
     
@@ -144,28 +173,32 @@ serve(async (req) => {
     // Add fallback count to totals
     totals.fallback = fallbackRequests.length
     
+    console.log('Calculated totals:', totals)
+    
     // 2. Group by day for time series charts
     // Create a day-by-day mapping from start to end date
     const days: string[] = []
     const timeSeriesData: Record<string, Record<string, number>> = {}
     
     // Create a set of days from start to end
-    let currentDay = new Date(startDate)
-    while (currentDay <= endDate) {
-      const dayString = currentDay.toISOString().split('T')[0]
-      days.push(dayString)
-      
-      // Initialize each day with zero counts
-      timeSeriesData[dayString] = metricTypes.reduce((acc, type) => {
-        acc[type] = 0
-        return acc
-      }, {})
-      
-      // Initialize fallback count for each day
-      timeSeriesData[dayString].fallback = 0
-      
-      // Move to next day
-      currentDay.setDate(currentDay.getDate() + 1)
+    if (startDate && endDate) {
+      let currentDay = new Date(startDate)
+      while (currentDay <= endDate) {
+        const dayString = currentDay.toISOString().split('T')[0]
+        days.push(dayString)
+        
+        // Initialize each day with zero counts
+        timeSeriesData[dayString] = metricTypes.reduce((acc, type) => {
+          acc[type] = 0
+          return acc
+        }, {})
+        
+        // Initialize fallback count for each day
+        timeSeriesData[dayString].fallback = 0
+        
+        // Move to next day
+        currentDay.setDate(currentDay.getDate() + 1)
+      }
     }
     
     // Fill in actual counts from conversation_metrics
@@ -190,13 +223,23 @@ serve(async (req) => {
       ...timeSeriesData[day]
     }))
 
+    const response = {
+      totals,
+      timeSeries,
+      rawMetrics: metrics,
+      fallbackRequests: fallbackRequests,
+      debug: {
+        requestedDateRange: { start_date: body.start_date, end_date: body.end_date },
+        actualDateRange: { startDate: startDate?.toISOString(), endDate: endDate?.toISOString() },
+        metricsCount: metrics.length,
+        fallbackCount: fallbackRequests.length
+      }
+    }
+
+    console.log('Sending response with totals:', response.totals)
+
     return new Response(
-      JSON.stringify({
-        totals,
-        timeSeries,
-        rawMetrics: metrics,
-        fallbackRequests: fallbackRequests
-      }),
+      JSON.stringify(response),
       {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
