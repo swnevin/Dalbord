@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
@@ -65,13 +64,14 @@ const ClientDashboard = () => {
   });
 
   const toggleTag = async (conversationId: string, tag: "system.saved" | "system.reviewed") => {
-    if (!user?.organization_id) return;
+    const effectiveOrgId = getEffectiveOrgId();
+    if (!effectiveOrgId) return;
 
     try {
       const { data: org, error: orgError } = await supabase
         .from('organizations')
         .select('voiceflow_api_key, voiceflow_project_id')
-        .eq('id', user.organization_id)
+        .eq('id', effectiveOrgId)
         .single();
 
       if (orgError) throw orgError;
@@ -159,13 +159,16 @@ const ClientDashboard = () => {
   };
 
   const handleDeleteConfirm = async () => {
-    if (!conversationToDelete || !user?.organization_id) return;
+    if (!conversationToDelete) return;
+    
+    const effectiveOrgId = getEffectiveOrgId();
+    if (!effectiveOrgId) return;
 
     try {
       const { data: org, error: orgError } = await supabase
         .from('organizations')
         .select('voiceflow_api_key, voiceflow_project_id')
-        .eq('id', user.organization_id)
+        .eq('id', effectiveOrgId)
         .single();
 
       if (orgError) throw orgError;
@@ -273,7 +276,10 @@ const ClientDashboard = () => {
   useEffect(() => {
     const fetchConversations = async () => {
       const organizationId = getEffectiveOrgId();
-      if (!organizationId) return;
+      if (!organizationId) {
+        setIsLoading(false);
+        return;
+      }
 
       try {
         const { data: org, error: orgError } = await supabase
@@ -284,7 +290,9 @@ const ClientDashboard = () => {
 
         if (orgError) throw orgError;
         if (!org.voiceflow_api_key || !org.voiceflow_project_id) {
-          console.error('Missing Voiceflow credentials');
+          console.error('Missing Voiceflow credentials for organization:', organizationId);
+          toast.error('Organisasjonen mangler Voiceflow-konfigurasjon');
+          setIsLoading(false);
           return;
         }
 
@@ -304,6 +312,7 @@ const ClientDashboard = () => {
         setConversations(data);
       } catch (error) {
         console.error('Error fetching conversations:', error);
+        toast.error('Kunne ikke laste samtaler');
       } finally {
         setIsLoading(false);
       }
