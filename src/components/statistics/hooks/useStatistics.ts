@@ -47,6 +47,56 @@ export const useStatistics = () => {
     }
   };
 
+  const fetchVoiceflowData = useCallback(async (startDate: string, endDate: string) => {
+    try {
+      console.log('Fetching Voiceflow analytics...');
+      
+      // Fetch interactions (messages)
+      const { data: interactionsData, error: interactionsError } = await supabase.functions.invoke('get-voiceflow-analytics', {
+        body: {
+          startDate,
+          endDate,
+          queryType: 'interactions'
+        },
+      });
+
+      if (interactionsError) throw interactionsError;
+
+      // Fetch sessions 
+      const { data: sessionsData, error: sessionsError } = await supabase.functions.invoke('get-voiceflow-analytics', {
+        body: {
+          startDate,
+          endDate,
+          queryType: 'sessions'
+        },
+      });
+
+      if (sessionsError) throw sessionsError;
+
+      // Fetch top intents
+      const { data: intentsData, error: intentsError } = await supabase.functions.invoke('get-voiceflow-analytics', {
+        body: {
+          startDate,
+          endDate,
+          queryType: 'top_intents'
+        },
+      });
+
+      if (intentsError) throw intentsError;
+
+      console.log('Voiceflow data received:', { interactionsData, sessionsData, intentsData });
+
+      return {
+        interactions: interactionsData,
+        sessions: sessionsData,
+        intents: intentsData
+      };
+    } catch (error) {
+      console.error('Error fetching Voiceflow data:', error);
+      throw error;
+    }
+  }, []);
+
   const fetchMetrics = useCallback(async () => {
     if (!user?.organization_id) return;
 
@@ -58,9 +108,9 @@ export const useStatistics = () => {
     const to = dates?.to ? endOfDay(dates.to).toISOString() : null;
 
     try {
-      console.log('Fetching metrics for organization:', user.organization_id);
+      console.log('Fetching data for organization:', user.organization_id);
       
-      // Use Supabase client to call the get-metrics function
+      // Fetch metrics from database
       const { data: metrics, error: metricsError } = await supabase.functions.invoke('get-metrics', {
         body: {
           organization_id: user.organization_id,
@@ -74,12 +124,21 @@ export const useStatistics = () => {
         throw metricsError;
       }
 
-      console.log('Metrics data received:', metrics);
-      const processedData = processMetricsData(metrics);
+      let voiceflowData = null;
+      if (from && to) {
+        try {
+          voiceflowData = await fetchVoiceflowData(from, to);
+        } catch (vfError) {
+          console.warn('Voiceflow data fetch failed, continuing with metrics only:', vfError);
+        }
+      }
+
+      console.log('All data received:', { metrics, voiceflowData });
+      const processedData = processAllData(metrics, voiceflowData);
       setData(processedData);
 
     } catch (error: any) {
-      console.error("Error fetching metrics:", error);
+      console.error("Error fetching data:", error);
       setError(error);
     } finally {
       setLoading({
@@ -93,7 +152,7 @@ export const useStatistics = () => {
         fallbackChart: false,
       });
     }
-  }, [user?.organization_id, timeRange, dateRange]);
+  }, [user?.organization_id, timeRange, dateRange, fetchVoiceflowData]);
 
   useEffect(() => {
     fetchMetrics();
@@ -106,8 +165,9 @@ export const useStatistics = () => {
   return { data, loading, error, refetch, dateRange, setDateRange, timeRange, setTimeRange };
 };
 
-const processMetricsData = (metrics: MetricsResponse): StatisticsData => {
+const processAllData = (metrics: MetricsResponse, voiceflowData: any): StatisticsData => {
   const processedData: StatisticsData = {
+    // Metrics from database
     happyFaceCount: metrics.totals.happy_face,
     neutralFaceCount: metrics.totals.neutral_face,
     sadFaceCount: metrics.totals.sad_face,
@@ -117,7 +177,52 @@ const processMetricsData = (metrics: MetricsResponse): StatisticsData => {
     thumbsDownCount: metrics.totals.thumbs_down,
   };
 
-  // Process time series data for feedback charts
+  // Process Voiceflow data if available
+  if (voiceflowData) {
+    // Process interactions (messages)
+    if (voiceflowData.interactions?.data?.length > 0) {
+      const interactionsQuery = voiceflowData.interactions.data[0];
+      if (interactionsQuery.result?.data) {
+        processedData.totalMessages = interactionsQuery.result.data.reduce((sum: number, item: any) => sum + (item.count || 0), 0);
+        
+        // Process time series for messages
+        processedData.messageTimeSeries = interactionsQuery.result.data.map((item: any) => ({
+          date: item.date || item.timestamp,
+          value: item.count || 0
+        }));
+      }
+    }
+
+    // Process sessions
+    if (voiceflowData.sessions?.data?.length > 0) {
+      const sessionsQuery = voiceflowData.sessions.data[0];
+      if (sessionsQuery.result?.data) {
+        processedData.totalSessions = sessionsQuery.result.data.reduce((sum: number, item: any) => sum + (item.count || 0), 0);
+        
+        // Process time series for sessions
+        processedData.sessionTimeSeries = sessionsQuery.result.data.map((item: any) => ({
+          date: item.date || item.timestamp,
+          value: item.count || 0
+        }));
+      }
+    }
+
+    // Process top intents
+    if (voiceflowData.intents?.data?.length > 0) {
+      const intentsQuery = voiceflowData.intents.data[0];
+      if (intentsQuery.result?.data) {
+        processedData.topIntents = intentsQuery.result.data.map((item: any) => ({
+          name: item.intent || item.name,
+          count: item.count || 0
+        }));
+      }
+    }
+
+    // Set totalConversations same as totalSessions for now
+    processedData.totalConversations = processedData.totalSessions;
+  }
+
+  // Process time series data for feedback charts from metrics
   if (metrics.timeSeries && metrics.timeSeries.length > 0) {
     const feedbackTimeSeries = metrics.timeSeries.map(item => ({
       date: item.date,
