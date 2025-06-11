@@ -47,48 +47,6 @@ export const useStatistics = () => {
     }
   };
 
-  const fetchStatistics = useCallback(async () => {
-    if (!user?.organization_id) return;
-
-    setLoading(initialLoadingState);
-    setError(null);
-
-    const dates = getDatesForTimeRange(timeRange);
-    const from = dates?.from ? startOfDay(dates.from).toISOString() : null;
-    const to = dates?.to ? endOfDay(dates.to).toISOString() : null;
-
-    try {
-      // Fetch statistics data from Supabase function
-      const { data: statistics, error: statisticsError } = await supabase.functions.invoke('statistics', {
-        body: {
-          organizationId: user.organization_id,
-          from,
-          to,
-        },
-      });
-
-      if (statisticsError) {
-        throw statisticsError;
-      }
-
-      setData(statistics);
-    } catch (error: any) {
-      console.error("Error fetching statistics:", error);
-      setError(error);
-    } finally {
-      setLoading({
-        summaryCards: false,
-        messageChart: false,
-        userChart: false,
-        sessionChart: false,
-        intentChart: false,
-        feedbackChart: false,
-        escalationChart: false,
-        fallbackChart: false,
-      });
-    }
-  }, [user?.organization_id, timeRange, dateRange]);
-
   const fetchMetrics = useCallback(async () => {
     if (!user?.organization_id) return;
 
@@ -100,6 +58,8 @@ export const useStatistics = () => {
     const to = dates?.to ? endOfDay(dates.to).toISOString() : null;
 
     try {
+      console.log('Fetching metrics for organization:', user.organization_id);
+      
       // Use Supabase client to call the get-metrics function
       const { data: metrics, error: metricsError } = await supabase.functions.invoke('get-metrics', {
         body: {
@@ -110,11 +70,13 @@ export const useStatistics = () => {
       });
 
       if (metricsError) {
+        console.error('Metrics error:', metricsError);
         throw metricsError;
       }
 
+      console.log('Metrics data received:', metrics);
       const processedData = processMetricsData(metrics);
-      setData(prevData => ({ ...prevData, ...processedData }));
+      setData(processedData);
 
     } catch (error: any) {
       console.error("Error fetching metrics:", error);
@@ -134,12 +96,10 @@ export const useStatistics = () => {
   }, [user?.organization_id, timeRange, dateRange]);
 
   useEffect(() => {
-    fetchStatistics();
     fetchMetrics();
-  }, [fetchStatistics, fetchMetrics]);
+  }, [fetchMetrics]);
 
   const refetch = () => {
-    fetchStatistics();
     fetchMetrics();
   };
 
