@@ -32,11 +32,11 @@ export const useStatistics = () => {
       case '7d':
         return { from: subDays(today, 7), to: today };
       case '30d':
-        return { from: subMonths(today, 1), to: today };
+        return { from: subDays(today, 30), to: today };
       case '90d':
-        return { from: subMonths(today, 3), to: today };
+        return { from: subDays(today, 90), to: today };
       case '365d':
-        return { from: subYears(today, 1), to: today };
+        return { from: subDays(today, 365), to: today };
       case 'all':
         return null;
       case 'custom':
