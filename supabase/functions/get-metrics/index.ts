@@ -106,76 +106,67 @@ serve(async (req) => {
     // Prepare the metrics filter
     const metricTypes = body.metrics || ['happy_face', 'neutral_face', 'sad_face', 'escalated_to_human', 'successful_answer', 'thumbs_up', 'thumbs_down']
 
-    // Query the metrics from the database
-    let query = supabaseClient
-      .from('conversation_metrics')
-      .select('*')
-      .eq('organization_id', organizationId)
+    // Get totals using COUNT queries instead of fetching all records
+    const totals: Record<string, number> = {}
     
-    // Only apply date filters if dates are provided
-    if (startDate) {
-      query = query.gte('timestamp', startDate.toISOString())
-    }
-    if (endDate) {
-      query = query.lte('timestamp', endDate.toISOString())
-    }
-    
-    if (metricTypes.length > 0) {
-      query = query.in('metric_type', metricTypes)
+    for (const metricType of metricTypes) {
+      let query = supabaseClient
+        .from('conversation_metrics')
+        .select('*', { count: 'exact', head: true })
+        .eq('organization_id', organizationId)
+        .eq('metric_type', metricType)
+      
+      // Only apply date filters if dates are provided
+      if (startDate) {
+        query = query.gte('timestamp', startDate.toISOString())
+      }
+      if (endDate) {
+        query = query.lte('timestamp', endDate.toISOString())
+      }
+      
+      const { count, error } = await query
+      
+      if (error) {
+        console.error(`Error counting ${metricType}:`, error)
+        return new Response(JSON.stringify({ error: error.message }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      
+      totals[metricType] = count || 0
     }
 
-    const { data: metrics, error: metricsError } = await query.order('timestamp', { ascending: true })
-
-    if (metricsError) {
-      console.error('Error fetching metrics:', metricsError)
-      return new Response(JSON.stringify({ error: metricsError.message }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    console.log(`Found ${metrics.length} conversation metrics`)
-
-    // Query fallback requests from the fallback_requests table
-    let fallbackQuery = supabaseClient
+    // Query fallback requests count using COUNT
+    let fallbackCountQuery = supabaseClient
       .from('fallback_requests')
-      .select('*')
+      .select('*', { count: 'exact', head: true })
       .eq('organization_id', organizationId)
 
     // Only apply date filters if dates are provided
     if (startDate) {
-      fallbackQuery = fallbackQuery.gte('created_at', startDate.toISOString())
+      fallbackCountQuery = fallbackCountQuery.gte('created_at', startDate.toISOString())
     }
     if (endDate) {
-      fallbackQuery = fallbackQuery.lte('created_at', endDate.toISOString())
+      fallbackCountQuery = fallbackCountQuery.lte('created_at', endDate.toISOString())
     }
 
-    const { data: fallbackRequests, error: fallbackError } = await fallbackQuery.order('created_at', { ascending: true })
+    const { count: fallbackCount, error: fallbackCountError } = await fallbackCountQuery
 
-    if (fallbackError) {
-      console.error('Error fetching fallback requests:', fallbackError)
-      return new Response(JSON.stringify({ error: fallbackError.message }), {
+    if (fallbackCountError) {
+      console.error('Error counting fallback requests:', fallbackCountError)
+      return new Response(JSON.stringify({ error: fallbackCountError.message }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
-    
-    console.log(`Found ${fallbackRequests.length} fallback requests`)
-    
-    // Process the metrics for different chart types
-    
-    // 1. Count totals by metric type
-    const totals = metricTypes.reduce((acc, type) => {
-      acc[type] = metrics.filter(m => m.metric_type === type).length
-      return acc
-    }, {})
     
     // Add fallback count to totals
-    totals.fallback = fallbackRequests.length
+    totals.fallback = fallbackCount || 0
     
-    console.log('Calculated totals:', totals)
+    console.log('Calculated totals using COUNT queries:', totals)
     
-    // 2. Group by day for time series charts
+    // For time series data, we still need to fetch actual records (but with proper limits)
     // Create a day-by-day mapping from start to end date
     const days: string[] = []
     const timeSeriesData: Record<string, Record<string, number>> = {}
@@ -201,21 +192,82 @@ serve(async (req) => {
       }
     }
     
-    // Fill in actual counts from conversation_metrics
-    metrics.forEach(metric => {
-      const day = new Date(metric.timestamp).toISOString().split('T')[0]
-      if (timeSeriesData[day]) {
-        timeSeriesData[day][metric.metric_type]++
-      }
-    })
+    // For time series, we need the actual records (with explicit large limit)
+    let metricsQuery = supabaseClient
+      .from('conversation_metrics')
+      .select('*')
+      .eq('organization_id', organizationId)
+      .limit(100000) // Set explicit high limit for time series data
     
-    // Fill in fallback counts from fallback_requests
-    fallbackRequests.forEach(fallback => {
-      const day = new Date(fallback.created_at).toISOString().split('T')[0]
-      if (timeSeriesData[day]) {
-        timeSeriesData[day].fallback++
-      }
-    })
+    // Only apply date filters if dates are provided
+    if (startDate) {
+      metricsQuery = metricsQuery.gte('timestamp', startDate.toISOString())
+    }
+    if (endDate) {
+      metricsQuery = metricsQuery.lte('timestamp', endDate.toISOString())
+    }
+    
+    if (metricTypes.length > 0) {
+      metricsQuery = metricsQuery.in('metric_type', metricTypes)
+    }
+
+    const { data: metrics, error: metricsError } = await metricsQuery.order('timestamp', { ascending: true })
+
+    if (metricsError) {
+      console.error('Error fetching metrics for time series:', metricsError)
+      return new Response(JSON.stringify({ error: metricsError.message }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // Query fallback requests for time series (with explicit high limit)
+    let fallbackQuery = supabaseClient
+      .from('fallback_requests')
+      .select('*')
+      .eq('organization_id', organizationId)
+      .limit(100000) // Set explicit high limit
+
+    // Only apply date filters if dates are provided
+    if (startDate) {
+      fallbackQuery = fallbackQuery.gte('created_at', startDate.toISOString())
+    }
+    if (endDate) {
+      fallbackQuery = fallbackQuery.lte('created_at', endDate.toISOString())
+    }
+
+    const { data: fallbackRequests, error: fallbackError } = await fallbackQuery.order('created_at', { ascending: true })
+
+    if (fallbackError) {
+      console.error('Error fetching fallback requests for time series:', fallbackError)
+      return new Response(JSON.stringify({ error: fallbackError.message }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+    
+    console.log(`Found ${metrics?.length || 0} conversation metrics for time series`)
+    console.log(`Found ${fallbackRequests?.length || 0} fallback requests for time series`)
+    
+    // Fill in actual counts from conversation_metrics for time series
+    if (metrics) {
+      metrics.forEach(metric => {
+        const day = new Date(metric.timestamp).toISOString().split('T')[0]
+        if (timeSeriesData[day]) {
+          timeSeriesData[day][metric.metric_type]++
+        }
+      })
+    }
+    
+    // Fill in fallback counts from fallback_requests for time series
+    if (fallbackRequests) {
+      fallbackRequests.forEach(fallback => {
+        const day = new Date(fallback.created_at).toISOString().split('T')[0]
+        if (timeSeriesData[day]) {
+          timeSeriesData[day].fallback++
+        }
+      })
+    }
     
     // Convert to array format for the charts (ensuring all days are represented)
     const timeSeries = days.map(day => ({
@@ -226,17 +278,17 @@ serve(async (req) => {
     const response = {
       totals,
       timeSeries,
-      rawMetrics: metrics,
-      fallbackRequests: fallbackRequests,
+      rawMetrics: metrics || [],
+      fallbackRequests: fallbackRequests || [],
       debug: {
         requestedDateRange: { start_date: body.start_date, end_date: body.end_date },
         actualDateRange: { startDate: startDate?.toISOString(), endDate: endDate?.toISOString() },
-        metricsCount: metrics.length,
-        fallbackCount: fallbackRequests.length
+        metricsCount: metrics?.length || 0,
+        fallbackCount: fallbackRequests?.length || 0
       }
     }
 
-    console.log('Sending response with totals:', response.totals)
+    console.log('Sending response with accurate totals from COUNT queries:', response.totals)
 
     return new Response(
       JSON.stringify(response),
