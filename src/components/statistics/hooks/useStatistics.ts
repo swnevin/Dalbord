@@ -179,40 +179,22 @@ const processAllData = (metrics: MetricsResponse, voiceflowData: any): Statistic
 
   // Process Voiceflow data if available
   if (voiceflowData) {
-    // Process interactions (messages)
-    if (voiceflowData.interactions?.data?.length > 0) {
-      const interactionsQuery = voiceflowData.interactions.data[0];
-      if (interactionsQuery.result?.data) {
-        processedData.totalMessages = interactionsQuery.result.data.reduce((sum: number, item: any) => sum + (item.count || 0), 0);
-        
-        // Process time series for messages
-        processedData.messageTimeSeries = interactionsQuery.result.data.map((item: any) => ({
-          date: item.date || item.timestamp,
-          value: item.count || 0
-        }));
-      }
+    // Process interactions (messages) - fix the data structure path
+    if (voiceflowData.interactions?.result?.length > 0) {
+      processedData.totalMessages = voiceflowData.interactions.result[0].count || 0;
     }
 
-    // Process sessions
-    if (voiceflowData.sessions?.data?.length > 0) {
-      const sessionsQuery = voiceflowData.sessions.data[0];
-      if (sessionsQuery.result?.data) {
-        processedData.totalSessions = sessionsQuery.result.data.reduce((sum: number, item: any) => sum + (item.count || 0), 0);
-        
-        // Process time series for sessions
-        processedData.sessionTimeSeries = sessionsQuery.result.data.map((item: any) => ({
-          date: item.date || item.timestamp,
-          value: item.count || 0
-        }));
-      }
+    // Process sessions - fix the data structure path
+    if (voiceflowData.sessions?.result?.length > 0) {
+      processedData.totalSessions = voiceflowData.sessions.result[0].count || 0;
     }
 
-    // Process top intents
-    if (voiceflowData.intents?.data?.length > 0) {
-      const intentsQuery = voiceflowData.intents.data[0];
-      if (intentsQuery.result?.data) {
-        processedData.topIntents = intentsQuery.result.data.map((item: any) => ({
-          name: item.intent || item.name,
+    // Process top intents - fix the data structure path
+    if (voiceflowData.intents?.result?.length > 0) {
+      const intentsResult = voiceflowData.intents.result[0];
+      if (intentsResult.intents && Array.isArray(intentsResult.intents)) {
+        processedData.topIntents = intentsResult.intents.map((item: any) => ({
+          name: item.name,
           count: item.count || 0
         }));
       }
