@@ -1,3 +1,4 @@
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import OrganizationsTab from "@/components/admin/OrganizationsTab";
 import { AdministratorTab } from "@/components/administrator/AdministratorTab";
@@ -25,21 +26,15 @@ const AdminDashboard = () => {
         if (profileError) throw profileError;
         setUserRole(profileData.role || '');
 
-        // If user is admin, they get access to all tabs
-        if (profileData.role === 'admin') {
-          setUserTabs(['organizations', 'administrator']);
-        } else {
-          // Otherwise, fetch their specific tab permissions
-          const { data: tabsData, error: tabsError } = await supabase
-            .from('user_tab_permissions')
-            .select('tab_name')
-            .eq('user_id', user.id);
+        const { data: tabsData, error: tabsError } = await supabase
+          .from('user_tab_permissions')
+          .select('tab_name')
+          .eq('user_id', user.id);
 
-          if (tabsError) throw tabsError;
-          
-          const allowedTabs = tabsData?.map(tab => tab.tab_name) || [];
-          setUserTabs(allowedTabs);
-        }
+        if (tabsError) throw tabsError;
+        
+        const allowedTabs = tabsData?.map(tab => tab.tab_name) || [];
+        setUserTabs(allowedTabs);
       } catch (error) {
         console.error('Error fetching user profile:', error);
       }

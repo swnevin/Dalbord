@@ -9,7 +9,6 @@ interface User {
   id: string;
   email: string;
   organization_id?: string;
-  role?: string;
 }
 
 interface PreviewUser {
@@ -56,7 +55,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .from('profiles')
         .select(`
           organization_id,
-          role,
           organizations (
             type
           )
@@ -75,7 +73,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       return {
         organization_id: profileData.organization_id,
-        role: profileData.role,
         organization_type: profileData.organizations?.type
       };
     } catch (error) {
@@ -96,24 +93,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const userData = {
         id: session.user.id,
         email: session.user.email,
-        organization_id: profile.organization_id,
-        role: profile.role
+        organization_id: profile.organization_id
       };
 
       setUser(userData);
 
-      // Admin users should always go to admin panel, regardless of organization
-      if (profile.role === 'admin') {
-        if (location.pathname !== '/admin') {
+      // Only handle navigation if we're not already on the admin dashboard
+      // This prevents the flash when adding new members
+      if (location.pathname !== '/admin') {
+        if (profile.organization_type === 'admin') {
           navigate('/admin');
-        }
-      } else {
-        // Non-admin users go to regular dashboard
-        if (location.pathname !== '/dashboard') {
+        } else {
           navigate('/dashboard');
         }
       }
-      
       return true;
     } catch (error: any) {
       console.error('Error handling session:', error);
@@ -213,18 +206,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setIsInPreviewMode(true);
       
       // If the current user is an admin, temporarily update their organization_id
-      if (user && user.id && user.role === 'admin') {
-        // Temporarily set the admin's organization_id to the member's organization_id
-        const { error: updateError } = await supabase
+      if (user && user.id) {
+        const { data: profileData } = await supabase
           .from('profiles')
-          .update({ organization_id: member.organization_id })
-          .eq('id', user.id);
+          .select('role, organization_id')
+          .eq('id', user.id)
+          .single();
         
-        if (updateError) {
-          console.error('Error updating temporary organization_id:', updateError);
-        } else {
-          // Update the user object with the temporary organization_id
-          setUser(prev => prev ? { ...prev, organization_id: member.organization_id } : null);
+        if (profileData && profileData.role === 'admin') {
+          // Temporarily set the admin's organization_id to the member's organization_id
+          const { error: updateError } = await supabase
+            .from('profiles')
+            .update({ organization_id: member.organization_id })
+            .eq('id', user.id);
+          
+          if (updateError) {
+            console.error('Error updating temporary organization_id:', updateError);
+          } else {
+            // Update the user object with the temporary organization_id
+            setUser(prev => prev ? { ...prev, organization_id: member.organization_id } : null);
+          }
         }
       }
       
@@ -247,7 +248,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       await new Promise(resolve => setTimeout(resolve, 300));
       
       // If the current user is an admin, restore their original organization_id
-      if (user && user.id && user.role === 'admin' && originalOrgId) {
+      if (user && user.id && originalOrgId) {
         const { error: updateError } = await supabase
           .from('profiles')
           .update({ organization_id: originalOrgId })
