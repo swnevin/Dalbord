@@ -115,6 +115,23 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
+
+    // Query fallback requests from the fallback_requests table
+    const { data: fallbackRequests, error: fallbackError } = await supabaseClient
+      .from('fallback_requests')
+      .select('*')
+      .eq('organization_id', organizationId)
+      .gte('created_at', startDate.toISOString())
+      .lte('created_at', endDate.toISOString())
+      .order('created_at', { ascending: true })
+
+    if (fallbackError) {
+      console.error('Error fetching fallback requests:', fallbackError)
+      return new Response(JSON.stringify({ error: fallbackError.message }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
     
     // Process the metrics for different chart types
     
@@ -123,6 +140,9 @@ serve(async (req) => {
       acc[type] = metrics.filter(m => m.metric_type === type).length
       return acc
     }, {})
+    
+    // Add fallback count to totals
+    totals.fallback = fallbackRequests.length
     
     // 2. Group by day for time series charts
     // Create a day-by-day mapping from start to end date
@@ -141,15 +161,26 @@ serve(async (req) => {
         return acc
       }, {})
       
+      // Initialize fallback count for each day
+      timeSeriesData[dayString].fallback = 0
+      
       // Move to next day
       currentDay.setDate(currentDay.getDate() + 1)
     }
     
-    // Fill in actual counts
+    // Fill in actual counts from conversation_metrics
     metrics.forEach(metric => {
       const day = new Date(metric.timestamp).toISOString().split('T')[0]
       if (timeSeriesData[day]) {
         timeSeriesData[day][metric.metric_type]++
+      }
+    })
+    
+    // Fill in fallback counts from fallback_requests
+    fallbackRequests.forEach(fallback => {
+      const day = new Date(fallback.created_at).toISOString().split('T')[0]
+      if (timeSeriesData[day]) {
+        timeSeriesData[day].fallback++
       }
     })
     
@@ -163,7 +194,8 @@ serve(async (req) => {
       JSON.stringify({
         totals,
         timeSeries,
-        rawMetrics: metrics
+        rawMetrics: metrics,
+        fallbackRequests: fallbackRequests
       }),
       {
         status: 200,

@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { subDays, subMonths, subYears, startOfDay, endOfDay } from 'date-fns';
 import { StatisticsData, LoadingState, DateRange, TimeRange, MetricsResponse } from "../types";
@@ -175,6 +174,8 @@ const processAllData = (metrics: MetricsResponse, voiceflowData: any): Statistic
     successfulAnswerCount: metrics.totals.successful_answer,
     thumbsUpCount: metrics.totals.thumbs_up,
     thumbsDownCount: metrics.totals.thumbs_down,
+    // Add fallback count from the new data structure
+    fallbackCount: metrics.totals.fallback || 0,
   };
 
   // Process Voiceflow data if available
@@ -216,16 +217,7 @@ const processAllData = (metrics: MetricsResponse, voiceflowData: any): Statistic
     const successVsFallbackTimeSeries = metrics.timeSeries.map(item => ({
       date: item.date,
       successful_answer: item.successful_answer || 0,
-      fallback: metrics.rawMetrics.filter(m => 
-        m.timestamp.startsWith(item.date) && 
-        m.metric_type !== 'happy_face' && 
-        m.metric_type !== 'neutral_face' && 
-        m.metric_type !== 'sad_face' && 
-        m.metric_type !== 'escalated_to_human' && 
-        m.metric_type !== 'successful_answer' && 
-        m.metric_type !== 'thumbs_up' && 
-        m.metric_type !== 'thumbs_down'
-      ).length
+      fallback: item.fallback || 0
     }));
 
     processedData.feedbackTimeSeries = feedbackTimeSeries;

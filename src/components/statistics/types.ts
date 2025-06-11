@@ -84,6 +84,7 @@ export interface MetricsResponse {
     successful_answer: number;
     thumbs_up: number;
     thumbs_down: number;
+    fallback: number;
   };
   timeSeries: Array<{
     date: string;
@@ -94,12 +95,22 @@ export interface MetricsResponse {
     successful_answer: number;
     thumbs_up: number;
     thumbs_down: number;
+    fallback: number;
   }>;
   rawMetrics: Array<{
     id: string;
     organization_id: string;
     metric_type: 'happy_face' | 'neutral_face' | 'sad_face' | 'escalated_to_human' | 'successful_answer' | 'thumbs_up' | 'thumbs_down';
     timestamp: string;
+    created_at: string;
+  }>;
+  fallbackRequests?: Array<{
+    id: string;
+    organization_id: string;
+    query: string;
+    response: string;
+    is_resolved: boolean;
+    user_id?: string;
     created_at: string;
   }>;
 }
