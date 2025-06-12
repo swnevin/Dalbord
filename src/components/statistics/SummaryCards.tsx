@@ -14,12 +14,29 @@ interface SummaryCardsProps {
   totalSessions: number;
   totalConversations: number;
   isLoading: boolean;
+  visibleCards?: {
+    messages?: boolean;
+    sessions?: boolean;
+    conversations?: boolean;
+  };
 }
 
-export const SummaryCards = ({ totalMessages, totalSessions, totalConversations, isLoading }: SummaryCardsProps) => {
-  return (
-    <div className="grid grid-cols-3 gap-4">
-      <Card>
+export const SummaryCards = ({ 
+  totalMessages, 
+  totalSessions, 
+  totalConversations, 
+  isLoading,
+  visibleCards = {
+    messages: true,
+    sessions: true,
+    conversations: true
+  }
+}: SummaryCardsProps) => {
+  const cards = [];
+
+  if (visibleCards.messages) {
+    cards.push(
+      <Card key="messages">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">
             Antall meldinger
@@ -50,8 +67,12 @@ export const SummaryCards = ({ totalMessages, totalSessions, totalConversations,
           )}
         </CardContent>
       </Card>
+    );
+  }
 
-      <Card>
+  if (visibleCards.sessions) {
+    cards.push(
+      <Card key="sessions">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">
             Antall samtaler
@@ -82,8 +103,12 @@ export const SummaryCards = ({ totalMessages, totalSessions, totalConversations,
           )}
         </CardContent>
       </Card>
+    );
+  }
 
-      <Card>
+  if (visibleCards.conversations) {
+    cards.push(
+      <Card key="conversations">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">
             Antall brukere
@@ -114,6 +139,17 @@ export const SummaryCards = ({ totalMessages, totalSessions, totalConversations,
           )}
         </CardContent>
       </Card>
+    );
+  }
+
+  // If no cards are visible, don't render anything
+  if (cards.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="grid grid-cols-3 gap-4">
+      {cards}
     </div>
   );
 };

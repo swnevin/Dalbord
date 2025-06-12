@@ -57,14 +57,17 @@ const Statistics = () => {
         <div className="space-y-6">
           <h2 className="text-lg font-semibold">Sammendrag</h2>
           
-          {isChartVisible('total_messages') && (
-            <SummaryCards 
-              totalMessages={data.totalMessages || 0}
-              totalSessions={data.totalSessions || 0}
-              totalConversations={data.totalConversations || 0}
-              isLoading={loading.summaryCards}
-            />
-          )}
+          <SummaryCards 
+            totalMessages={data.totalMessages || 0}
+            totalSessions={data.totalSessions || 0}
+            totalConversations={data.totalConversations || 0}
+            isLoading={loading.summaryCards}
+            visibleCards={{
+              messages: isChartVisible('total_messages'),
+              sessions: isChartVisible('total_sessions'),
+              conversations: isChartVisible('total_conversations')
+            }}
+          />
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {isChartVisible('success_metrics') && (
