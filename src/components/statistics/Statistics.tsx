@@ -81,6 +81,11 @@ const Statistics = () => {
             thumbsUpCount={data.thumbsUpCount || 0}
             thumbsDownCount={data.thumbsDownCount || 0}
             isLoading={loading.summaryCards}
+            visibleCards={{
+              escalated: isChartVisible('escalated_count'),
+              thumbsUp: isChartVisible('thumbs_up'),
+              thumbsDown: isChartVisible('thumbs_down')
+            }}
           />
         </div>
       )}

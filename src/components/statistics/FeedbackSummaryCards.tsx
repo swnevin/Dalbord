@@ -14,17 +14,29 @@ interface FeedbackSummaryCardsProps {
   thumbsUpCount: number;
   thumbsDownCount: number;
   isLoading: boolean;
+  visibleCards?: {
+    escalated?: boolean;
+    thumbsUp?: boolean;
+    thumbsDown?: boolean;
+  };
 }
 
 export const FeedbackSummaryCards = ({ 
   escalatedCount, 
   thumbsUpCount,
   thumbsDownCount,
-  isLoading 
+  isLoading,
+  visibleCards = {
+    escalated: true,
+    thumbsUp: true,
+    thumbsDown: true
+  }
 }: FeedbackSummaryCardsProps) => {
-  return (
-    <div className="grid grid-cols-3 gap-4">
-      <Card>
+  const cards = [];
+
+  if (visibleCards.escalated) {
+    cards.push(
+      <Card key="escalated">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">
             Eskalerte samtaler
@@ -55,8 +67,12 @@ export const FeedbackSummaryCards = ({
           )}
         </CardContent>
       </Card>
+    );
+  }
 
-      <Card>
+  if (visibleCards.thumbsUp) {
+    cards.push(
+      <Card key="thumbsUp">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">
             Tommel opp
@@ -87,8 +103,12 @@ export const FeedbackSummaryCards = ({
           )}
         </CardContent>
       </Card>
+    );
+  }
 
-      <Card>
+  if (visibleCards.thumbsDown) {
+    cards.push(
+      <Card key="thumbsDown">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">
             Tommel ned
@@ -119,6 +139,17 @@ export const FeedbackSummaryCards = ({
           )}
         </CardContent>
       </Card>
+    );
+  }
+
+  // If no cards are visible, don't render anything
+  if (cards.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="grid grid-cols-3 gap-4">
+      {cards}
     </div>
   );
 };
