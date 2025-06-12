@@ -54,6 +54,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .from('profiles')
         .select(`
           organization_id,
+          role,
           organizations (
             type
           )
@@ -72,7 +73,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       return {
         organization_id: profileData.organization_id,
-        organization_type: profileData.organizations?.type
+        organization_type: profileData.organizations?.type,
+        user_role: profileData.role
       };
     } catch (error) {
       console.error('Error in fetchUserProfile:', error);
@@ -97,15 +99,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       setUser(userData);
 
-      // Only handle navigation if we're not already on the admin dashboard
-      // This prevents the flash when adding new members
-      if (location.pathname !== '/admin') {
-        if (profile.organization_type === 'admin') {
-          navigate('/admin');
-        } else {
-          navigate('/dashboard');
-        }
+      // Navigate based on user role and organization type
+      // Admin users (role=admin) OR users in admin organizations should go to /admin
+      const shouldGoToAdmin = profile.user_role === 'admin' || profile.organization_type === 'admin';
+      
+      // Only handle navigation if we're not already on the correct page
+      // This prevents unnecessary redirects during page refresh or direct access
+      if (shouldGoToAdmin && location.pathname !== '/admin') {
+        navigate('/admin');
+      } else if (!shouldGoToAdmin && location.pathname !== '/dashboard') {
+        navigate('/dashboard');
       }
+      
       return true;
     } catch (error: any) {
       console.error('Error handling session:', error);
@@ -135,7 +140,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         });
       } else {
         setUser(null);
-        navigate('/login');
+        if (location.pathname !== '/login') {
+          navigate('/login');
+        }
       }
       setIsLoading(false);
     });
@@ -220,7 +227,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setPreviewUser(null);
       setIsInPreviewMode(false);
       
-      // Return to the original path
+      // Return to the original path, defaulting to /admin
       const returnPath = sessionStorage.getItem('previewReturnPath') || '/admin';
       navigate(returnPath);
       sessionStorage.removeItem('previewReturnPath');
