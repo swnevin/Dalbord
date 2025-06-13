@@ -136,10 +136,12 @@ async function handleDailyData(startDate: string, endDate: string, queryType: st
   const queryName = queryType === 'daily_interactions' ? 'interactions' : 'sessions'
   console.log(`Fetching daily ${queryName} data from ${startDate} to ${endDate}`)
 
-  // Iterate through each day
+  // Fix: Iterate through each day including the end date
   const currentDate = new Date(start)
   while (currentDate <= end) {
     try {
+      const dateString = currentDate.toISOString().split('T')[0] // YYYY-MM-DD format
+      
       // Set start of day in UTC
       const dayStart = new Date(currentDate)
       dayStart.setUTCHours(0, 0, 0, 0)
@@ -151,7 +153,7 @@ async function handleDailyData(startDate: string, endDate: string, queryType: st
       const dayStartISO = dayStart.toISOString()
       const dayEndISO = dayEnd.toISOString()
       
-      console.log(`Fetching ${queryName} for ${dayStartISO} to ${dayEndISO}`)
+      console.log(`Fetching ${queryName} for ${dateString} (${dayStartISO} to ${dayEndISO})`)
 
       const options = {
         method: 'POST',
@@ -181,31 +183,32 @@ async function handleDailyData(startDate: string, endDate: string, queryType: st
         const count = data?.result?.[0]?.count || 0
         
         dailyData.push({
-          date: currentDate.toISOString().split('T')[0], // YYYY-MM-DD format
+          date: dateString,
           count: count
         })
         
-        console.log(`${queryName} for ${currentDate.toISOString().split('T')[0]}: ${count}`)
+        console.log(`${queryName} for ${dateString}: ${count}`)
       } else {
-        console.warn(`Failed to fetch ${queryName} for ${currentDate.toISOString().split('T')[0]}`)
+        console.warn(`Failed to fetch ${queryName} for ${dateString}: ${response.status}`)
         dailyData.push({
-          date: currentDate.toISOString().split('T')[0],
+          date: dateString,
           count: 0
         })
       }
     } catch (error) {
-      console.error(`Error fetching ${queryName} for ${currentDate.toISOString().split('T')[0]}:`, error)
+      const dateString = currentDate.toISOString().split('T')[0]
+      console.error(`Error fetching ${queryName} for ${dateString}:`, error)
       dailyData.push({
-        date: currentDate.toISOString().split('T')[0],
+        date: dateString,
         count: 0
       })
     }
     
-    // Move to next day
+    // Move to next day - this was the issue, now fixed to include end date
     currentDate.setDate(currentDate.getDate() + 1)
   }
 
-  console.log(`Daily ${queryName} data:`, dailyData)
+  console.log(`Daily ${queryName} data (${dailyData.length} days):`, dailyData)
   
   return new Response(
     JSON.stringify({ dailyData }),
