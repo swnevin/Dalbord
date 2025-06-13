@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { startDate, endDate, queryType = 'combined' } = await req.json()
+    const { startDate, endDate, queryType = 'interactions' } = await req.json()
 
     if (!startDate || !endDate) {
       throw new Error('Start date and end date are required')
@@ -67,31 +67,15 @@ serve(async (req) => {
       throw new Error('Organization has no Voiceflow credentials')
     }
 
-    const endpoint = 'https://analytics-api.voiceflow.com/v1/query/usage';
-
-    // Build the combined query according to the documentation
-    const queryBody = {
-      query: [
-        {
-          name: "interactions",
-          filter: {
-            projectID: org.voiceflow_project_id,
-            startTime: startDate,
-            endTime: endDate
-          }
-        },
-        {
-          name: "sessions",
-          filter: {
-            projectID: org.voiceflow_project_id,
-            startTime: startDate,
-            endTime: endDate
-          }
-        }
-      ]
-    };
-
-    console.log('Sending Voiceflow request:', JSON.stringify(queryBody, null, 2));
+    // Prepare the query based on the query type
+    let queryName = 'interactions'; // Default is interactions (messages)
+    let endpoint = 'https://analytics-api.voiceflow.com/v1/query/usage';
+    
+    if (queryType === 'sessions') {
+      queryName = 'sessions';
+    } else if (queryType === 'top_intents') {
+      queryName = 'top_intents';
+    }
 
     const options = {
       method: 'POST',
@@ -100,19 +84,28 @@ serve(async (req) => {
         'content-type': 'application/json',
         authorization: org.voiceflow_api_key
       },
-      body: JSON.stringify(queryBody)
+      body: JSON.stringify({
+        query: [
+          {
+            name: queryName,
+            filter: {
+              projectID: org.voiceflow_project_id,
+              startTime: startDate,
+              endTime: endDate
+            }
+          }
+        ]
+      })
     };
 
     const response = await fetch(endpoint, options)
     
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Voiceflow API error: ${response.status} - ${errorText}`);
       throw new Error(`Voiceflow API error: ${response.status}`)
     }
     
     const data = await response.json()
-    console.log('Voiceflow combined analytics response:', JSON.stringify(data, null, 2));
+    console.log(`Voiceflow ${queryName} analytics response:`, data)
 
     return new Response(
       JSON.stringify(data),

@@ -50,23 +50,47 @@ export const useStatistics = () => {
 
   const fetchVoiceflowData = useCallback(async (startDate: string, endDate: string) => {
     try {
-      console.log('Fetching Voiceflow analytics with combined query...');
+      console.log('Fetching Voiceflow analytics...');
       
-      // Fetch combined interactions and sessions data
-      const { data: combinedData, error: combinedError } = await supabase.functions.invoke('get-voiceflow-analytics', {
+      // Fetch interactions (messages)
+      const { data: interactionsData, error: interactionsError } = await supabase.functions.invoke('get-voiceflow-analytics', {
         body: {
           startDate,
           endDate,
-          queryType: 'combined'
+          queryType: 'interactions'
         },
       });
 
-      if (combinedError) throw combinedError;
+      if (interactionsError) throw interactionsError;
 
-      console.log('Combined Voiceflow data received:', combinedData);
+      // Fetch sessions 
+      const { data: sessionsData, error: sessionsError } = await supabase.functions.invoke('get-voiceflow-analytics', {
+        body: {
+          startDate,
+          endDate,
+          queryType: 'sessions'
+        },
+      });
+
+      if (sessionsError) throw sessionsError;
+
+      // Fetch top intents
+      const { data: intentsData, error: intentsError } = await supabase.functions.invoke('get-voiceflow-analytics', {
+        body: {
+          startDate,
+          endDate,
+          queryType: 'top_intents'
+        },
+      });
+
+      if (intentsError) throw intentsError;
+
+      console.log('Voiceflow data received:', { interactionsData, sessionsData, intentsData });
 
       return {
-        combined: combinedData
+        interactions: interactionsData,
+        sessions: sessionsData,
+        intents: intentsData
       };
     } catch (error) {
       console.error('Error fetching Voiceflow data:', error);
@@ -158,42 +182,26 @@ const processAllData = (metrics: MetricsResponse, voiceflowData: any): Statistic
   };
 
   // Process Voiceflow data if available
-  if (voiceflowData?.combined) {
-    console.log('Processing combined Voiceflow data:', voiceflowData.combined);
+  if (voiceflowData) {
+    // Process interactions (messages) - fix the data structure path
+    if (voiceflowData.interactions?.result?.length > 0) {
+      processedData.totalMessages = voiceflowData.interactions.result[0].count || 0;
+    }
 
-    // The response should contain results for both interactions and sessions
-    if (voiceflowData.combined.result && Array.isArray(voiceflowData.combined.result)) {
-      voiceflowData.combined.result.forEach((queryResult: any) => {
-        if (queryResult.name === 'interactions') {
-          // Process interactions - could be total count or time series
-          if (Array.isArray(queryResult.data)) {
-            // Time series data
-            processedData.messageTimeSeries = queryResult.data.map((item: any) => ({
-              date: item.date || item.timestamp,
-              value: item.count || 0
-            }));
-            // Total is sum of all daily values
-            processedData.totalMessages = queryResult.data.reduce((sum: number, item: any) => sum + (item.count || 0), 0);
-          } else if (queryResult.count !== undefined) {
-            // Total count only
-            processedData.totalMessages = queryResult.count;
-          }
-        } else if (queryResult.name === 'sessions') {
-          // Process sessions - could be total count or time series
-          if (Array.isArray(queryResult.data)) {
-            // Time series data
-            processedData.sessionTimeSeries = queryResult.data.map((item: any) => ({
-              date: item.date || item.timestamp,
-              value: item.count || 0
-            }));
-            // Total is sum of all daily values
-            processedData.totalSessions = queryResult.data.reduce((sum: number, item: any) => sum + (item.count || 0), 0);
-          } else if (queryResult.count !== undefined) {
-            // Total count only
-            processedData.totalSessions = queryResult.count;
-          }
-        }
-      });
+    // Process sessions - fix the data structure path
+    if (voiceflowData.sessions?.result?.length > 0) {
+      processedData.totalSessions = voiceflowData.sessions.result[0].count || 0;
+    }
+
+    // Process top intents - fix the data structure path
+    if (voiceflowData.intents?.result?.length > 0) {
+      const intentsResult = voiceflowData.intents.result[0];
+      if (intentsResult.intents && Array.isArray(intentsResult.intents)) {
+        processedData.topIntents = intentsResult.intents.map((item: any) => ({
+          name: item.name,
+          count: item.count || 0
+        }));
+      }
     }
 
     // Set totalConversations same as totalSessions for now
