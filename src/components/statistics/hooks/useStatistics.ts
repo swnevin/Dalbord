@@ -104,7 +104,7 @@ export const useStatistics = () => {
     try {
       console.log('Fetching Voiceflow analytics...');
       
-      // Fetch interactions (messages)
+      // Fetch interactions (messages) totals
       const { data: interactionsData, error: interactionsError } = await supabase.functions.invoke('get-voiceflow-analytics', {
         body: {
           startDate,
@@ -115,7 +115,7 @@ export const useStatistics = () => {
 
       if (interactionsError) throw interactionsError;
 
-      // Fetch sessions 
+      // Fetch sessions totals
       const { data: sessionsData, error: sessionsError } = await supabase.functions.invoke('get-voiceflow-analytics', {
         body: {
           startDate,
@@ -146,6 +146,44 @@ export const useStatistics = () => {
       };
     } catch (error) {
       console.error('Error fetching Voiceflow data:', error);
+      throw error;
+    }
+  }, []);
+
+  const fetchDailyVoiceflowData = useCallback(async (startDate: string, endDate: string) => {
+    try {
+      console.log('Fetching daily Voiceflow data...');
+
+      // Fetch daily interactions
+      const { data: dailyInteractionsData, error: dailyInteractionsError } = await supabase.functions.invoke('get-voiceflow-analytics', {
+        body: {
+          startDate,
+          endDate,
+          queryType: 'daily_interactions'
+        },
+      });
+
+      if (dailyInteractionsError) throw dailyInteractionsError;
+
+      // Fetch daily sessions
+      const { data: dailySessionsData, error: dailySessionsError } = await supabase.functions.invoke('get-voiceflow-analytics', {
+        body: {
+          startDate,
+          endDate,
+          queryType: 'daily_sessions'
+        },
+      });
+
+      if (dailySessionsError) throw dailySessionsError;
+
+      console.log('Daily Voiceflow data received:', { dailyInteractionsData, dailySessionsData });
+
+      return {
+        dailyInteractions: dailyInteractionsData,
+        dailySessions: dailySessionsData
+      };
+    } catch (error) {
+      console.error('Error fetching daily Voiceflow data:', error);
       throw error;
     }
   }, []);
@@ -181,14 +219,20 @@ export const useStatistics = () => {
       console.log('Metrics response received:', metrics);
 
       let voiceflowData = null;
+      let dailyVoiceflowData = null;
+      
       try {
-        voiceflowData = await fetchVoiceflowData(from, to);
+        // Fetch both total and daily Voiceflow data
+        [voiceflowData, dailyVoiceflowData] = await Promise.all([
+          fetchVoiceflowData(from, to),
+          fetchDailyVoiceflowData(from, to)
+        ]);
       } catch (vfError) {
         console.warn('Voiceflow data fetch failed, continuing with metrics only:', vfError);
       }
 
-      console.log('All data received:', { metrics, voiceflowData });
-      const processedData = processAllData(metrics, voiceflowData, timePerMessage, hourlyRate);
+      console.log('All data received:', { metrics, voiceflowData, dailyVoiceflowData });
+      const processedData = processAllData(metrics, voiceflowData, dailyVoiceflowData, timePerMessage, hourlyRate);
       setData(processedData);
 
     } catch (error: any) {
@@ -206,7 +250,7 @@ export const useStatistics = () => {
         fallbackChart: false,
       });
     }
-  }, [user?.organization_id, timeRange, dateRange, fetchVoiceflowData, timePerMessage, hourlyRate]);
+  }, [user?.organization_id, timeRange, dateRange, fetchVoiceflowData, fetchDailyVoiceflowData, timePerMessage, hourlyRate]);
 
   useEffect(() => {
     fetchMetrics();
@@ -231,7 +275,7 @@ export const useStatistics = () => {
   };
 };
 
-const processAllData = (metrics: MetricsResponse, voiceflowData: any, timePerMessage: number, hourlyRate: number): StatisticsData => {
+const processAllData = (metrics: MetricsResponse, voiceflowData: any, dailyVoiceflowData: any, timePerMessage: number, hourlyRate: number): StatisticsData => {
   const processedData: StatisticsData = {
     // Metrics from database
     happyFaceCount: metrics.totals.happy_face,
@@ -245,19 +289,19 @@ const processAllData = (metrics: MetricsResponse, voiceflowData: any, timePerMes
     fallbackCount: metrics.totals.fallback || 0,
   };
 
-  // Process Voiceflow data if available
+  // Process Voiceflow totals for cards (existing logic)
   if (voiceflowData) {
-    // Process interactions (messages) - fix the data structure path
+    // Process interactions (messages) totals
     if (voiceflowData.interactions?.result?.length > 0) {
       processedData.totalMessages = voiceflowData.interactions.result[0].count || 0;
     }
 
-    // Process sessions - fix the data structure path
+    // Process sessions totals
     if (voiceflowData.sessions?.result?.length > 0) {
       processedData.totalSessions = voiceflowData.sessions.result[0].count || 0;
     }
 
-    // Process top intents - fix the data structure path
+    // Process top intents totals
     if (voiceflowData.intents?.result?.length > 0) {
       const intentsResult = voiceflowData.intents.result[0];
       if (intentsResult.intents && Array.isArray(intentsResult.intents)) {
@@ -283,6 +327,27 @@ const processAllData = (metrics: MetricsResponse, voiceflowData: any, timePerMes
     } else {
       processedData.timeSaved = 0;
       processedData.moneySaved = 0;
+    }
+  }
+
+  // Process daily Voiceflow data for graphs (new logic)
+  if (dailyVoiceflowData) {
+    // Process daily interactions for message time series
+    if (dailyVoiceflowData.dailyInteractions?.dailyData) {
+      processedData.messageTimeSeries = dailyVoiceflowData.dailyInteractions.dailyData.map((item: any) => ({
+        date: item.date,
+        value: item.count || 0
+      }));
+      console.log('Message time series:', processedData.messageTimeSeries);
+    }
+
+    // Process daily sessions for session time series
+    if (dailyVoiceflowData.dailySessions?.dailyData) {
+      processedData.sessionTimeSeries = dailyVoiceflowData.dailySessions.dailyData.map((item: any) => ({
+        date: item.date,
+        value: item.count || 0
+      }));
+      console.log('Session time series:', processedData.sessionTimeSeries);
     }
   }
 

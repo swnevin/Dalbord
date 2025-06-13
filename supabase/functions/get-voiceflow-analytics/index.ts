@@ -67,8 +67,13 @@ serve(async (req) => {
       throw new Error('Organization has no Voiceflow credentials')
     }
 
-    // Prepare the query based on the query type
-    let queryName = 'interactions'; // Default is interactions (messages)
+    // Handle daily data requests
+    if (queryType === 'daily_interactions' || queryType === 'daily_sessions') {
+      return await handleDailyData(startDate, endDate, queryType, org)
+    }
+
+    // Handle regular total requests (existing logic)
+    let queryName = 'interactions';
     let endpoint = 'https://analytics-api.voiceflow.com/v1/query/usage';
     
     if (queryType === 'sessions') {
@@ -122,3 +127,88 @@ serve(async (req) => {
     )
   }
 })
+
+async function handleDailyData(startDate: string, endDate: string, queryType: string, org: any) {
+  const start = new Date(startDate)
+  const end = new Date(endDate)
+  const dailyData = []
+  
+  const queryName = queryType === 'daily_interactions' ? 'interactions' : 'sessions'
+  console.log(`Fetching daily ${queryName} data from ${startDate} to ${endDate}`)
+
+  // Iterate through each day
+  const currentDate = new Date(start)
+  while (currentDate <= end) {
+    try {
+      // Set start of day in UTC
+      const dayStart = new Date(currentDate)
+      dayStart.setUTCHours(0, 0, 0, 0)
+      
+      // Set end of day in UTC
+      const dayEnd = new Date(currentDate)
+      dayEnd.setUTCHours(23, 59, 59, 999)
+      
+      const dayStartISO = dayStart.toISOString()
+      const dayEndISO = dayEnd.toISOString()
+      
+      console.log(`Fetching ${queryName} for ${dayStartISO} to ${dayEndISO}`)
+
+      const options = {
+        method: 'POST',
+        headers: {
+          accept: 'application/json',
+          'content-type': 'application/json',
+          authorization: org.voiceflow_api_key
+        },
+        body: JSON.stringify({
+          query: [
+            {
+              name: queryName,
+              filter: {
+                projectID: org.voiceflow_project_id,
+                startTime: dayStartISO,
+                endTime: dayEndISO
+              }
+            }
+          ]
+        })
+      }
+
+      const response = await fetch('https://analytics-api.voiceflow.com/v1/query/usage', options)
+      
+      if (response.ok) {
+        const data = await response.json()
+        const count = data?.result?.[0]?.count || 0
+        
+        dailyData.push({
+          date: currentDate.toISOString().split('T')[0], // YYYY-MM-DD format
+          count: count
+        })
+        
+        console.log(`${queryName} for ${currentDate.toISOString().split('T')[0]}: ${count}`)
+      } else {
+        console.warn(`Failed to fetch ${queryName} for ${currentDate.toISOString().split('T')[0]}`)
+        dailyData.push({
+          date: currentDate.toISOString().split('T')[0],
+          count: 0
+        })
+      }
+    } catch (error) {
+      console.error(`Error fetching ${queryName} for ${currentDate.toISOString().split('T')[0]}:`, error)
+      dailyData.push({
+        date: currentDate.toISOString().split('T')[0],
+        count: 0
+      })
+    }
+    
+    // Move to next day
+    currentDate.setDate(currentDate.getDate() + 1)
+  }
+
+  console.log(`Daily ${queryName} data:`, dailyData)
+  
+  return new Response(
+    JSON.stringify({ dailyData }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  )
+}
