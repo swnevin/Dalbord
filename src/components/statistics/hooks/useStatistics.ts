@@ -69,9 +69,14 @@ export const useStatistics = () => {
 
   const getDatesForTimeRange = (timeRange: TimeRange): { from: Date; to: Date } => {
     const today = new Date();
+    console.log('Current date for range calculation:', today.toISOString());
+    
     switch (timeRange) {
       case '7d':
-        return { from: subDays(today, 7), to: today };
+        // Fix: Include today by going back 6 days instead of 7
+        const from7d = subDays(today, 6);
+        console.log('7d range - from:', from7d.toISOString(), 'to:', today.toISOString());
+        return { from: from7d, to: today };
       case '30d':
         return { from: subDays(today, 30), to: today };
       case '90d':
@@ -82,9 +87,9 @@ export const useStatistics = () => {
         // For 'all', use a very old date instead of null
         return { from: new Date('2020-01-01'), to: today };
       case 'custom':
-        return dateRange.from && dateRange.to ? { from: dateRange.from, to: dateRange.to } : { from: subDays(today, 7), to: today };
+        return dateRange.from && dateRange.to ? { from: dateRange.from, to: dateRange.to } : { from: subDays(today, 6), to: today };
       default:
-        return { from: subDays(today, 7), to: today };
+        return { from: subDays(today, 6), to: today };
     }
   };
 
@@ -201,6 +206,10 @@ export const useStatistics = () => {
     try {
       console.log('Fetching data for organization:', user.organization_id);
       console.log('Date range being sent:', { from, to, timeRange });
+      console.log('Calculated dates:', { 
+        fromDate: dates.from.toISOString().split('T')[0], 
+        toDate: dates.to.toISOString().split('T')[0] 
+      });
       
       // Fetch metrics from database
       const { data: metrics, error: metricsError } = await supabase.functions.invoke('get-metrics', {
