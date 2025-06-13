@@ -23,7 +23,10 @@ const Statistics = () => {
     dateRange, 
     setDateRange, 
     timeRange, 
-    setTimeRange 
+    setTimeRange,
+    timePerMessage,
+    hourlyRate,
+    updateSavingsSettings
   } = useStatistics();
   
   const { isChartVisible, isSectionVisible } = useChartPreferences();
@@ -176,11 +179,11 @@ const Statistics = () => {
         <SavingsCharts 
           timeSaved={data.timeSaved || 0}
           moneySaved={data.moneySaved || 0}
-          timePerMessage={5}
-          hourlyRate={500}
+          timePerMessage={timePerMessage}
+          hourlyRate={hourlyRate}
           totalMessages={data.totalMessages || 0}
           isLoading={loading.summaryCards}
-          onSettingsChange={() => {}}
+          onSettingsChange={updateSavingsSettings}
         />
       )}
     </div>

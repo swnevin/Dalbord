@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { subDays, subMonths, subYears, startOfDay, endOfDay } from 'date-fns';
 import { StatisticsData, LoadingState, DateRange, TimeRange, MetricsResponse } from "../types";
@@ -25,6 +24,8 @@ export const useStatistics = () => {
     to: new Date(),
   });
   const [timeRange, setTimeRange] = useState<TimeRange>('7d');
+  const [timePerMessage, setTimePerMessage] = useState<number>(5); // 5 minutes default
+  const [hourlyRate, setHourlyRate] = useState<number>(500); // 500 NOK/hour default
   const { user } = useAuth();
 
   const getDatesForTimeRange = (timeRange: TimeRange): { from: Date; to: Date } => {
@@ -47,6 +48,11 @@ export const useStatistics = () => {
         return { from: subDays(today, 7), to: today };
     }
   };
+
+  const updateSavingsSettings = useCallback((settings: { timePerMessage: number; hourlyRate: number }) => {
+    setTimePerMessage(settings.timePerMessage);
+    setHourlyRate(settings.hourlyRate);
+  }, []);
 
   const fetchVoiceflowData = useCallback(async (startDate: string, endDate: string) => {
     try {
@@ -136,7 +142,7 @@ export const useStatistics = () => {
       }
 
       console.log('All data received:', { metrics, voiceflowData });
-      const processedData = processAllData(metrics, voiceflowData);
+      const processedData = processAllData(metrics, voiceflowData, timePerMessage, hourlyRate);
       setData(processedData);
 
     } catch (error: any) {
@@ -154,7 +160,7 @@ export const useStatistics = () => {
         fallbackChart: false,
       });
     }
-  }, [user?.organization_id, timeRange, dateRange, fetchVoiceflowData]);
+  }, [user?.organization_id, timeRange, dateRange, fetchVoiceflowData, timePerMessage, hourlyRate]);
 
   useEffect(() => {
     fetchMetrics();
@@ -164,10 +170,22 @@ export const useStatistics = () => {
     fetchMetrics();
   };
 
-  return { data, loading, error, refetch, dateRange, setDateRange, timeRange, setTimeRange };
+  return { 
+    data, 
+    loading, 
+    error, 
+    refetch, 
+    dateRange, 
+    setDateRange, 
+    timeRange, 
+    setTimeRange,
+    timePerMessage,
+    hourlyRate,
+    updateSavingsSettings
+  };
 };
 
-const processAllData = (metrics: MetricsResponse, voiceflowData: any): StatisticsData => {
+const processAllData = (metrics: MetricsResponse, voiceflowData: any, timePerMessage: number, hourlyRate: number): StatisticsData => {
   const processedData: StatisticsData = {
     // Metrics from database
     happyFaceCount: metrics.totals.happy_face,
@@ -206,6 +224,20 @@ const processAllData = (metrics: MetricsResponse, voiceflowData: any): Statistic
 
     // Set totalConversations same as totalSessions for now
     processedData.totalConversations = processedData.totalSessions;
+
+    // Calculate time and money saved based on total messages
+    if (processedData.totalMessages && processedData.totalMessages > 0) {
+      // Calculate time saved in minutes
+      const timeSavedMinutes = processedData.totalMessages * timePerMessage;
+      processedData.timeSaved = timeSavedMinutes;
+      
+      // Calculate money saved based on time saved and hourly rate
+      const timeSavedHours = timeSavedMinutes / 60;
+      processedData.moneySaved = timeSavedHours * hourlyRate;
+    } else {
+      processedData.timeSaved = 0;
+      processedData.moneySaved = 0;
+    }
   }
 
   // Process time series data for feedback charts from metrics
