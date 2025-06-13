@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { startDate, endDate, queryType = 'interactions' } = await req.json()
+    const { startDate, endDate, queryType = 'interactions', timeUnit = 'day' } = await req.json()
 
     if (!startDate || !endDate) {
       throw new Error('Start date and end date are required')
@@ -75,6 +75,35 @@ serve(async (req) => {
       queryName = 'sessions';
     } else if (queryType === 'top_intents') {
       queryName = 'top_intents';
+    } else if (queryType === 'interactions_timeseries') {
+      queryName = 'interactions';
+    } else if (queryType === 'sessions_timeseries') {
+      queryName = 'sessions';
+    } else if (queryType === 'users_timeseries') {
+      queryName = 'users';
+    }
+
+    // Build query body - add time series grouping for time series queries
+    const queryBody: any = {
+      query: [
+        {
+          name: queryName,
+          filter: {
+            projectID: org.voiceflow_project_id,
+            startTime: startDate,
+            endTime: endDate
+          }
+        }
+      ]
+    };
+
+    // Add time series grouping for time series queries
+    if (queryType.includes('_timeseries')) {
+      queryBody.query[0].groupBy = {
+        time: {
+          unit: timeUnit
+        }
+      };
     }
 
     const options = {
@@ -84,18 +113,7 @@ serve(async (req) => {
         'content-type': 'application/json',
         authorization: org.voiceflow_api_key
       },
-      body: JSON.stringify({
-        query: [
-          {
-            name: queryName,
-            filter: {
-              projectID: org.voiceflow_project_id,
-              startTime: startDate,
-              endTime: endDate
-            }
-          }
-        ]
-      })
+      body: JSON.stringify(queryBody)
     };
 
     const response = await fetch(endpoint, options)

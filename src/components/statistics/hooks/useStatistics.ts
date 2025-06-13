@@ -52,7 +52,7 @@ export const useStatistics = () => {
     try {
       console.log('Fetching Voiceflow analytics...');
       
-      // Fetch interactions (messages)
+      // Fetch interactions (messages) - total count
       const { data: interactionsData, error: interactionsError } = await supabase.functions.invoke('get-voiceflow-analytics', {
         body: {
           startDate,
@@ -63,7 +63,7 @@ export const useStatistics = () => {
 
       if (interactionsError) throw interactionsError;
 
-      // Fetch sessions 
+      // Fetch sessions - total count
       const { data: sessionsData, error: sessionsError } = await supabase.functions.invoke('get-voiceflow-analytics', {
         body: {
           startDate,
@@ -85,12 +85,56 @@ export const useStatistics = () => {
 
       if (intentsError) throw intentsError;
 
-      console.log('Voiceflow data received:', { interactionsData, sessionsData, intentsData });
+      // Fetch time series data
+      const { data: interactionsTimeSeriesData, error: interactionsTimeSeriesError } = await supabase.functions.invoke('get-voiceflow-analytics', {
+        body: {
+          startDate,
+          endDate,
+          queryType: 'interactions_timeseries',
+          timeUnit: 'day'
+        },
+      });
+
+      if (interactionsTimeSeriesError) console.warn('Interactions time series error:', interactionsTimeSeriesError);
+
+      const { data: sessionsTimeSeriesData, error: sessionsTimeSeriesError } = await supabase.functions.invoke('get-voiceflow-analytics', {
+        body: {
+          startDate,
+          endDate,
+          queryType: 'sessions_timeseries',
+          timeUnit: 'day'
+        },
+      });
+
+      if (sessionsTimeSeriesError) console.warn('Sessions time series error:', sessionsTimeSeriesError);
+
+      const { data: usersTimeSeriesData, error: usersTimeSeriesError } = await supabase.functions.invoke('get-voiceflow-analytics', {
+        body: {
+          startDate,
+          endDate,
+          queryType: 'users_timeseries',
+          timeUnit: 'day'
+        },
+      });
+
+      if (usersTimeSeriesError) console.warn('Users time series error:', usersTimeSeriesError);
+
+      console.log('Voiceflow data received:', { 
+        interactionsData, 
+        sessionsData, 
+        intentsData,
+        interactionsTimeSeriesData,
+        sessionsTimeSeriesData,
+        usersTimeSeriesData
+      });
 
       return {
         interactions: interactionsData,
         sessions: sessionsData,
-        intents: intentsData
+        intents: intentsData,
+        interactionsTimeSeries: interactionsTimeSeriesData,
+        sessionsTimeSeries: sessionsTimeSeriesData,
+        usersTimeSeries: usersTimeSeriesData
       };
     } catch (error) {
       console.error('Error fetching Voiceflow data:', error);
@@ -202,6 +246,28 @@ const processAllData = (metrics: MetricsResponse, voiceflowData: any): Statistic
           count: item.count || 0
         }));
       }
+    }
+
+    // Process time series data
+    if (voiceflowData.interactionsTimeSeries?.result?.length > 0) {
+      processedData.messageTimeSeries = voiceflowData.interactionsTimeSeries.result.map((item: any) => ({
+        date: item.timestamp || item.date,
+        value: item.count || 0
+      }));
+    }
+
+    if (voiceflowData.sessionsTimeSeries?.result?.length > 0) {
+      processedData.sessionTimeSeries = voiceflowData.sessionsTimeSeries.result.map((item: any) => ({
+        date: item.timestamp || item.date,
+        value: item.count || 0
+      }));
+    }
+
+    if (voiceflowData.usersTimeSeries?.result?.length > 0) {
+      processedData.userTimeSeries = voiceflowData.usersTimeSeries.result.map((item: any) => ({
+        date: item.timestamp || item.date,
+        value: item.count || 0
+      }));
     }
 
     // Set totalConversations same as totalSessions for now
