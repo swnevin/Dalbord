@@ -7,33 +7,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// Helper function to format date for Voiceflow API (DD.MM.YYYY)
-const formatDateForVoiceflow = (date: Date): string => {
-  const day = date.getDate().toString().padStart(2, '0');
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
-  const year = date.getFullYear();
-  return `${day}.${month}.${year}`;
-};
-
-// Helper function to generate array of dates between start and end
-const generateDateRange = (startDate: string, endDate: string): Date[] => {
-  const dates: Date[] = [];
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  
-  // Normalize to start of day
-  start.setHours(0, 0, 0, 0);
-  end.setHours(0, 0, 0, 0);
-  
-  const currentDate = new Date(start);
-  while (currentDate <= end) {
-    dates.push(new Date(currentDate));
-    currentDate.setDate(currentDate.getDate() + 1);
-  }
-  
-  return dates;
-};
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -94,84 +67,48 @@ serve(async (req) => {
       throw new Error('Organization has no Voiceflow credentials')
     }
 
-    // Generate array of dates to query
-    const dates = generateDateRange(startDate, endDate);
-    console.log(`Fetching ${queryType} data for ${dates.length} days`);
-
-    // Make parallel requests for each day
-    const dailyResults = await Promise.allSettled(
-      dates.map(async (date) => {
-        const dateStr = formatDateForVoiceflow(date);
-        
-        const options = {
-          method: 'POST',
-          headers: {
-            accept: 'application/json',
-            'content-type': 'application/json',
-            authorization: org.voiceflow_api_key
-          },
-          body: JSON.stringify({
-            query: [
-              {
-                name: queryType,
-                filter: {
-                  projectID: org.voiceflow_project_id,
-                  startTime: dateStr,
-                  endTime: dateStr
-                }
-              }
-            ]
-          })
-        };
-
-        const response = await fetch('https://analytics-api.voiceflow.com/v1/query/usage', options);
-        
-        if (!response.ok) {
-          throw new Error(`Voiceflow API error for ${dateStr}: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        const count = data.result?.[0]?.count || 0;
-        
-        return {
-          date: date.toISOString().split('T')[0], // YYYY-MM-DD format
-          count: count
-        };
-      })
-    );
-
-    // Process results and handle any failures
-    const successfulResults = dailyResults
-      .filter((result): result is PromiseFulfilledResult<any> => result.status === 'fulfilled')
-      .map(result => result.value);
-
-    const failedResults = dailyResults
-      .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
-      .map(result => result.reason);
-
-    if (failedResults.length > 0) {
-      console.warn(`Failed to fetch data for ${failedResults.length} days:`, failedResults);
+    // Prepare the query based on the query type
+    let queryName = 'interactions'; // Default is interactions (messages)
+    let endpoint = 'https://analytics-api.voiceflow.com/v1/query/usage';
+    
+    if (queryType === 'sessions') {
+      queryName = 'sessions';
+    } else if (queryType === 'top_intents') {
+      queryName = 'top_intents';
     }
 
-    console.log(`Successfully fetched ${queryType} data for ${successfulResults.length} days`);
-
-    // Calculate total for verification
-    const total = successfulResults.reduce((sum, day) => sum + day.count, 0);
-    console.log(`Total ${queryType} count: ${total}`);
-
-    const responseData = {
-      dailyData: successfulResults,
-      total: total,
-      queryType: queryType,
-      period: {
-        startDate,
-        endDate,
-        days: dates.length
-      }
+    const options = {
+      method: 'POST',
+      headers: {
+        accept: 'application/json',
+        'content-type': 'application/json',
+        authorization: org.voiceflow_api_key
+      },
+      body: JSON.stringify({
+        query: [
+          {
+            name: queryName,
+            filter: {
+              projectID: org.voiceflow_project_id,
+              startTime: startDate,
+              endTime: endDate
+            }
+          }
+        ]
+      })
     };
 
+    const response = await fetch(endpoint, options)
+    
+    if (!response.ok) {
+      throw new Error(`Voiceflow API error: ${response.status}`)
+    }
+    
+    const data = await response.json()
+    console.log(`Voiceflow ${queryName} analytics response:`, data)
+
     return new Response(
-      JSON.stringify(responseData),
+      JSON.stringify(data),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {

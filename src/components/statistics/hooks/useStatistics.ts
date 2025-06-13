@@ -104,7 +104,7 @@ export const useStatistics = () => {
     try {
       console.log('Fetching Voiceflow analytics...');
       
-      // Fetch interactions (messages) with daily breakdown
+      // Fetch interactions (messages)
       const { data: interactionsData, error: interactionsError } = await supabase.functions.invoke('get-voiceflow-analytics', {
         body: {
           startDate,
@@ -115,7 +115,7 @@ export const useStatistics = () => {
 
       if (interactionsError) throw interactionsError;
 
-      // Fetch sessions with daily breakdown
+      // Fetch sessions 
       const { data: sessionsData, error: sessionsError } = await supabase.functions.invoke('get-voiceflow-analytics', {
         body: {
           startDate,
@@ -126,7 +126,7 @@ export const useStatistics = () => {
 
       if (sessionsError) throw sessionsError;
 
-      // Fetch top intents (this stays as total)
+      // Fetch top intents
       const { data: intentsData, error: intentsError } = await supabase.functions.invoke('get-voiceflow-analytics', {
         body: {
           startDate,
@@ -241,38 +241,23 @@ const processAllData = (metrics: MetricsResponse, voiceflowData: any, timePerMes
     successfulAnswerCount: metrics.totals.successful_answer,
     thumbsUpCount: metrics.totals.thumbs_up,
     thumbsDownCount: metrics.totals.thumbs_down,
+    // Add fallback count from the new data structure
     fallbackCount: metrics.totals.fallback || 0,
   };
 
   // Process Voiceflow data if available
   if (voiceflowData) {
-    // Process interactions (messages) - use total and create time series
-    if (voiceflowData.interactions?.total) {
-      processedData.totalMessages = voiceflowData.interactions.total;
+    // Process interactions (messages) - fix the data structure path
+    if (voiceflowData.interactions?.result?.length > 0) {
+      processedData.totalMessages = voiceflowData.interactions.result[0].count || 0;
     }
 
-    // Process sessions - use total and create time series
-    if (voiceflowData.sessions?.total) {
-      processedData.totalSessions = voiceflowData.sessions.total;
+    // Process sessions - fix the data structure path
+    if (voiceflowData.sessions?.result?.length > 0) {
+      processedData.totalSessions = voiceflowData.sessions.result[0].count || 0;
     }
 
-    // Create time series for messages
-    if (voiceflowData.interactions?.dailyData && Array.isArray(voiceflowData.interactions.dailyData)) {
-      processedData.messageTimeSeries = voiceflowData.interactions.dailyData.map((item: any) => ({
-        date: item.date,
-        value: item.count || 0
-      }));
-    }
-
-    // Create time series for sessions
-    if (voiceflowData.sessions?.dailyData && Array.isArray(voiceflowData.sessions.dailyData)) {
-      processedData.sessionTimeSeries = voiceflowData.sessions.dailyData.map((item: any) => ({
-        date: item.date,
-        value: item.count || 0
-      }));
-    }
-
-    // Process top intents - keep existing logic
+    // Process top intents - fix the data structure path
     if (voiceflowData.intents?.result?.length > 0) {
       const intentsResult = voiceflowData.intents.result[0];
       if (intentsResult.intents && Array.isArray(intentsResult.intents)) {
