@@ -15,6 +15,38 @@ const initialLoadingState: LoadingState = {
   fallbackChart: true,
 };
 
+// Default values for savings settings
+const DEFAULT_TIME_PER_MESSAGE = 5; // 5 minutes
+const DEFAULT_HOURLY_RATE = 500; // 500 NOK/hour
+
+// localStorage keys
+const STORAGE_KEYS = {
+  TIME_PER_MESSAGE: 'dalai_time_per_message',
+  HOURLY_RATE: 'dalai_hourly_rate',
+};
+
+// Helper functions for localStorage
+const loadFromStorage = (key: string, defaultValue: number): number => {
+  try {
+    const stored = localStorage.getItem(key);
+    if (stored) {
+      const parsed = parseFloat(stored);
+      return !isNaN(parsed) && parsed > 0 ? parsed : defaultValue;
+    }
+  } catch (error) {
+    console.warn(`Failed to load ${key} from localStorage:`, error);
+  }
+  return defaultValue;
+};
+
+const saveToStorage = (key: string, value: number): void => {
+  try {
+    localStorage.setItem(key, value.toString());
+  } catch (error) {
+    console.warn(`Failed to save ${key} to localStorage:`, error);
+  }
+};
+
 export const useStatistics = () => {
   const [data, setData] = useState<StatisticsData>({});
   const [loading, setLoading] = useState<LoadingState>(initialLoadingState);
@@ -24,8 +56,15 @@ export const useStatistics = () => {
     to: new Date(),
   });
   const [timeRange, setTimeRange] = useState<TimeRange>('7d');
-  const [timePerMessage, setTimePerMessage] = useState<number>(5); // 5 minutes default
-  const [hourlyRate, setHourlyRate] = useState<number>(500); // 500 NOK/hour default
+  
+  // Initialize from localStorage
+  const [timePerMessage, setTimePerMessage] = useState<number>(() => 
+    loadFromStorage(STORAGE_KEYS.TIME_PER_MESSAGE, DEFAULT_TIME_PER_MESSAGE)
+  );
+  const [hourlyRate, setHourlyRate] = useState<number>(() => 
+    loadFromStorage(STORAGE_KEYS.HOURLY_RATE, DEFAULT_HOURLY_RATE)
+  );
+  
   const { user } = useAuth();
 
   const getDatesForTimeRange = (timeRange: TimeRange): { from: Date; to: Date } => {
@@ -50,8 +89,15 @@ export const useStatistics = () => {
   };
 
   const updateSavingsSettings = useCallback((settings: { timePerMessage: number; hourlyRate: number }) => {
+    // Update state
     setTimePerMessage(settings.timePerMessage);
     setHourlyRate(settings.hourlyRate);
+    
+    // Save to localStorage
+    saveToStorage(STORAGE_KEYS.TIME_PER_MESSAGE, settings.timePerMessage);
+    saveToStorage(STORAGE_KEYS.HOURLY_RATE, settings.hourlyRate);
+    
+    console.log('Savings settings updated and saved:', settings);
   }, []);
 
   const fetchVoiceflowData = useCallback(async (startDate: string, endDate: string) => {

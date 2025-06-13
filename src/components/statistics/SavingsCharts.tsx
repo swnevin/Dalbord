@@ -1,4 +1,3 @@
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader } from "@/components/ui/loader";
 import { Input } from "@/components/ui/input";
@@ -10,6 +9,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useState, useEffect } from "react";
 import { InfoIcon } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface SavingsChartsProps {
   timeSaved: number; // in minutes
@@ -37,6 +37,7 @@ export const SavingsCharts = ({
 }: SavingsChartsProps) => {
   const [localTimePerMessage, setLocalTimePerMessage] = useState(timePerMessage.toString());
   const [localHourlyRate, setLocalHourlyRate] = useState(hourlyRate.toString());
+  const { toast } = useToast();
 
   useEffect(() => {
     setLocalTimePerMessage(timePerMessage.toString());
@@ -72,6 +73,10 @@ export const SavingsCharts = ({
     const numValue = parseFloat(value) || 0;
     if (numValue > 0) {
       onSettingsChange({ timePerMessage: numValue, hourlyRate });
+      toast({
+        title: "Innstillinger lagret",
+        description: `Tid per melding oppdatert til ${numValue} minutter`,
+      });
     }
   };
 
@@ -81,6 +86,10 @@ export const SavingsCharts = ({
     const numValue = parseFloat(value) || 0;
     if (numValue > 0) {
       onSettingsChange({ timePerMessage, hourlyRate: numValue });
+      toast({
+        title: "Innstillinger lagret",
+        description: `Timelønn oppdatert til ${numValue} kr/time`,
+      });
     }
   };
 
