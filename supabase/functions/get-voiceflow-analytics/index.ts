@@ -135,12 +135,18 @@ async function handleDailyData(startDate: string, endDate: string, queryType: st
   
   const queryName = queryType === 'daily_interactions' ? 'interactions' : 'sessions'
   console.log(`Fetching daily ${queryName} data from ${startDate} to ${endDate}`)
+  console.log(`Start date object:`, start.toISOString())
+  console.log(`End date object:`, end.toISOString())
 
-  // Fix: Iterate through each day including the end date
+  // Fix: Properly iterate through each day INCLUDING the end date
   const currentDate = new Date(start)
+  let dayCounter = 0
+  
   while (currentDate <= end) {
+    dayCounter++
     try {
       const dateString = currentDate.toISOString().split('T')[0] // YYYY-MM-DD format
+      console.log(`Processing day ${dayCounter}: ${dateString}`)
       
       // Set start of day in UTC
       const dayStart = new Date(currentDate)
@@ -204,11 +210,16 @@ async function handleDailyData(startDate: string, endDate: string, queryType: st
       })
     }
     
-    // Move to next day - this was the issue, now fixed to include end date
+    // Move to next day - THIS IS THE CRITICAL FIX
     currentDate.setDate(currentDate.getDate() + 1)
   }
 
-  console.log(`Daily ${queryName} data (${dailyData.length} days):`, dailyData)
+  console.log(`Daily ${queryName} data (${dailyData.length} days processed, expected 7):`, dailyData)
+  
+  // Additional verification log
+  if (dailyData.length !== 7) {
+    console.warn(`Expected 7 days but got ${dailyData.length} days!`)
+  }
   
   return new Response(
     JSON.stringify({ dailyData }),

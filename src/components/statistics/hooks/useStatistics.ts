@@ -76,6 +76,11 @@ export const useStatistics = () => {
         // Fix: Include today by going back 6 days instead of 7
         const from7d = subDays(today, 6);
         console.log('7d range - from:', from7d.toISOString(), 'to:', today.toISOString());
+        console.log('Date range covers dates:', {
+          fromDate: from7d.toISOString().split('T')[0],
+          toDate: today.toISOString().split('T')[0],
+          totalDays: Math.ceil((today.getTime() - from7d.getTime()) / (1000 * 60 * 60 * 24)) + 1
+        });
         return { from: from7d, to: today };
       case '30d':
         return { from: subDays(today, 30), to: today };
@@ -208,7 +213,9 @@ export const useStatistics = () => {
       console.log('Date range being sent:', { from, to, timeRange });
       console.log('Calculated dates:', { 
         fromDate: dates.from.toISOString().split('T')[0], 
-        toDate: dates.to.toISOString().split('T')[0] 
+        toDate: dates.to.toISOString().split('T')[0],
+        fromISO: from,
+        toISO: to
       });
       
       // Fetch metrics from database
