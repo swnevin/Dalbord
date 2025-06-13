@@ -15,9 +15,9 @@ const initialLoadingState: LoadingState = {
   fallbackChart: true,
 };
 
-// Default values for savings settings
-const DEFAULT_TIME_PER_MESSAGE = 5; // 5 minutes
-const DEFAULT_HOURLY_RATE = 500; // 500 NOK/hour
+// Default values for savings settings - updated to new standards
+const DEFAULT_TIME_PER_MESSAGE = 3; // 3 minutes
+const DEFAULT_HOURLY_RATE = 300; // 300 NOK/hour
 
 // localStorage keys
 const STORAGE_KEYS = {
