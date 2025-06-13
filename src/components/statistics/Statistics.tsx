@@ -1,4 +1,3 @@
-
 import React from "react";
 import { SummaryCards } from "./SummaryCards";
 import { TimeSeriesChart } from "./TimeSeriesChart";
@@ -118,7 +117,7 @@ const Statistics = () => {
           
           {isChartVisible('sessions_over_time') && data.sessionTimeSeries && data.sessionTimeSeries.length > 0 && (
             <TimeSeriesChart 
-              title="Økter over tid" 
+              title="Samtaler over tid" 
               data={data.sessionTimeSeries} 
               isLoading={loading.sessionChart} 
             />
