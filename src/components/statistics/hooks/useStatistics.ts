@@ -73,15 +73,20 @@ export const useStatistics = () => {
     
     switch (timeRange) {
       case '7d':
-        // Fix: Include today by going back 6 days instead of 7
-        const from7d = subDays(today, 6);
-        console.log('7d range - from:', from7d.toISOString(), 'to:', today.toISOString());
-        console.log('Date range covers dates:', {
+        // Critical fix: Use startOfDay for consistent date handling and ensure 7 full days
+        const todayStart = startOfDay(today);
+        const from7d = startOfDay(subDays(todayStart, 6)); // 6 days back to include today = 7 total
+        
+        console.log('7d range calculation:', {
+          today: today.toISOString(),
+          todayStart: todayStart.toISOString(),
+          from7d: from7d.toISOString(),
           fromDate: from7d.toISOString().split('T')[0],
-          toDate: today.toISOString().split('T')[0],
-          totalDays: Math.ceil((today.getTime() - from7d.getTime()) / (1000 * 60 * 60 * 24)) + 1
+          toDate: todayStart.toISOString().split('T')[0],
+          totalDays: Math.ceil((todayStart.getTime() - from7d.getTime()) / (1000 * 60 * 60 * 24)) + 1
         });
-        return { from: from7d, to: today };
+        
+        return { from: from7d, to: todayStart };
       case '30d':
         return { from: subDays(today, 30), to: today };
       case '90d':
@@ -162,7 +167,12 @@ export const useStatistics = () => {
 
   const fetchDailyVoiceflowData = useCallback(async (startDate: string, endDate: string) => {
     try {
-      console.log('Fetching daily Voiceflow data...');
+      console.log('Fetching daily Voiceflow data with precise date range:', {
+        startDate,
+        endDate,
+        startDateParsed: new Date(startDate).toISOString(),
+        endDateParsed: new Date(endDate).toISOString()
+      });
 
       // Fetch daily interactions
       const { data: dailyInteractionsData, error: dailyInteractionsError } = await supabase.functions.invoke('get-voiceflow-analytics', {
@@ -186,7 +196,12 @@ export const useStatistics = () => {
 
       if (dailySessionsError) throw dailySessionsError;
 
-      console.log('Daily Voiceflow data received:', { dailyInteractionsData, dailySessionsData });
+      console.log('Daily Voiceflow data received:', { 
+        dailyInteractionsData, 
+        dailySessionsData,
+        interactionsDays: dailyInteractionsData?.dailyData?.length,
+        sessionsDays: dailySessionsData?.dailyData?.length
+      });
 
       return {
         dailyInteractions: dailyInteractionsData,
@@ -205,17 +220,19 @@ export const useStatistics = () => {
     setError(null);
 
     const dates = getDatesForTimeRange(timeRange);
+    // Use endOfDay for the 'to' date to ensure we capture the full day
     const from = startOfDay(dates.from).toISOString();
     const to = endOfDay(dates.to).toISOString();
 
     try {
       console.log('Fetching data for organization:', user.organization_id);
-      console.log('Date range being sent:', { from, to, timeRange });
-      console.log('Calculated dates:', { 
-        fromDate: dates.from.toISOString().split('T')[0], 
+      console.log('CRITICAL - Date range being sent to functions:', { 
+        from, 
+        to, 
+        timeRange,
+        fromDate: dates.from.toISOString().split('T')[0],
         toDate: dates.to.toISOString().split('T')[0],
-        fromISO: from,
-        toISO: to
+        expectedDays: timeRange === '7d' ? 7 : 'variable'
       });
       
       // Fetch metrics from database

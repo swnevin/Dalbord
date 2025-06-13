@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -134,20 +133,28 @@ async function handleDailyData(startDate: string, endDate: string, queryType: st
   const dailyData = []
   
   const queryName = queryType === 'daily_interactions' ? 'interactions' : 'sessions'
-  console.log(`Fetching daily ${queryName} data from ${startDate} to ${endDate}`)
-  console.log(`Start date object:`, start.toISOString())
-  console.log(`End date object:`, end.toISOString())
+  
+  console.log(`CRITICAL DEBUG - Processing daily ${queryName} data:`, {
+    startDate,
+    endDate,
+    startParsed: start.toISOString(),
+    endParsed: end.toISOString(),
+    startDateOnly: start.toISOString().split('T')[0],
+    endDateOnly: end.toISOString().split('T')[0]
+  })
 
-  // Fix: Properly iterate through each day INCLUDING the end date
+  // Critical fix: Use a more precise date iteration approach
   const currentDate = new Date(start)
   let dayCounter = 0
   
+  // Keep iterating until we've processed all days INCLUDING the end date
   while (currentDate <= end) {
     dayCounter++
+    const dateString = currentDate.toISOString().split('T')[0] // YYYY-MM-DD format
+    
+    console.log(`Processing day ${dayCounter}: ${dateString} (current: ${currentDate.toISOString()}, end: ${end.toISOString()})`)
+    
     try {
-      const dateString = currentDate.toISOString().split('T')[0] // YYYY-MM-DD format
-      console.log(`Processing day ${dayCounter}: ${dateString}`)
-      
       // Set start of day in UTC
       const dayStart = new Date(currentDate)
       dayStart.setUTCHours(0, 0, 0, 0)
@@ -202,7 +209,6 @@ async function handleDailyData(startDate: string, endDate: string, queryType: st
         })
       }
     } catch (error) {
-      const dateString = currentDate.toISOString().split('T')[0]
       console.error(`Error fetching ${queryName} for ${dateString}:`, error)
       dailyData.push({
         date: dateString,
@@ -210,16 +216,27 @@ async function handleDailyData(startDate: string, endDate: string, queryType: st
       })
     }
     
-    // Move to next day - THIS IS THE CRITICAL FIX
-    currentDate.setDate(currentDate.getDate() + 1)
+    // CRITICAL: Move to next day - make sure we don't skip the end date
+    currentDate.setUTCDate(currentDate.getUTCDate() + 1)
   }
 
-  console.log(`Daily ${queryName} data (${dailyData.length} days processed, expected 7):`, dailyData)
+  console.log(`FINAL RESULT - Daily ${queryName} data:`, {
+    totalDaysProcessed: dailyData.length,
+    expectedDays: 7,
+    dateRange: `${dailyData[0]?.date} to ${dailyData[dailyData.length - 1]?.date}`,
+    allDates: dailyData.map(d => d.date),
+    data: dailyData
+  })
   
-  // Additional verification log
+  // Verification - ensure we have the expected number of days
   if (dailyData.length !== 7) {
-    console.warn(`Expected 7 days but got ${dailyData.length} days!`)
+    console.warn(`WARNING: Expected 7 days but got ${dailyData.length} days!`)
   }
+  
+  // Verify today's date is included
+  const today = new Date().toISOString().split('T')[0]
+  const hasToday = dailyData.some(d => d.date === today)
+  console.log(`Today (${today}) is included: ${hasToday}`)
   
   return new Response(
     JSON.stringify({ dailyData }),
