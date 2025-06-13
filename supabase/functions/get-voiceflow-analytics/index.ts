@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { startDate, endDate, queryType = 'interactions', timeUnit = 'day' } = await req.json()
+    const { startDate, endDate, queryType = 'combined' } = await req.json()
 
     if (!startDate || !endDate) {
       throw new Error('Start date and end date are required')
@@ -67,27 +67,21 @@ serve(async (req) => {
       throw new Error('Organization has no Voiceflow credentials')
     }
 
-    // Prepare the query based on the query type
-    let queryName = 'interactions'; // Default is interactions (messages)
-    let endpoint = 'https://analytics-api.voiceflow.com/v1/query/usage';
-    
-    if (queryType === 'sessions') {
-      queryName = 'sessions';
-    } else if (queryType === 'top_intents') {
-      queryName = 'top_intents';
-    } else if (queryType === 'interactions_timeseries') {
-      queryName = 'interactions';
-    } else if (queryType === 'sessions_timeseries') {
-      queryName = 'sessions';
-    } else if (queryType === 'users_timeseries') {
-      queryName = 'users';
-    }
+    const endpoint = 'https://analytics-api.voiceflow.com/v1/query/usage';
 
-    // Build query body - add time series grouping for time series queries
-    const queryBody: any = {
+    // Build the combined query according to the documentation
+    const queryBody = {
       query: [
         {
-          name: queryName,
+          name: "interactions",
+          filter: {
+            projectID: org.voiceflow_project_id,
+            startTime: startDate,
+            endTime: endDate
+          }
+        },
+        {
+          name: "sessions",
           filter: {
             projectID: org.voiceflow_project_id,
             startTime: startDate,
@@ -97,14 +91,7 @@ serve(async (req) => {
       ]
     };
 
-    // Add time series grouping for time series queries
-    if (queryType.includes('_timeseries')) {
-      queryBody.query[0].groupBy = {
-        time: {
-          unit: timeUnit
-        }
-      };
-    }
+    console.log('Sending Voiceflow request:', JSON.stringify(queryBody, null, 2));
 
     const options = {
       method: 'POST',
@@ -119,11 +106,13 @@ serve(async (req) => {
     const response = await fetch(endpoint, options)
     
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Voiceflow API error: ${response.status} - ${errorText}`);
       throw new Error(`Voiceflow API error: ${response.status}`)
     }
     
     const data = await response.json()
-    console.log(`Voiceflow ${queryName} analytics response:`, data)
+    console.log('Voiceflow combined analytics response:', JSON.stringify(data, null, 2));
 
     return new Response(
       JSON.stringify(data),
