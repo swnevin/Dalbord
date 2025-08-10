@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -66,6 +67,7 @@ export const MemberList = ({
 }: MemberListProps) => {
   const [editingMember, setEditingMember] = useState<{
     id: string;
+    name: string;
     tabs: TabName[];
   } | null>(null);
   
@@ -74,6 +76,7 @@ export const MemberList = ({
   const handleEditClick = (profile: Profile) => {
     setEditingMember({
       id: profile.id,
+      name: profile.name,
       tabs: profile.tabs?.map(t => t.tab_name) || []
     });
   };
@@ -107,10 +110,13 @@ export const MemberList = ({
       
       console.log('Member will have admin role:', isAdmin);
       
-      // Update user role if they have admin tabs or if admin privileges are removed
+      // Update user role and name
       const { error: roleError } = await supabase
         .from('profiles')
-        .update({ role: isAdmin ? 'admin' : 'client' })
+        .update({ 
+          role: isAdmin ? 'admin' : 'client',
+          name: editingMember.name.trim()
+        })
         .eq('id', editingMember.id);
         
       if (roleError) {
@@ -236,13 +242,25 @@ export const MemberList = ({
               </SheetTrigger>
               <SheetContent>
                 <SheetHeader>
-                  <SheetTitle>Rediger tilganger</SheetTitle>
+                  <SheetTitle>Rediger medlem</SheetTitle>
                   <SheetDescription>
-                    Oppdater tilgangene for {profile.name}
+                    Oppdater navn og tilganger for {profile.name}
                   </SheetDescription>
                 </SheetHeader>
                 {editingMember && (
                   <div className="space-y-4 mt-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="member-name">Navn</Label>
+                      <Input
+                        id="member-name"
+                        value={editingMember.name}
+                        onChange={(e) => setEditingMember({
+                          ...editingMember,
+                          name: e.target.value
+                        })}
+                        placeholder="Skriv inn navn"
+                      />
+                    </div>
                     <div className="space-y-2">
                       <Label>Tilgang til faner</Label>
                       <div className="space-y-3 p-4 rounded-md border bg-gray-50">
@@ -358,6 +376,7 @@ export const MemberList = ({
                     <Button 
                       className="w-full bg-[#E2B808] text-[#28483F] hover:bg-[#E2B808]/90"
                       onClick={handleUpdateMember}
+                      disabled={!editingMember.name.trim()}
                     >
                       Lagre endringer
                     </Button>
