@@ -43,6 +43,7 @@ interface Profile {
 interface MemberListProps {
   members: Profile[];
   onDeleteMember: (profileId: string) => Promise<void>;
+  onMemberUpdated?: () => Promise<void>;
   organizationType: "admin" | "client";
   hidePreviewButton?: boolean;
 }
@@ -59,6 +60,7 @@ const tabLabels: Record<TabName, string> = {
 export const MemberList = ({ 
   members, 
   onDeleteMember, 
+  onMemberUpdated,
   organizationType,
   hidePreviewButton = false
 }: MemberListProps) => {
@@ -96,10 +98,14 @@ export const MemberList = ({
     if (!editingMember) return;
 
     try {
+      console.log('Updating member:', editingMember.id, 'with tabs:', editingMember.tabs);
+      
       // Check if the member is being given admin privileges
       const hasAdminTab = editingMember.tabs.includes("administrator");
       const hasOrganizationsTab = editingMember.tabs.includes("organizations");
       const isAdmin = hasAdminTab || hasOrganizationsTab;
+      
+      console.log('Member will have admin role:', isAdmin);
       
       // Update user role if they have admin tabs or if admin privileges are removed
       const { error: roleError } = await supabase
@@ -107,7 +113,10 @@ export const MemberList = ({
         .update({ role: isAdmin ? 'admin' : 'client' })
         .eq('id', editingMember.id);
         
-      if (roleError) throw roleError;
+      if (roleError) {
+        console.error('Role update error:', roleError);
+        throw roleError;
+      }
 
       // Delete existing permissions
       const { error: deleteError } = await supabase
@@ -115,20 +124,35 @@ export const MemberList = ({
         .delete()
         .eq('user_id', editingMember.id);
 
-      if (deleteError) throw deleteError;
+      if (deleteError) {
+        console.error('Delete permissions error:', deleteError);
+        throw deleteError;
+      }
 
       // Insert new permissions
       if (editingMember.tabs.length > 0) {
+        const permissionsToInsert = editingMember.tabs.map(tab_name => ({
+          user_id: editingMember.id,
+          tab_name: tab_name
+        }));
+        
+        console.log('Inserting permissions:', permissionsToInsert);
+        
         const { error: insertError } = await supabase
           .from('user_tab_permissions')
-          .insert(
-            editingMember.tabs.map(tab_name => ({
-              user_id: editingMember.id,
-              tab_name: tab_name
-            }))
-          );
+          .insert(permissionsToInsert);
 
-        if (insertError) throw insertError;
+        if (insertError) {
+          console.error('Insert permissions error:', insertError);
+          throw insertError;
+        }
+      }
+
+      console.log('Member update successful, refreshing data...');
+      
+      // Call the callback to refresh data in parent component
+      if (onMemberUpdated) {
+        await onMemberUpdated();
       }
 
       toast.success('Medlem oppdatert');

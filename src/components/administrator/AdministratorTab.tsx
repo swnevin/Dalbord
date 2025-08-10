@@ -220,6 +220,7 @@ export const AdministratorTab = () => {
               onDeleteOrg={handleDeleteOrg}
               onAddMember={handleAddMember}
               onDeleteMember={handleDeleteMember}
+              onMemberUpdated={fetchOrganization}
               hideControls={true}
               hidePreviewButton={false}
             />

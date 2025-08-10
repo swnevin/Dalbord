@@ -59,6 +59,7 @@ interface OrganizationCardProps {
     tabs: TabName[];
   }) => Promise<void>;
   onDeleteMember: (profileId: string) => Promise<void>;
+  onMemberUpdated?: () => Promise<void>;
   hideControls?: boolean;
   hidePreviewButton?: boolean;
 }
@@ -70,6 +71,7 @@ export const OrganizationCard = ({
   onDeleteOrg,
   onAddMember,
   onDeleteMember,
+  onMemberUpdated,
   hideControls = false,
   hidePreviewButton = false,
 }: OrganizationCardProps) => {
@@ -214,6 +216,7 @@ export const OrganizationCard = ({
         <MemberList 
           members={members}
           onDeleteMember={onDeleteMember}
+          onMemberUpdated={onMemberUpdated}
           organizationType={organization.type || "client"}
           hidePreviewButton={hidePreviewButton || isDalaiOrg}
         />

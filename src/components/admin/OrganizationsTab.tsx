@@ -300,6 +300,7 @@ const OrganizationsTab = () => {
                 onDeleteOrg={handleDeleteOrg} 
                 onAddMember={handleAddMember} 
                 onDeleteMember={handleDeleteMember} 
+                onMemberUpdated={fetchOrganizations}
                 hideControls={true}
                 hidePreviewButton={true} 
               />
@@ -313,8 +314,9 @@ const OrganizationsTab = () => {
               onDeleteOrg={handleDeleteOrg} 
               onAddMember={handleAddMember} 
               onDeleteMember={handleDeleteMember} 
+              onMemberUpdated={fetchOrganizations}
               hideControls={false}
-              hidePreviewButton={false} 
+              hidePreviewButton={false}
             />;
       })}
       </div>
