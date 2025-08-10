@@ -218,6 +218,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_administer_user: {
+        Args: { target_user_id: string }
+        Returns: boolean
+      }
       create_organization_member: {
         Args: {
           user_email: string
