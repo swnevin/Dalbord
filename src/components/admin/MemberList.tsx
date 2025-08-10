@@ -157,9 +157,23 @@ export const MemberList = ({
 
       toast.success('Medlem oppdatert');
       setEditingMember(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating member:', error);
-      toast.error('Kunne ikke oppdatere medlem');
+      
+      // Provide more specific error messages
+      let errorMessage = 'Kunne ikke oppdatere medlem';
+      
+      if (error?.message?.includes('row-level security')) {
+        errorMessage = 'Ingen tilgang til å oppdatere tilganger. Sjekk brukerrettigheter.';
+      } else if (error?.message?.includes('foreign key')) {
+        errorMessage = 'Ugyldig bruker-ID. Prøv å oppdatere siden.';
+      } else if (error?.message?.includes('violates not-null')) {
+        errorMessage = 'Manglende obligatorisk informasjon. Kontakt support.';
+      } else if (error?.code) {
+        errorMessage = `Database-feil (${error.code}): ${error.message}`;
+      }
+      
+      toast.error(errorMessage);
     }
   };
 
