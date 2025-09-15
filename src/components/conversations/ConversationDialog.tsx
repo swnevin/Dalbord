@@ -1,6 +1,7 @@
 
 import { Loader } from "@/components/ui/loader";
 import { formatTime, filterDialog, formatText, containsIframe, extractIframeAndCleanText } from "@/utils/conversation-utils";
+import { ensureQATitleSuffix } from "@/components/knowledge-base/utils";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { MessageSquarePlus } from "lucide-react";
@@ -161,10 +162,7 @@ export const ConversationDialog = ({
         throw new Error('Mangler Voiceflow-legitimasjon');
       }
 
-      let formattedTitle = qaTitle.trim();
-      if (!formattedTitle.endsWith("- Q&A")) {
-        formattedTitle = `${formattedTitle} - Q&A`;
-      }
+      const formattedTitle = ensureQATitleSuffix(qaTitle.trim());
 
       const response = await fetch(
         `https://api.voiceflow.com/v1/knowledge-base/docs`,
@@ -214,15 +212,36 @@ export const ConversationDialog = ({
       const saveResponse = await fetch(endpoint, options);
 
       if (!saveResponse.ok) {
-        throw new Error('Kunne ikke lagre Q&A');
+        const errorData = await saveResponse.json().catch(() => ({}));
+        console.error('Voiceflow API error:', {
+          status: saveResponse.status,
+          statusText: saveResponse.statusText,
+          error: errorData,
+          title: formattedTitle,
+          existingQA: !!existingQA
+        });
+        
+        const errorMessage = errorData.message || errorData.error || `HTTP ${saveResponse.status}: ${saveResponse.statusText}`;
+        throw new Error(`Kunne ikke lagre Q&A: ${errorMessage}`);
       }
 
-      toast.success("Q&A ble lagret til kunnskapsbasen");
+      const saveResult = await saveResponse.json();
+      console.log('Q&A saved successfully:', { title: formattedTitle, result: saveResult });
+      
+      toast.success(existingQA ? "Q&A ble oppdatert i kunnskapsbasen" : "Q&A ble lagret til kunnskapsbasen");
       setIsQASheetOpen(false);
       clearSelection();
     } catch (error) {
-      console.error('Error saving Q&A:', error);
-      toast.error(error instanceof Error ? error.message : "Kunne ikke lagre Q&A");
+      console.error('Error saving Q&A:', {
+        error,
+        title: qaTitle,
+        formattedTitle: ensureQATitleSuffix(qaTitle.trim()),
+        question: qaPair.question,
+        answer: qaPair.answer
+      });
+      
+      const errorMessage = error instanceof Error ? error.message : "Ukjent feil oppstod";
+      toast.error(errorMessage);
     } finally {
       setIsSaving(false);
     }
