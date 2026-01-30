@@ -56,6 +56,10 @@ export const useDialogPreloader = ({
     
     processingRef.current = true;
     
+    // Create AbortController FIRST, before any async operations
+    const localAbortController = new AbortController();
+    abortControllerRef.current = localAbortController;
+    
     try {
       // Rate limiting - ensure at least 300ms between requests
       const now = Date.now();
@@ -65,7 +69,15 @@ export const useDialogPreloader = ({
         await new Promise(resolve => setTimeout(resolve, 300 - timeSinceLastRequest));
       }
       
+      // Check if we were aborted during the wait
+      if (localAbortController.signal.aborted) {
+        return;
+      }
+      
       const nextId = pendingQueue.current.values().next().value;
+      if (!nextId) {
+        return;
+      }
       pendingQueue.current.delete(nextId);
       
       // If already cached, skip
@@ -77,9 +89,6 @@ export const useDialogPreloader = ({
       
       setIsPreloading(true);
       
-      // Create new abort controller for this request
-      abortControllerRef.current = new AbortController();
-      
       const { data: org, error: orgError } = await supabase
         .from('organizations')
         .select('voiceflow_api_key, voiceflow_project_id')
@@ -90,6 +99,11 @@ export const useDialogPreloader = ({
       if (!org.voiceflow_api_key || !org.voiceflow_project_id) {
         throw new Error('Mangler Voiceflow-legitimasjon');
       }
+      
+      // Check again if aborted before making fetch request
+      if (localAbortController.signal.aborted) {
+        return;
+      }
 
       const response = await fetch(
         `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}/${nextId}`,
@@ -98,7 +112,7 @@ export const useDialogPreloader = ({
             accept: 'application/json',
             Authorization: org.voiceflow_api_key,
           },
-          signal: abortControllerRef.current.signal
+          signal: localAbortController.signal  // Use local reference, not ref
         }
       );
 
