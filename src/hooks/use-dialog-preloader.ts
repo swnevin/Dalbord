@@ -186,21 +186,9 @@ export const useDialogPreloader = ({
   }, [processQueue, dialogCache, cleanupCache]);
 
   // Get dialog from cache or return undefined if not cached
+  // IMPORTANT: This function is read-only - it does NOT update state
   const getCachedDialog = useCallback((conversationId: string) => {
-    if (!dialogCache[conversationId]) return undefined;
-    
-    // Update access timestamp
-    const updatedDialog = dialogCache[conversationId].map((item: any) => ({
-      ...item,
-      accessedAt: Date.now()
-    }));
-    
-    setDialogCache(prev => ({
-      ...prev,
-      [conversationId]: updatedDialog
-    }));
-    
-    return updatedDialog;
+    return dialogCache[conversationId] || undefined;
   }, [dialogCache]);
 
   // Check if a conversation is preloaded
