@@ -123,13 +123,33 @@ Deno.serve(async (req) => {
     console.log(`Successfully fetched transcript ${transcriptId}, logs items: ${logs.length}`);
 
     // Transform logs to legacy format for backward compatibility
-    const transformedLogs = logs.map((log: any) => ({
-      type: mapLogType(log.type),
-      startTime: log.createdAt,
-      payload: {
-        payload: log.data
+    const transformedLogs = logs.map((log: any) => {
+      const mappedType = mapLogType(log.type);
+      
+      let payload;
+      if (log.type === 'trace') {
+        // Bot message - extract message property
+        const message = typeof log.data === 'string' 
+          ? log.data 
+          : log.data?.message || log.data?.text || JSON.stringify(log.data);
+        payload = { payload: { message } };
+      } else if (log.type === 'action') {
+        // User input - map payload to query
+        const query = typeof log.data === 'string'
+          ? log.data
+          : log.data?.payload || log.data?.query || log.data?.label || '';
+        payload = { payload: { query } };
+      } else {
+        // Other types - pass through
+        payload = { payload: log.data };
       }
-    }));
+      
+      return {
+        type: mappedType,
+        startTime: log.createdAt,
+        payload
+      };
+    });
 
     return new Response(
       JSON.stringify({ 
