@@ -1,97 +1,140 @@
 
+## Plan: Forenkling og robustifisering av samtale-lasting
 
-## Plan: Filtrer ut debug-traces fra samtalevisning
+### Problemanalyse
 
-### Problemet
+Jeg har identifisert flere problemer med nåværende preloading-system:
 
-Samtalevisningen viser unodvendig system-informasjon:
-- "1 variable changed"
-- "successfully executed"  
-- "resolved None (legacy nlu)"
-- "command jump matched - navigating to next path"
+**Problem 1: Race conditions mellom cache og direkte henting**
+- `handleSelectConversation` sjekker `getCachedDialog()` 
+- Samtidig kjører `useEffect` på linje 322-358 som **også** henter samtalen
+- Begge skriver til `setDialog()`, som kan føre til konflikt
 
-Dette er fordi Voiceflow trace-objekter har ulike `data.type`-verdier:
+**Problem 2: Cache-invalidering**
+- `dialogCache` i `useDialogPreloader` bruker `useState`
+- `getCachedDialog` har `[dialogCache]` som dependency i `useCallback`
+- Men `processQueue` har også `[dialogCache]` som dependency
+- Dette kan føre til stale closures hvor gammel cache-referanse brukes
 
-| data.type | Beskrivelse | Skal vises? |
-|-----------|-------------|-------------|
-| `speak` | Bot snakker til bruker | Ja |
-| `text` | Tekstmelding til bruker | Ja |
-| `debug` | Intern debug-info | Nei |
-| `block` | Blokk-navigasjon | Nei |
-| `flow` | Flow-navigasjon | Nei |
-| `path` | Path-navigasjon | Nei |
-| `no-reply` | Ingen respons | Nei |
+**Problem 3: Abort-logikk kan forstyrre lasting**
+- `preloadConversations` kaller `abortControllerRef.current.abort()` hver gang den kalles
+- Hvis bruker klikker på en samtale som allerede er i køen, blir den aborted
+- Ny henting starter ikke fordi systemet tror den allerede er cachet
 
-Problemet er at debug-traces har `data.payload.message` med debug-teksten, og `extractStringValue()` fanger dette opp som en gyldig melding.
+**Problem 4: Evig loop når samtale ikke finnes i cache**
+- `fetchDialog` useEffect avhenger av `[selectedConversation, isConversationPreloaded, dialogCache]`
+- Når `dialogCache` oppdateres av preloaderen, kjører `fetchDialog` igjen
+- Hvis samtalen ikke er preloaded, starter ny henting
+- Ny henting oppdaterer dialog-state, men ikke cache...
 
-### Losning
+### Foreslått løsning: Forenkling
 
-Oppdater `supabase/functions/get-transcript/index.ts`:
+Fjern kompleksiteten ved å:
+1. Ha **én kilde til sannhet** for samtale-lasting
+2. Forenkle preloading til kun å være en optimalisering, ikke kritisk path
+3. Unngå race conditions
 
-1. **Sjekk `data.type` for** i `extractStringValue()` - kun returnere melding hvis typen er `speak` eller `text`
-2. **Eksplisitt blokkere** debug, block, flow, path, no-reply traces
+### Implementasjonsplan
+
+**Fil: `src/pages/ClientDashboard.tsx`**
+
+1. **Fjern dobbel-lastingslogikk**
+   - `handleSelectConversation` skal sette loading state og sjekke cache
+   - `useEffect` for `fetchDialog` skal **kun** laste hvis samtalen ikke er cachet
+
+2. **Fikse dependency-problemet**
+   - Fjern `dialogCache` fra useEffect dependencies
+   - Bruk `isConversationPreloaded` + `getCachedDialog` kun i handleSelectConversation
 
 ```text
-Ny logikk i extractStringValue():
+Ny handleSelectConversation:
+1. Sett selectedConversation
+2. Sjekk cache - hvis funnet, bruk den og sett isLoadingDialog = false
+3. Hvis ikke cachet, sett isLoadingDialog = true (useEffect tar over)
+4. Start preloading av andre samtaler (med delay)
 
-function extractStringValue(data: any): string | null {
-  // Kun tillat speak/text typer fra Voiceflow
-  const allowedTypes = ['speak', 'text'];
-  const blockedTypes = ['debug', 'block', 'flow', 'path', 'no-reply', 'visual', 'carousel', 'card'];
-  
-  if (data?.type && blockedTypes.includes(data.type)) {
-    return null; // Blokker eksplisitt
-  }
-  
-  if (data?.type && allowedTypes.includes(data.type)) {
-    return data.payload?.message || null;
-  }
-  
-  // Fallback for andre strukturer
-  ...
-}
+Ny fetchDialog useEffect:
+1. Avhenger KUN av selectedConversation
+2. Sjekk om samtalen allerede er lastet (dialog.length > 0 og ikke loading)
+3. Hvis ikke, hent fra API
 ```
 
-### Fil som endres
+**Fil: `src/hooks/use-dialog-preloader.ts`**
+
+3. **Robust queue-håndtering**
+   - Ikke abort pågående requests når nye legges til køen
+   - Legg til retry-logikk ved feil
+   - Bruk `useRef` for cache for å unngå stale closures
+
+4. **Forenklet preload-funksjon**
+   - Fjern abort av pågående requests (la dem fullføre)
+   - Kun abort ved unmount
+
+### Kodeendringer
 
 | Fil | Endring |
 |-----|---------|
-| `supabase/functions/get-transcript/index.ts` | Legg til whitelist/blacklist for trace-typer, kun inkluder `speak`/`text` meldinger |
+| `src/pages/ClientDashboard.tsx` | Fjern `dialogCache` fra useEffect dependencies, forenkle lastingslogikk |
+| `src/hooks/use-dialog-preloader.ts` | Fjern unødvendig abort-logikk, bruk refs for stabil cache-referanse |
 
 ### Teknisk implementasjon
 
 ```typescript
-function extractStringValue(data: any): string | null {
-  if (typeof data === 'string') return data;
-  if (data === null || data === undefined) return null;
-  
-  // BLOCKED trace types - never display these
-  const blockedTypes = ['debug', 'block', 'flow', 'path', 'no-reply', 'visual', 'carousel', 'card', 'choice', 'end'];
-  if (data.type && blockedTypes.includes(data.type)) {
-    return null;
-  }
-  
-  // ALLOWED trace types - only these should show messages
-  const allowedTypes = ['speak', 'text'];
-  if (data.type && allowedTypes.includes(data.type)) {
-    if (typeof data.payload?.message === 'string') {
-      return data.payload.message;
+// ClientDashboard.tsx - Ny fetchDialog useEffect
+useEffect(() => {
+  const fetchDialog = async () => {
+    if (!selectedConversation) return;
+    
+    // Hvis vi allerede laster, ikke start ny henting
+    if (isLoadingDialog) return;
+    
+    // Hvis vi har data (ikke tom array), ikke hent på nytt
+    if (dialog.length > 0) return;
+    
+    setIsLoadingDialog(true);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('get-transcript', {
+        body: { transcriptId: selectedConversation }
+      });
+
+      if (error) throw error;
+      setDialog(data?.history || []);
+    } catch (error) {
+      console.error('Error fetching dialog:', error);
+      toast.error('Kunne ikke laste inn samtale');
+      setDialog([]);
+    } finally {
+      setIsLoadingDialog(false);
     }
-    return null;
+  };
+
+  fetchDialog();
+}, [selectedConversation]); // Kun selectedConversation som dependency!
+```
+
+```typescript
+// use-dialog-preloader.ts - Forenklet preloadConversations
+const preloadConversations = useCallback((conversationIds: string[]) => {
+  // IKKE abort pågående requests - la dem fullføre
+  
+  // Legg til køen kun de som ikke er cachet
+  conversationIds.forEach(id => {
+    if (!dialogCacheRef.current[id] && !pendingQueue.current.has(id)) {
+      pendingQueue.current.add(id);
+    }
+  });
+  
+  // Start processing hvis ikke allerede i gang
+  if (!processingRef.current && pendingQueue.current.size > 0) {
+    processQueue();
   }
-  
-  // If no type specified, try direct message properties (rare case)
-  if (typeof data.message === 'string') return data.message;
-  if (typeof data.text === 'string') return data.text;
-  
-  return null;
-}
+}, [processQueue]);
 ```
 
 ### Forventet resultat
 
-- Kun faktiske bot-meldinger vises (type `speak`/`text`)
-- Debug-info som "1 variable changed" filtreres bort
-- System-navigasjon som "command jump matched" filtreres bort
-- Bruker-input vises fortsatt korrekt
-
+- Preloading-indikatorer forblir stabile
+- Ingen evig loop ved åpning av samtaler
+- Cache brukes korrekt når tilgjengelig
+- Fallback til API-henting fungerer pålitelig
