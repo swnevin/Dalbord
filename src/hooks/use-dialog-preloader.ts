@@ -1,7 +1,5 @@
-
 import { useState, useCallback, useRef, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
 
 export type DialogCache = Record<string, any[]>;
 
@@ -14,21 +12,23 @@ export const useDialogPreloader = ({
   organizationId, 
   maxCacheSize = 25
 }: UseDialogPreloaderProps) => {
-  const [dialogCache, setDialogCache] = useState<DialogCache>({});
+  // Use ref for cache to avoid stale closures
+  const dialogCacheRef = useRef<DialogCache>({});
+  const [cacheVersion, setCacheVersion] = useState(0);
   const [preloadedConversations, setPreloadedConversations] = useState<Set<string>>(new Set());
   const [isPreloading, setIsPreloading] = useState(false);
-  const abortControllerRef = useRef<AbortController | null>(null);
   const pendingQueue = useRef<Set<string>>(new Set());
   const processingRef = useRef<boolean>(false);
   const lastRequestTime = useRef<number>(0);
   const queueTimer = useRef<number | null>(null);
+  const isMountedRef = useRef<boolean>(true);
   
   // Clean up cache when it exceeds maximum size
   const cleanupCache = useCallback(() => {
-    if (Object.keys(dialogCache).length <= maxCacheSize) return;
+    const cache = dialogCacheRef.current;
+    if (Object.keys(cache).length <= maxCacheSize) return;
     
-    // Simple LRU implementation - remove oldest entries
-    const entries = Object.entries(dialogCache);
+    const entries = Object.entries(cache);
     const sortedEntries = entries.sort((a, b) => {
       const aAccessed = a[1][0]?.accessedAt || 0;
       const bAccessed = b[1][0]?.accessedAt || 0;
@@ -36,10 +36,9 @@ export const useDialogPreloader = ({
     });
     
     const toRemove = sortedEntries.slice(0, entries.length - maxCacheSize);
-    const newCache = { ...dialogCache };
     
     toRemove.forEach(([key]) => {
-      delete newCache[key];
+      delete dialogCacheRef.current[key];
       setPreloadedConversations(prev => {
         const updated = new Set(prev);
         updated.delete(key);
@@ -47,18 +46,14 @@ export const useDialogPreloader = ({
       });
     });
     
-    setDialogCache(newCache);
-  }, [dialogCache, maxCacheSize]);
+    setCacheVersion(v => v + 1);
+  }, [maxCacheSize]);
 
   // Process the queue of conversations to preload
   const processQueue = useCallback(async () => {
-    if (processingRef.current || pendingQueue.current.size === 0) return;
+    if (processingRef.current || pendingQueue.current.size === 0 || !isMountedRef.current) return;
     
     processingRef.current = true;
-    
-    // Create AbortController FIRST, before any async operations
-    const localAbortController = new AbortController();
-    abortControllerRef.current = localAbortController;
     
     try {
       // Rate limiting - ensure at least 300ms between requests
@@ -69,37 +64,32 @@ export const useDialogPreloader = ({
         await new Promise(resolve => setTimeout(resolve, 300 - timeSinceLastRequest));
       }
       
-      // Check if we were aborted during the wait
-      if (localAbortController.signal.aborted) {
-        return;
-      }
+      if (!isMountedRef.current) return;
       
       const nextId = pendingQueue.current.values().next().value;
       if (!nextId) {
+        processingRef.current = false;
         return;
       }
       pendingQueue.current.delete(nextId);
       
       // If already cached, skip
-      if (dialogCache[nextId]) {
+      if (dialogCacheRef.current[nextId]) {
         processingRef.current = false;
-        queueTimer.current = window.setTimeout(processQueue, 0);
+        if (pendingQueue.current.size > 0 && isMountedRef.current) {
+          queueTimer.current = window.setTimeout(processQueue, 0);
+        }
         return;
       }
       
       setIsPreloading(true);
-      
-      // Check if aborted before making request
-      if (localAbortController.signal.aborted) {
-        return;
-      }
 
-      // Bruk edge function som proxy for å unngå CORS
       const { data, error } = await supabase.functions.invoke('get-transcript', {
         body: { transcriptId: nextId }
       });
 
       if (error) throw error;
+      if (!isMountedRef.current) return;
 
       const historyData = data?.history || [];
       
@@ -109,10 +99,8 @@ export const useDialogPreloader = ({
         accessedAt: Date.now()
       }));
       
-      setDialogCache(prev => ({
-        ...prev,
-        [nextId]: dataWithTimestamp
-      }));
+      dialogCacheRef.current[nextId] = dataWithTimestamp;
+      setCacheVersion(v => v + 1);
       
       setPreloadedConversations(prev => {
         const updated = new Set(prev);
@@ -123,56 +111,40 @@ export const useDialogPreloader = ({
       lastRequestTime.current = Date.now();
       
     } catch (error) {
-      // Ignore aborted requests
-      if (error instanceof DOMException && error.name === 'AbortError') {
-        console.log('Preloading request aborted');
-      } else {
-        console.error('Error preloading dialog:', error);
-      }
+      console.error('Error preloading dialog:', error);
     } finally {
       processingRef.current = false;
       
-      if (pendingQueue.current.size > 0) {
+      if (pendingQueue.current.size > 0 && isMountedRef.current) {
         queueTimer.current = window.setTimeout(processQueue, 50);
       } else {
         setIsPreloading(false);
       }
     }
-  }, [dialogCache]);
+  }, []);
 
-  // Add conversations to preloading queue
+  // Add conversations to preloading queue - simplified, no abort
   const preloadConversations = useCallback((conversationIds: string[]) => {
-    // Cancel any ongoing requests
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-    }
-    
-    // Clear existing timer if any
-    if (queueTimer.current !== null) {
-      window.clearTimeout(queueTimer.current);
-      queueTimer.current = null;
-    }
-    
-    // Add to pending queue
+    // Add to pending queue only if not already cached
     conversationIds.forEach(id => {
-      if (!dialogCache[id] && !pendingQueue.current.has(id)) {
+      if (!dialogCacheRef.current[id] && !pendingQueue.current.has(id)) {
         pendingQueue.current.add(id);
       }
     });
     
-    // Start processing queue
-    queueTimer.current = window.setTimeout(processQueue, 0);
+    // Start processing if not already running
+    if (!processingRef.current && pendingQueue.current.size > 0) {
+      queueTimer.current = window.setTimeout(processQueue, 0);
+    }
     
     // Clean up cache if needed
     cleanupCache();
-  }, [processQueue, dialogCache, cleanupCache]);
+  }, [processQueue, cleanupCache]);
 
-  // Get dialog from cache or return undefined if not cached
-  // IMPORTANT: This function is read-only - it does NOT update state
+  // Get dialog from cache
   const getCachedDialog = useCallback((conversationId: string) => {
-    return dialogCache[conversationId] || undefined;
-  }, [dialogCache]);
+    return dialogCacheRef.current[conversationId] || undefined;
+  }, []);
 
   // Check if a conversation is preloaded
   const isConversationPreloaded = useCallback((conversationId: string) => {
@@ -181,11 +153,12 @@ export const useDialogPreloader = ({
 
   // Search within dialog content
   const searchInDialogContent = useCallback((searchTerm: string, conversationId: string) => {
-    if (!dialogCache[conversationId]) return false;
+    const cached = dialogCacheRef.current[conversationId];
+    if (!cached) return false;
     
     const searchLower = searchTerm.toLowerCase();
     
-    return dialogCache[conversationId].some(msg => {
+    return cached.some(msg => {
       if (msg.type === 'text' && msg.payload?.payload?.message) {
         return msg.payload.payload.message.toLowerCase().includes(searchLower);
       }
@@ -196,14 +169,14 @@ export const useDialogPreloader = ({
       }
       return false;
     });
-  }, [dialogCache]);
+  }, []);
 
-  // Clean up aborted requests on unmount
+  // Clean up on unmount
   useEffect(() => {
+    isMountedRef.current = true;
+    
     return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
+      isMountedRef.current = false;
       
       if (queueTimer.current !== null) {
         window.clearTimeout(queueTimer.current);
@@ -212,7 +185,7 @@ export const useDialogPreloader = ({
   }, []);
 
   return {
-    dialogCache,
+    dialogCache: dialogCacheRef.current,
     preloadConversations,
     getCachedDialog,
     isConversationPreloaded,
