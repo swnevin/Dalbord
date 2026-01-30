@@ -381,8 +381,12 @@ export const ConversationDialog = ({
               <p className="mt-4 text-gray-500 text-sm">Laster samtale...</p>
             </div>
           ) : !selectedConversation ? (
-            <div className="h-full flex items-center justify-center text-gray-500">
+            <div className="h-full flex items-center justify-center text-muted-foreground">
               Velg en samtale for å se meldinger
+            </div>
+          ) : filteredDialog.length === 0 ? (
+            <div className="h-full flex items-center justify-center text-muted-foreground">
+              Ingen meldinger i denne samtalen
             </div>
           ) : (
             <div className="space-y-4">

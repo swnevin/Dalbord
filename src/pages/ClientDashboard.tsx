@@ -117,11 +117,13 @@ const ClientDashboard = () => {
   const handleSelectConversation = useCallback((conversationId: string) => {
     setSelectedConversation(conversationId);
     
+    // Sjekk cache først - sett dialog og loading state eksplisitt
     const cachedDialog = getCachedDialog(conversationId);
-    if (cachedDialog) {
+    if (cachedDialog && cachedDialog.length > 0) {
       setDialog(cachedDialog);
       setIsLoadingDialog(false);
     } else {
+      // Sett loading state - dialog vil bli lastet i useEffect
       setDialog([]);
       setIsLoadingDialog(true);
     }
@@ -328,9 +330,17 @@ const ClientDashboard = () => {
       const organizationId = getEffectiveOrgId();
       if (!organizationId) return;
       
-      if (getCachedDialog(selectedConversation)) {
+      // Sjekk om vi allerede har dialog data i cache
+      const cachedDialog = getCachedDialog(selectedConversation);
+      if (cachedDialog && cachedDialog.length > 0) {
+        // Sett dialog eksplisitt for å sikre at vi har dataen
+        setDialog(cachedDialog);
+        setIsLoadingDialog(false);
         return;
       }
+      
+      // Sett loading state eksplisitt
+      setIsLoadingDialog(true);
       
       try {
         const { data: org, error: orgError } = await supabase
@@ -342,6 +352,7 @@ const ClientDashboard = () => {
         if (orgError) throw orgError;
         if (!org.voiceflow_api_key || !org.voiceflow_project_id) {
           console.error('Missing Voiceflow credentials');
+          setIsLoadingDialog(false);
           return;
         }
 
@@ -360,10 +371,12 @@ const ClientDashboard = () => {
         const data = await response.json();
         setDialog(data);
         
+        // Legg til i cache
         preloadConversations([selectedConversation]);
       } catch (error) {
         console.error('Error fetching dialog:', error);
         toast.error('Kunne ikke laste inn samtale');
+        setDialog([]); // Tøm dialog ved feil
       } finally {
         setIsLoadingDialog(false);
       }
