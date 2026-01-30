@@ -1,128 +1,77 @@
 
 
-## Plan for å forenkle og fikse samtale-lasting
+## Plan: Bytt til riktig Voiceflow Transcripts API
 
-### Rotårsak identifisert
+### Rotårsak
+Applikasjonen bruker **Legacy Transcripts API** (`api.voiceflow.com/v2/transcripts/...`) som returnerer tomme arrays. Den nye **Transcripts API** (`analytics-api.voiceflow.com/v1/transcript/...`) returnerer faktisk samtaleinnhold i `history`-arrayen.
 
-Etter analyse av nettverkslogger og kode har jeg funnet **hovedproblemet**:
+### Løsning
 
-**`getCachedDialog` oppdaterer state hver gang den kalles**, noe som skaper en ustabil callback som trigger useEffect-loopen på nytt:
+#### Trinn 1: Oppdater API-endepunkt for å hente samtale-detaljer
 
+**Fil:** `src/pages/ClientDashboard.tsx`
+
+Endre fra:
 ```typescript
-// I getCachedDialog - oppdaterer state HVER gang:
-setDialogCache(prev => ({
-  ...prev,
-  [conversationId]: updatedDialog  // <-- Trigger re-render
-}));
-```
-
-Dette, kombinert med at `getCachedDialog` er i useEffect-dependencies, skaper en uendelig render-loop hvor:
-1. useEffect kjører -> kaller `getCachedDialog`
-2. `getCachedDialog` oppdaterer state -> skaper ny callback-referanse
-3. Ny callback-referanse -> trigger useEffect igjen
-4. Repeat...
-
-I tillegg er hele cache-systemet unødvendig komplisert for det som egentlig er en enkel operasjon: **hent samtale fra API og vis den**.
-
-### Foreslått løsning: Forenkle hele flyten
-
-I stedet for å fikse det komplekse cache-systemet, bør vi forenkle til en robust og forutsigbar flyt:
-
-**Ny flyt:**
-1. Bruker klikker på samtale
-2. Sett loading state
-3. Hent samtale fra API (alltid)
-4. Vis samtale eller feilmelding
-5. Ferdig
-
-**Valgfri optimalisering:** Behold enkel preloading for synlige samtaler, men uten kompleks LRU-cache eller timestamp-oppdatering.
-
-### Tekniske endringer
-
-#### Fil 1: `src/hooks/use-dialog-preloader.ts`
-
-**Endring:** Fjern state-oppdatering i `getCachedDialog` - den skal bare lese cache, ikke skrive til den.
-
-```typescript
-const getCachedDialog = useCallback((conversationId: string) => {
-  // Bare returner data fra cache, IKKE oppdater state
-  return dialogCache[conversationId] || undefined;
-}, [dialogCache]);
-```
-
-#### Fil 2: `src/pages/ClientDashboard.tsx`
-
-**Endring 1:** Forenkle `handleSelectConversation`:
-```typescript
-const handleSelectConversation = useCallback((conversationId: string) => {
-  setSelectedConversation(conversationId);
-  
-  // Sjekk cache - aksepter også tom array som gyldig cache
-  const cachedDialog = getCachedDialog(conversationId);
-  if (cachedDialog !== undefined) {
-    setDialog(cachedDialog);
-    setIsLoadingDialog(false);
-  } else {
-    setDialog([]);
-    setIsLoadingDialog(true);
+const response = await fetch(
+  `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}/${selectedConversation}`,
+  {
+    headers: {
+      accept: 'application/json',
+      Authorization: org.voiceflow_api_key,
+    },
   }
-  // ... rest of preloading logic
-}, [...]);
+);
+const data = await response.json();
+setDialog(data);
 ```
 
-**Endring 2:** Fjern `getCachedDialog` fra useEffect dependencies og forenkle logikken:
+Til:
 ```typescript
-useEffect(() => {
-  const fetchDialog = async () => {
-    if (!selectedConversation) return;
-    
-    const organizationId = getEffectiveOrgId();
-    if (!organizationId) return;
-    
-    // Sjekk om samtalen allerede er cachet (inkludert tom array)
-    if (isConversationPreloaded(selectedConversation)) {
-      const cached = getCachedDialog(selectedConversation);
-      if (cached !== undefined) {
-        setDialog(cached);
-        setIsLoadingDialog(false);
-        return;
-      }
-    }
-    
-    // Hent fra API
-    setIsLoadingDialog(true);
-    
-    try {
-      // ... fetch logic ...
-      const data = await response.json();
-      setDialog(data);
-    } catch (error) {
-      console.error('Error fetching dialog:', error);
-      toast.error('Kunne ikke laste inn samtale');
-      setDialog([]);
-    } finally {
-      setIsLoadingDialog(false);
-    }
-  };
-
-  fetchDialog();
-}, [selectedConversation, getEffectiveOrgId]);  // Fjernet getCachedDialog og preloadConversations
+const response = await fetch(
+  `https://analytics-api.voiceflow.com/v1/transcript/${selectedConversation}?filterConversation=false`,
+  {
+    headers: {
+      accept: 'application/json',
+      Authorization: org.voiceflow_api_key,
+    },
+  }
+);
+const data = await response.json();
+// Ny API returnerer history-array med samtaledata
+setDialog(data.history || []);
 ```
 
-### Filer som endres
+#### Trinn 2: Oppdater preloader med samme API-endepunkt
+
+**Fil:** `src/hooks/use-dialog-preloader.ts`
+
+Samme endring for preload-funksjonen.
+
+#### Trinn 3: Oppdater eventuelle andre API-kall
+
+Sjekk og oppdater:
+- Samtaleliste-henting (kan fortsatt bruke legacy hvis den fungerer)
+- Sletting av samtaler (sjekk om ny API har dette)
+
+### Tekniske detaljer
+
+| Funksjon | Gammelt endepunkt | Nytt endepunkt |
+|----------|-------------------|----------------|
+| Hent samtale | `api.voiceflow.com/v2/transcripts/{projectID}/{transcriptID}` | `analytics-api.voiceflow.com/v1/transcript/{transcriptID}` |
+| Respons-struktur | `[]` (array direkte) | `{ transcript: {...}, history: [...] }` |
+
+### Filer som må endres
 
 | Fil | Endring |
 |-----|---------|
-| `src/hooks/use-dialog-preloader.ts` | Fjern state-oppdatering i `getCachedDialog` |
-| `src/pages/ClientDashboard.tsx` | Forenkle cache-sjekk og fjern ustabile dependencies |
+| `src/pages/ClientDashboard.tsx` | Bytt API-endepunkt for fetchDialog |
+| `src/hooks/use-dialog-preloader.ts` | Bytt API-endepunkt for preloading |
 
 ### Testplan
-
 1. Logg inn som hanna@birkebeiner.no
-2. Gå til Birken-botten og Samtaler-fanen
+2. Gå til Birken-botten > Samtaler
 3. Klikk på en samtale
-4. Verifiser at loading-spinner vises kort
-5. Verifiser at samtale-innhold vises (eller "Ingen meldinger" for tomme samtaler)
-6. Test rask veksling mellom flere samtaler
-7. Verifiser ingen uendelig loading eller hvit skjerm
+4. Verifiser at samtaleinnhold faktisk vises
+5. Sjekk at meldingene vises riktig (format kan ha endret seg)
 
