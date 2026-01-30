@@ -106,22 +106,23 @@ export const useDialogPreloader = ({
       }
 
       const response = await fetch(
-        `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}/${nextId}`,
+        `https://analytics-api.voiceflow.com/v1/transcript/${nextId}?filterConversation=false`,
         {
           headers: {
             accept: 'application/json',
             Authorization: org.voiceflow_api_key,
           },
-          signal: localAbortController.signal  // Use local reference, not ref
+          signal: localAbortController.signal
         }
       );
 
       if (!response.ok) throw new Error('Kunne ikke laste inn samtale');
 
       const data = await response.json();
+      const historyData = data.history || [];
       
       // Add accessedAt timestamp for LRU cache
-      const dataWithTimestamp = data.map((item: any) => ({
+      const dataWithTimestamp = historyData.map((item: any) => ({
         ...item,
         accessedAt: Date.now()
       }));
