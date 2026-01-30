@@ -114,12 +114,64 @@ const ClientDashboard = () => {
     }
   };
 
+  const handleToggleSearchInContent = useCallback((value: boolean) => {
+    setSearchInContent(value);
+  }, []);
+
+  const handleSearchTermChange = useCallback((term: string) => {
+    setSearchTerm(term);
+  }, []);
+
+  const filteredConversations = useCallback(() => {
+    return conversations.filter(conv => {
+      if (activeFilter === "saved" && !conv.reportTags?.includes("system.saved")) return false;
+      if (activeFilter === "approved" && !conv.reportTags?.includes("system.reviewed")) return false;
+      
+      if (!searchTerm) return true;
+      
+      const searchLower = searchTerm.toLowerCase();
+      
+      // Enhanced date search - check for partial matches in day, month, year
+      const date = new Date(conv.updatedAt);
+      const day = date.getDate().toString().padStart(2, '0');
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const year = date.getFullYear().toString();
+      const hour = date.getHours().toString().padStart(2, '0');
+      const minute = date.getMinutes().toString().padStart(2, '0');
+      
+      const dateFormatted = `${day}.${month}.${year}`;
+      const timeFormatted = `${hour}:${minute}`;
+      
+      const nameMatch = (conv.name || "Ukjent bruker").toLowerCase().includes(searchLower);
+      const dateMatch = dateFormatted.includes(searchLower) || 
+                         `${day}.${month}`.includes(searchLower) ||
+                         `${month}.${year}`.includes(searchLower) ||
+                         year.includes(searchLower) ||
+                         timeFormatted.includes(searchLower) ||
+                         conv.updatedAt.toLowerCase().includes(searchLower);
+      const deviceMatch = (conv.device || "").toLowerCase().includes(searchLower);
+      
+      if (searchInContent && isConversationPreloaded(conv._id)) {
+        return nameMatch || dateMatch || deviceMatch || 
+               searchInDialogContent(searchTerm, conv._id);
+      }
+      
+      return nameMatch || dateMatch || deviceMatch;
+    });
+  }, [conversations, searchTerm, activeFilter, searchInContent, isConversationPreloaded, searchInDialogContent]);
+
+  const getPaginatedConversations = useCallback((page: number, itemsPerPage: number) => {
+    const filtered = filteredConversations();
+    const startIndex = (page - 1) * itemsPerPage;
+    return filtered.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredConversations]);
+
   const handleSelectConversation = useCallback((conversationId: string) => {
     setSelectedConversation(conversationId);
     
-    // Sjekk cache først - sett dialog og loading state eksplisitt
+    // Sjekk cache først - aksepter også tom array som gyldig cache
     const cachedDialog = getCachedDialog(conversationId);
-    if (cachedDialog && cachedDialog.length > 0) {
+    if (cachedDialog !== undefined) {
       setDialog(cachedDialog);
       setIsLoadingDialog(false);
     } else {
@@ -152,7 +204,8 @@ const ClientDashboard = () => {
     isConversationPreloaded,
     currentPage,
     itemsPerPage,
-    preloadingTimerRef
+    preloadingTimerRef,
+    getPaginatedConversations
   ]);
 
   const handleDeleteClick = (conversationId: string) => {
@@ -205,58 +258,6 @@ const ClientDashboard = () => {
       setConversationToDelete(null);
     }
   };
-
-  const handleToggleSearchInContent = useCallback((value: boolean) => {
-    setSearchInContent(value);
-  }, []);
-
-  const handleSearchTermChange = useCallback((term: string) => {
-    setSearchTerm(term);
-  }, []);
-
-  const filteredConversations = useCallback(() => {
-    return conversations.filter(conv => {
-      if (activeFilter === "saved" && !conv.reportTags?.includes("system.saved")) return false;
-      if (activeFilter === "approved" && !conv.reportTags?.includes("system.reviewed")) return false;
-      
-      if (!searchTerm) return true;
-      
-      const searchLower = searchTerm.toLowerCase();
-      
-      // Enhanced date search - check for partial matches in day, month, year
-      const date = new Date(conv.updatedAt);
-      const day = date.getDate().toString().padStart(2, '0');
-      const month = (date.getMonth() + 1).toString().padStart(2, '0');
-      const year = date.getFullYear().toString();
-      const hour = date.getHours().toString().padStart(2, '0');
-      const minute = date.getMinutes().toString().padStart(2, '0');
-      
-      const dateFormatted = `${day}.${month}.${year}`;
-      const timeFormatted = `${hour}:${minute}`;
-      
-      const nameMatch = (conv.name || "Ukjent bruker").toLowerCase().includes(searchLower);
-      const dateMatch = dateFormatted.includes(searchLower) || 
-                         `${day}.${month}`.includes(searchLower) ||
-                         `${month}.${year}`.includes(searchLower) ||
-                         year.includes(searchLower) ||
-                         timeFormatted.includes(searchLower) ||
-                         conv.updatedAt.toLowerCase().includes(searchLower);
-      const deviceMatch = (conv.device || "").toLowerCase().includes(searchLower);
-      
-      if (searchInContent && isConversationPreloaded(conv._id)) {
-        return nameMatch || dateMatch || deviceMatch || 
-               searchInDialogContent(searchTerm, conv._id);
-      }
-      
-      return nameMatch || dateMatch || deviceMatch;
-    });
-  }, [conversations, searchTerm, activeFilter, searchInContent, isConversationPreloaded, searchInDialogContent]);
-
-  const getPaginatedConversations = useCallback((page: number, itemsPerPage: number) => {
-    const filtered = filteredConversations();
-    const startIndex = (page - 1) * itemsPerPage;
-    return filtered.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredConversations]);
 
   useEffect(() => {
     if (activeTab === "conversations") {
@@ -330,13 +331,14 @@ const ClientDashboard = () => {
       const organizationId = getEffectiveOrgId();
       if (!organizationId) return;
       
-      // Sjekk om vi allerede har dialog data i cache
-      const cachedDialog = getCachedDialog(selectedConversation);
-      if (cachedDialog && cachedDialog.length > 0) {
-        // Sett dialog eksplisitt for å sikre at vi har dataen
-        setDialog(cachedDialog);
-        setIsLoadingDialog(false);
-        return;
+      // Sjekk om samtalen allerede er cachet (inkludert tom array)
+      if (isConversationPreloaded(selectedConversation)) {
+        const cached = dialogCache[selectedConversation];
+        if (cached !== undefined) {
+          setDialog(cached);
+          setIsLoadingDialog(false);
+          return;
+        }
       }
       
       // Sett loading state eksplisitt
@@ -370,20 +372,17 @@ const ClientDashboard = () => {
 
         const data = await response.json();
         setDialog(data);
-        
-        // Legg til i cache
-        preloadConversations([selectedConversation]);
       } catch (error) {
         console.error('Error fetching dialog:', error);
         toast.error('Kunne ikke laste inn samtale');
-        setDialog([]); // Tøm dialog ved feil
+        setDialog([]);
       } finally {
         setIsLoadingDialog(false);
       }
     };
 
     fetchDialog();
-  }, [selectedConversation, getEffectiveOrgId, getCachedDialog, preloadConversations]);
+  }, [selectedConversation, getEffectiveOrgId, isConversationPreloaded, dialogCache]);
 
   useEffect(() => {
     return () => {
