@@ -13,15 +13,18 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { PreloadedIndicator } from "./PreloadedIndicator";
 
 interface VoiceflowTranscript {
-  _id: string;
-  name: string;
+  id: string;
+  _id?: string;
+  name?: string;
   updatedAt: string;
-  device: string;
+  createdAt?: string;
+  device?: string;
   sessionID: string;
-  reportTags: string[];
-  user?: {
+  reportTags?: string[];
+  properties?: Array<{
     name: string;
-  };
+    value: string;
+  }>;
 }
 
 interface ConversationListProps {
@@ -173,59 +176,64 @@ export const ConversationList = ({
         <Loader size="lg" text="Laster samtaler..." />
       </div> : paginatedConversations.length === 0 ? <div className="h-full flex flex-col items-center justify-center p-4 text-center text-gray-500">
         {searchTerm ? <p>Ingen samtaler matchet søket ditt.</p> : <p>Ingen samtaler funnet for gjeldende filter.</p>}
-      </div> : paginatedConversations.map(conv => <div key={conv._id} className={cn(
-        "p-4 border-b border-gray-100 cursor-pointer transition-all duration-100", 
-        selectedId === conv._id 
-          ? "bg-white border-l-4 border-l-primary text-primary" 
-          : "hover:bg-gray-50 active:bg-gray-100", 
-        collapsed && "px-2"
-      )} onClick={() => handleConversationClick(conv._id)}>
-        <div className="flex justify-between items-start">
-          <div className="flex-1">
-            {collapsed ? <div className="text-center">
-              <span className="font-medium">
-                {conv.name ? conv.name.charAt(0) : "U"}
-              </span>
-            </div> : <>
-              <div className="flex items-center">
-                <h3 className={cn("font-medium", selectedId === conv._id ? "text-primary" : "text-gray-700")}>
-                  {conv.name || "Ukjent bruker"}
-                </h3>
-                {isPreloaded(conv._id) && <PreloadedIndicator isPreloaded={true} />}
+      </div> : paginatedConversations.map(conv => {
+        const convId = conv.id || conv._id || '';
+        return (
+          <div key={convId} className={cn(
+            "p-4 border-b border-gray-100 cursor-pointer transition-all duration-100", 
+            selectedId === convId 
+              ? "bg-white border-l-4 border-l-primary text-primary" 
+              : "hover:bg-gray-50 active:bg-gray-100", 
+            collapsed && "px-2"
+          )} onClick={() => handleConversationClick(convId)}>
+            <div className="flex justify-between items-start">
+              <div className="flex-1">
+                {collapsed ? <div className="text-center">
+                  <span className="font-medium">
+                    {conv.name ? conv.name.charAt(0) : "U"}
+                  </span>
+                </div> : <>
+                  <div className="flex items-center">
+                    <h3 className={cn("font-medium", selectedId === convId ? "text-primary" : "text-gray-700")}>
+                      {conv.name || "Ukjent bruker"}
+                    </h3>
+                    {isPreloaded(convId) && <PreloadedIndicator isPreloaded={true} />}
+                  </div>
+                  <div className="mt-1 flex justify-between items-center">
+                    <span className="text-xs text-gray-500 capitalize">
+                      {conv.device || ''}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      {formatDate(conv.updatedAt).date} {formatDate(conv.updatedAt).time}
+                    </span>
+                  </div>
+                </>}
               </div>
-              <div className="mt-1 flex justify-between items-center">
-                <span className="text-xs text-gray-500 capitalize">
-                  {conv.device}
-                </span>
-                <span className="text-xs text-gray-500">
-                  {formatDate(conv.updatedAt).date} {formatDate(conv.updatedAt).time}
-                </span>
-              </div>
-            </>}
-          </div>
 
-          {!collapsed && <div className="flex gap-2 ml-2">
-            <Button variant="ghost" size="icon" onClick={e => {
-              e.stopPropagation();
-              onToggleTag(conv._id, "system.saved");
-            }} className={cn("hover:bg-secondary/10 active:bg-secondary/20", isConversationSaved(conv) && "text-secondary")}>
-              <Bookmark className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={e => {
-              e.stopPropagation();
-              onToggleTag(conv._id, "system.reviewed");
-            }} className={cn("hover:bg-secondary/10 active:bg-secondary/20", isConversationReviewed(conv) && "text-green-500")}>
-              <CheckCircle className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={e => {
-              e.stopPropagation();
-              onDeleteClick(conv._id);
-            }} className="hover:bg-secondary/10 active:bg-secondary/20 text-red-500">
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>}
-        </div>
-      </div>)}
+              {!collapsed && <div className="flex gap-2 ml-2">
+                <Button variant="ghost" size="icon" onClick={e => {
+                  e.stopPropagation();
+                  onToggleTag(convId, "system.saved");
+                }} className={cn("hover:bg-secondary/10 active:bg-secondary/20", isConversationSaved(conv) && "text-secondary")}>
+                  <Bookmark className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={e => {
+                  e.stopPropagation();
+                  onToggleTag(convId, "system.reviewed");
+                }} className={cn("hover:bg-secondary/10 active:bg-secondary/20", isConversationReviewed(conv) && "text-green-500")}>
+                  <CheckCircle className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={e => {
+                  e.stopPropagation();
+                  onDeleteClick(convId);
+                }} className="hover:bg-secondary/10 active:bg-secondary/20 text-red-500">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>}
+            </div>
+          </div>
+        );
+      })}
     </ScrollArea>
 
     {!collapsed && <div className="p-4 border-t border-gray-200 flex-shrink-0">

@@ -14,19 +14,28 @@ import { Home } from "@/components/home/Home";
 import { AdministratorTab } from "@/components/administrator/AdministratorTab";
 import { useDialogPreloader } from "@/hooks/use-dialog-preloader";
 
+// New Analytics API response structure
 interface VoiceflowTranscript {
-  _id: string;
-  name: string;
-  updatedAt: string;
-  device: string;
+  id: string;           // New API uses 'id' instead of '_id'
+  _id?: string;         // Keep for backward compatibility
   sessionID: string;
-  reportTags: string[];
-  user?: {
+  projectID: string;
+  createdAt: string;
+  updatedAt: string;
+  properties?: Array<{
     name: string;
-  };
+    value: string;
+  }>;
+  // Legacy fields we map for UI
+  name?: string;
+  device?: string;
+  reportTags?: string[];
 }
 
 type FilterType = "all" | "approved" | "saved";
+
+// Helper to get transcript ID (supports both old and new API)
+const getTranscriptId = (conv: VoiceflowTranscript): string => conv.id || conv._id || '';
 
 const ClientDashboard = () => {
   const [activeTab, setActiveTab] = useState("home");
@@ -100,9 +109,9 @@ const ClientDashboard = () => {
 
       setConversations(prevConversations => 
         prevConversations.map(conv => {
-          if (conv._id === conversationId) {
+          if (getTranscriptId(conv) === conversationId) {
             const newTags = hasTag 
-              ? conv.reportTags.filter(t => t !== tag)
+              ? (conv.reportTags || []).filter(t => t !== tag)
               : [...(conv.reportTags || []), tag];
             return { ...conv, reportTags: newTags };
           }
@@ -151,9 +160,10 @@ const ClientDashboard = () => {
                          conv.updatedAt.toLowerCase().includes(searchLower);
       const deviceMatch = (conv.device || "").toLowerCase().includes(searchLower);
       
-      if (searchInContent && isConversationPreloaded(conv._id)) {
+      const convId = getTranscriptId(conv);
+      if (searchInContent && isConversationPreloaded(convId)) {
         return nameMatch || dateMatch || deviceMatch || 
-               searchInDialogContent(searchTerm, conv._id);
+               searchInDialogContent(searchTerm, convId);
       }
       
       return nameMatch || dateMatch || deviceMatch;
@@ -188,8 +198,8 @@ const ClientDashboard = () => {
       const visibleConversations = getPaginatedConversations(currentPage, itemsPerPage);
       if (visibleConversations.length > 0) {
         const conversationIds = visibleConversations
-          .map(conv => conv._id)
-          .filter(id => id !== conversationId && !isConversationPreloaded(id));
+          .map(conv => getTranscriptId(conv))
+          .filter(id => id && id !== conversationId && !isConversationPreloaded(id));
           
         if (conversationIds.length > 0) {
           preloadConversations(conversationIds);
@@ -246,7 +256,7 @@ const ClientDashboard = () => {
       }
 
       setConversations(prevConversations => 
-        prevConversations.filter(conv => conv._id !== conversationToDelete)
+        prevConversations.filter(conv => getTranscriptId(conv) !== conversationToDelete)
       );
       
       toast.success('Samtalen ble slettet');
@@ -263,7 +273,7 @@ const ClientDashboard = () => {
     if (activeTab === "conversations") {
       const visibleConversations = getPaginatedConversations(currentPage, itemsPerPage);
       if (visibleConversations.length > 0) {
-        const conversationIds = visibleConversations.map(conv => conv._id);
+        const conversationIds = visibleConversations.map(conv => getTranscriptId(conv)).filter(Boolean);
         preloadConversations(conversationIds);
       }
     }
@@ -278,41 +288,26 @@ const ClientDashboard = () => {
 
   useEffect(() => {
     const fetchConversations = async () => {
-      const organizationId = getEffectiveOrgId();
-      if (!organizationId) {
-        setIsLoading(false);
-        return;
-      }
+      setIsLoading(true);
 
       try {
-        const { data: org, error: orgError } = await supabase
-          .from('organizations')
-          .select('voiceflow_api_key, voiceflow_project_id')
-          .eq('id', organizationId)
-          .single();
+        // Bruk edge function for å hente samtaler fra ny Analytics API
+        const { data, error } = await supabase.functions.invoke('get-transcripts', {
+          body: { take: 100, skip: 0 }
+        });
 
-        if (orgError) throw orgError;
-        if (!org.voiceflow_api_key || !org.voiceflow_project_id) {
-          console.error('Missing Voiceflow credentials for organization:', organizationId);
-          toast.error('Organisasjonen mangler Voiceflow-konfigurasjon');
-          setIsLoading(false);
-          return;
-        }
+        if (error) throw error;
 
-        const response = await fetch(
-          `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}`,
-          {
-            headers: {
-              accept: 'application/json',
-              Authorization: org.voiceflow_api_key,
-            },
-          }
-        );
+        // Map transcripts fra ny API-format
+        const transcripts = (data?.transcripts || []).map((t: any) => ({
+          ...t,
+          _id: t.id, // Map 'id' til '_id' for backward compatibility
+          name: t.properties?.find((p: any) => p.name === 'user_name')?.value || 'Ukjent bruker',
+          device: t.properties?.find((p: any) => p.name === 'device')?.value || '',
+          reportTags: [] // New API doesn't have reportTags in same format
+        }));
 
-        if (!response.ok) throw new Error('Failed to fetch transcripts');
-
-        const data = await response.json();
-        setConversations(data);
+        setConversations(transcripts);
       } catch (error) {
         console.error('Error fetching conversations:', error);
         toast.error('Kunne ikke laste samtaler');
@@ -322,7 +317,7 @@ const ClientDashboard = () => {
     };
 
     fetchConversations();
-  }, [getEffectiveOrgId]);
+  }, []);
 
   useEffect(() => {
     const fetchDialog = async () => {
