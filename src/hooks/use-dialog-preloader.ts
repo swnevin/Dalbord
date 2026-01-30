@@ -52,7 +52,7 @@ export const useDialogPreloader = ({
 
   // Process the queue of conversations to preload
   const processQueue = useCallback(async () => {
-    if (!organizationId || processingRef.current || pendingQueue.current.size === 0) return;
+    if (processingRef.current || pendingQueue.current.size === 0) return;
     
     processingRef.current = true;
     
@@ -89,37 +89,19 @@ export const useDialogPreloader = ({
       
       setIsPreloading(true);
       
-      const { data: org, error: orgError } = await supabase
-        .from('organizations')
-        .select('voiceflow_api_key, voiceflow_project_id')
-        .eq('id', organizationId)
-        .single();
-
-      if (orgError) throw orgError;
-      if (!org.voiceflow_api_key || !org.voiceflow_project_id) {
-        throw new Error('Mangler Voiceflow-legitimasjon');
-      }
-      
-      // Check again if aborted before making fetch request
+      // Check if aborted before making request
       if (localAbortController.signal.aborted) {
         return;
       }
 
-      const response = await fetch(
-        `https://analytics-api.voiceflow.com/v1/transcript/${nextId}?filterConversation=false`,
-        {
-          headers: {
-            accept: 'application/json',
-            Authorization: org.voiceflow_api_key,
-          },
-          signal: localAbortController.signal
-        }
-      );
+      // Bruk edge function som proxy for å unngå CORS
+      const { data, error } = await supabase.functions.invoke('get-transcript', {
+        body: { transcriptId: nextId }
+      });
 
-      if (!response.ok) throw new Error('Kunne ikke laste inn samtale');
+      if (error) throw error;
 
-      const data = await response.json();
-      const historyData = data.history || [];
+      const historyData = data?.history || [];
       
       // Add accessedAt timestamp for LRU cache
       const dataWithTimestamp = historyData.map((item: any) => ({
@@ -156,7 +138,7 @@ export const useDialogPreloader = ({
         setIsPreloading(false);
       }
     }
-  }, [organizationId, dialogCache]);
+  }, [dialogCache]);
 
   // Add conversations to preloading queue
   const preloadConversations = useCallback((conversationIds: string[]) => {
