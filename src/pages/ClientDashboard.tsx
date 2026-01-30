@@ -301,7 +301,11 @@ const ClientDashboard = () => {
     if (activeTab === "conversations") {
       const visibleConversations = getPaginatedConversations(currentPage, itemsPerPage);
       if (visibleConversations.length > 0) {
-        const conversationIds = visibleConversations.map(conv => getTranscriptId(conv)).filter(Boolean);
+        // Only preload the first 25 conversations
+        const conversationIds = visibleConversations
+          .slice(0, 25)
+          .map(conv => getTranscriptId(conv))
+          .filter(Boolean);
         preloadConversations(conversationIds);
       }
     }

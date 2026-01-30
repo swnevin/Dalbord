@@ -5,12 +5,10 @@ export type DialogCache = Record<string, any[]>;
 
 interface UseDialogPreloaderProps {
   organizationId: string | undefined;
-  maxCacheSize?: number;
 }
 
 export const useDialogPreloader = ({ 
-  organizationId, 
-  maxCacheSize = 200
+  organizationId
 }: UseDialogPreloaderProps) => {
   // Use ref for cache to avoid stale closures
   const dialogCacheRef = useRef<DialogCache>({});
@@ -22,32 +20,6 @@ export const useDialogPreloader = ({
   const lastRequestTime = useRef<number>(0);
   const queueTimer = useRef<number | null>(null);
   const isMountedRef = useRef<boolean>(true);
-  
-  // Clean up cache when it exceeds maximum size
-  const cleanupCache = useCallback(() => {
-    const cache = dialogCacheRef.current;
-    if (Object.keys(cache).length <= maxCacheSize) return;
-    
-    const entries = Object.entries(cache);
-    const sortedEntries = entries.sort((a, b) => {
-      const aAccessed = a[1][0]?.accessedAt || 0;
-      const bAccessed = b[1][0]?.accessedAt || 0;
-      return aAccessed - bAccessed;
-    });
-    
-    const toRemove = sortedEntries.slice(0, entries.length - maxCacheSize);
-    
-    toRemove.forEach(([key]) => {
-      delete dialogCacheRef.current[key];
-      setPreloadedConversations(prev => {
-        const updated = new Set(prev);
-        updated.delete(key);
-        return updated;
-      });
-    });
-    
-    setCacheVersion(v => v + 1);
-  }, [maxCacheSize]);
 
   // Process the queue of conversations to preload
   const processQueue = useCallback(async () => {
@@ -93,13 +65,7 @@ export const useDialogPreloader = ({
 
       const historyData = data?.history || [];
       
-      // Add accessedAt timestamp for LRU cache
-      const dataWithTimestamp = historyData.map((item: any) => ({
-        ...item,
-        accessedAt: Date.now()
-      }));
-      
-      dialogCacheRef.current[nextId] = dataWithTimestamp;
+      dialogCacheRef.current[nextId] = historyData;
       setCacheVersion(v => v + 1);
       
       setPreloadedConversations(prev => {
@@ -123,7 +89,7 @@ export const useDialogPreloader = ({
     }
   }, []);
 
-  // Add conversations to preloading queue - simplified, no abort
+  // Add conversations to preloading queue - simplified, no cleanup
   const preloadConversations = useCallback((conversationIds: string[]) => {
     // Add to pending queue only if not already cached
     conversationIds.forEach(id => {
@@ -136,10 +102,7 @@ export const useDialogPreloader = ({
     if (!processingRef.current && pendingQueue.current.size > 0) {
       queueTimer.current = window.setTimeout(processQueue, 0);
     }
-    
-    // Clean up cache if needed
-    cleanupCache();
-  }, [processQueue, cleanupCache]);
+  }, [processQueue]);
 
   // Get dialog from cache
   const getCachedDialog = useCallback((conversationId: string) => {

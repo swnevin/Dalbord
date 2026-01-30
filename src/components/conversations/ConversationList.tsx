@@ -120,7 +120,7 @@ export const ConversationList = ({
     <div className="p-4 border-b border-gray-200 flex flex-col gap-4 flex-shrink-0">
       <div className="flex items-center justify-between">
         <h2 className={cn("text-xl font-semibold text-primary", collapsed ? "hidden" : "text-primary")}>
-          Samtaler ({conversations.length}{hasMore ? "+" : ""})
+          Samtaler ({conversations.length})
         </h2>
         <Button variant="ghost" size="icon" onClick={() => onCollapsedChange(!collapsed)} className="hover:bg-secondary/10 active:bg-secondary/20">
           {collapsed ? <ChevronRight /> : <ChevronLeft />}
@@ -263,23 +263,6 @@ export const ConversationList = ({
         </Button>
       )}
 
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-sm text-gray-500">Resultater per side:</span>
-        <Select value={String(itemsPerPage)} onValueChange={value => setItemsPerPage(Number(value))}>
-          <SelectTrigger className="w-[100px]">
-            <SelectValue placeholder="100" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="10">10</SelectItem>
-            <SelectItem value="20">20</SelectItem>
-            <SelectItem value="50">50</SelectItem>
-            <SelectItem value="100">100</SelectItem>
-            <SelectItem value="500">500</SelectItem>
-            <SelectItem value="1000">1000</SelectItem>
-            <SelectItem value="10000">10 000</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
 
       {totalPages > 1 && <Pagination>
         <PaginationContent>
