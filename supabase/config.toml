@@ -1,5 +1,3 @@
-
-# project_id should always be the first line
 project_id = "zsczqlfwqegpfttwhdho"
 
 [api]
@@ -36,4 +34,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.add-successful-answer]
+verify_jwt = false
+
+[functions.get-transcript]
 verify_jwt = false

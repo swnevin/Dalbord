@@ -328,9 +328,6 @@ const ClientDashboard = () => {
     const fetchDialog = async () => {
       if (!selectedConversation) return;
       
-      const organizationId = getEffectiveOrgId();
-      if (!organizationId) return;
-      
       // Sjekk om samtalen allerede er cachet (inkludert tom array)
       if (isConversationPreloaded(selectedConversation)) {
         const cached = dialogCache[selectedConversation];
@@ -345,33 +342,14 @@ const ClientDashboard = () => {
       setIsLoadingDialog(true);
       
       try {
-        const { data: org, error: orgError } = await supabase
-          .from('organizations')
-          .select('voiceflow_api_key, voiceflow_project_id')
-          .eq('id', organizationId)
-          .single();
+        // Bruk edge function som proxy for å unngå CORS
+        const { data, error } = await supabase.functions.invoke('get-transcript', {
+          body: { transcriptId: selectedConversation }
+        });
 
-        if (orgError) throw orgError;
-        if (!org.voiceflow_api_key || !org.voiceflow_project_id) {
-          console.error('Missing Voiceflow credentials');
-          setIsLoadingDialog(false);
-          return;
-        }
+        if (error) throw error;
 
-        const response = await fetch(
-          `https://analytics-api.voiceflow.com/v1/transcript/${selectedConversation}?filterConversation=false`,
-          {
-            headers: {
-              accept: 'application/json',
-              Authorization: org.voiceflow_api_key,
-            },
-          }
-        );
-
-        if (!response.ok) throw new Error('Failed to fetch dialog');
-
-        const data = await response.json();
-        setDialog(data.history || []);
+        setDialog(data?.history || []);
       } catch (error) {
         console.error('Error fetching dialog:', error);
         toast.error('Kunne ikke laste inn samtale');
@@ -382,7 +360,7 @@ const ClientDashboard = () => {
     };
 
     fetchDialog();
-  }, [selectedConversation, getEffectiveOrgId, isConversationPreloaded, dialogCache]);
+  }, [selectedConversation, isConversationPreloaded, dialogCache]);
 
   useEffect(() => {
     return () => {
