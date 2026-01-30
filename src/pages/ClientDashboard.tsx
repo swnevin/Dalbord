@@ -55,6 +55,9 @@ const ClientDashboard = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(100);
   const [preloadingTimerRef, setPreloadingTimerRef] = useState<NodeJS.Timeout | null>(null);
+  const [hasMoreConversations, setHasMoreConversations] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [totalLoaded, setTotalLoaded] = useState(0);
 
   const getEffectiveOrgId = useCallback(() => {
     return isInPreviewMode && previewUser 
@@ -263,6 +266,37 @@ const ClientDashboard = () => {
     }
   };
 
+  const loadMoreConversations = async () => {
+    if (isLoadingMore || !hasMoreConversations) return;
+    
+    setIsLoadingMore(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('get-transcripts', {
+        body: { take: 100, skip: totalLoaded }
+      });
+
+      if (error) throw error;
+
+      const newTranscripts = (data?.transcripts || []).map((t: any) => ({
+        ...t,
+        _id: t.id,
+        name: t.properties?.find((p: any) => p.name === 'user_name')?.value || 'Ukjent bruker',
+        device: t.properties?.find((p: any) => p.name === 'device')?.value || '',
+        reportTags: []
+      }));
+
+      setConversations(prev => [...prev, ...newTranscripts]);
+      setTotalLoaded(prev => prev + newTranscripts.length);
+      setHasMoreConversations(data?.hasMore || false);
+      toast.success(`Lastet ${newTranscripts.length} flere samtaler`);
+    } catch (error) {
+      console.error('Error loading more conversations:', error);
+      toast.error('Kunne ikke laste flere samtaler');
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === "conversations") {
       const visibleConversations = getPaginatedConversations(currentPage, itemsPerPage);
@@ -302,6 +336,8 @@ const ClientDashboard = () => {
         }));
 
         setConversations(transcripts);
+        setTotalLoaded(transcripts.length);
+        setHasMoreConversations(data?.hasMore || false);
       } catch (error) {
         console.error('Error fetching conversations:', error);
         toast.error('Kunne ikke laste samtaler');
@@ -383,6 +419,10 @@ const ClientDashboard = () => {
               searchTerm={searchTerm}
               onSearchTermChange={handleSearchTermChange}
               getPaginatedConversations={getPaginatedConversations}
+              hasMore={hasMoreConversations}
+              onLoadMore={loadMoreConversations}
+              isLoadingMore={isLoadingMore}
+              totalLoaded={totalLoaded}
             />
             <ConversationDialog
               isLoading={showDialogLoader}

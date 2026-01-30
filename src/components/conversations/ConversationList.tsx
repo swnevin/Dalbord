@@ -44,6 +44,10 @@ interface ConversationListProps {
   searchTerm: string;
   onSearchTermChange: (term: string) => void;
   getPaginatedConversations: (page: number, itemsPerPage: number) => VoiceflowTranscript[];
+  hasMore: boolean;
+  onLoadMore: () => void;
+  isLoadingMore: boolean;
+  totalLoaded: number;
 }
 
 export const ConversationList = ({
@@ -62,7 +66,11 @@ export const ConversationList = ({
   onToggleSearchInContent,
   searchTerm,
   onSearchTermChange,
-  getPaginatedConversations
+  getPaginatedConversations,
+  hasMore,
+  onLoadMore,
+  isLoadingMore,
+  totalLoaded
 }: ConversationListProps) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(100);
@@ -112,7 +120,7 @@ export const ConversationList = ({
     <div className="p-4 border-b border-gray-200 flex flex-col gap-4 flex-shrink-0">
       <div className="flex items-center justify-between">
         <h2 className={cn("text-xl font-semibold text-primary", collapsed ? "hidden" : "text-primary")}>
-          Samtaler ({conversations.length})
+          Samtaler ({conversations.length}{hasMore ? "+" : ""})
         </h2>
         <Button variant="ghost" size="icon" onClick={() => onCollapsedChange(!collapsed)} className="hover:bg-secondary/10 active:bg-secondary/20">
           {collapsed ? <ChevronRight /> : <ChevronLeft />}
@@ -237,6 +245,24 @@ export const ConversationList = ({
     </ScrollArea>
 
     {!collapsed && <div className="p-4 border-t border-gray-200 flex-shrink-0">
+      {hasMore && (
+        <Button 
+          onClick={onLoadMore} 
+          disabled={isLoadingMore}
+          variant="outline"
+          className="w-full mb-3"
+        >
+          {isLoadingMore ? (
+            <>
+              <Loader size="sm" className="mr-2" />
+              Laster...
+            </>
+          ) : (
+            `Last flere samtaler`
+          )}
+        </Button>
+      )}
+
       <div className="flex items-center justify-between mb-2">
         <span className="text-sm text-gray-500">Resultater per side:</span>
         <Select value={String(itemsPerPage)} onValueChange={value => setItemsPerPage(Number(value))}>
