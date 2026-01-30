@@ -122,6 +122,33 @@ Deno.serve(async (req) => {
     const logs = data.transcript?.logs || [];
     console.log(`Successfully fetched transcript ${transcriptId}, logs items: ${logs.length}`);
 
+    // Helper function to safely extract string from data
+    function extractStringValue(data: any): string | null {
+      if (typeof data === 'string') return data;
+      if (data === null || data === undefined) return null;
+      
+      // Check for common message properties
+      if (typeof data.message === 'string') return data.message;
+      if (typeof data.text === 'string') return data.text;
+      
+      // Skip objects that don't contain displayable text
+      // These are typically metadata like browser_url, trace info, etc.
+      if (typeof data === 'object') {
+        // Check if it's an object with only non-text metadata
+        const keys = Object.keys(data);
+        const metadataKeys = ['browser_url', 'trace', 'debug', 'path', 'blockID', 'diagramID'];
+        const hasOnlyMetadata = keys.every(key => metadataKeys.includes(key) || typeof data[key] === 'object');
+        if (hasOnlyMetadata) return null;
+        
+        // Try to find any string property that might be a message
+        for (const key of ['content', 'body', 'reply']) {
+          if (typeof data[key] === 'string') return data[key];
+        }
+      }
+      
+      return null;
+    }
+
     // Transform logs to legacy format for backward compatibility
     const transformedLogs = logs.map((log: any) => {
       const mappedType = mapLogType(log.type);
@@ -129,18 +156,31 @@ Deno.serve(async (req) => {
       let payload;
       if (log.type === 'trace') {
         // Bot message - extract message property
-        const message = typeof log.data === 'string' 
-          ? log.data 
-          : log.data?.message || log.data?.text || JSON.stringify(log.data);
+        const message = extractStringValue(log.data);
+        // Skip traces without displayable message
+        if (message === null) {
+          return null;
+        }
         payload = { payload: { message } };
       } else if (log.type === 'action') {
         // User input - map payload to query
-        const query = typeof log.data === 'string'
-          ? log.data
-          : log.data?.payload || log.data?.query || log.data?.label || '';
+        let query: string | null = null;
+        if (typeof log.data === 'string') {
+          query = log.data;
+        } else if (typeof log.data?.payload === 'string') {
+          query = log.data.payload;
+        } else if (typeof log.data?.query === 'string') {
+          query = log.data.query;
+        } else if (typeof log.data?.label === 'string') {
+          query = log.data.label;
+        }
+        // Skip actions without user text
+        if (!query) {
+          return null;
+        }
         payload = { payload: { query } };
       } else {
-        // Other types - pass through
+        // Other types - pass through but ensure payload is safe
         payload = { payload: log.data };
       }
       
@@ -149,7 +189,9 @@ Deno.serve(async (req) => {
         startTime: log.createdAt,
         payload
       };
-    });
+    }).filter(Boolean); // Remove null entries
+
+    console.log(`Transformed ${transformedLogs.length} displayable messages from ${logs.length} logs`);
 
     return new Response(
       JSON.stringify({ 
