@@ -177,29 +177,31 @@ const ClientDashboard = () => {
   }, [filteredConversations]);
 
   const handleSelectConversation = useCallback((conversationId: string) => {
+    // Reset dialog state for new conversation
+    setDialog([]);
     setSelectedConversation(conversationId);
     
-    // Sjekk cache først - aksepter også tom array som gyldig cache
+    // Check cache first
     const cachedDialog = getCachedDialog(conversationId);
     if (cachedDialog !== undefined) {
       setDialog(cachedDialog);
       setIsLoadingDialog(false);
     } else {
-      // Sett loading state - dialog vil bli lastet i useEffect
-      setDialog([]);
       setIsLoadingDialog(true);
     }
     
+    // Clear any existing preload timer
     if (preloadingTimerRef) {
       clearTimeout(preloadingTimerRef);
     }
     
+    // Schedule preloading of nearby conversations
     const timer = setTimeout(() => {
       const visibleConversations = getPaginatedConversations(currentPage, itemsPerPage);
       if (visibleConversations.length > 0) {
         const conversationIds = visibleConversations
           .map(conv => getTranscriptId(conv))
-          .filter(id => id && id !== conversationId && !isConversationPreloaded(id));
+          .filter(id => id && id !== conversationId);
           
         if (conversationIds.length > 0) {
           preloadConversations(conversationIds);
@@ -208,15 +210,7 @@ const ClientDashboard = () => {
     }, 1000);
     
     setPreloadingTimerRef(timer);
-  }, [
-    getCachedDialog, 
-    preloadConversations, 
-    isConversationPreloaded,
-    currentPage,
-    itemsPerPage,
-    preloadingTimerRef,
-    getPaginatedConversations
-  ]);
+  }, [getCachedDialog, preloadConversations, currentPage, itemsPerPage, getPaginatedConversations, preloadingTimerRef]);
 
   const handleDeleteClick = (conversationId: string) => {
     setConversationToDelete(conversationId);
@@ -319,25 +313,16 @@ const ClientDashboard = () => {
     fetchConversations();
   }, []);
 
+  // Fetch dialog when selectedConversation changes and not already loaded
   useEffect(() => {
     const fetchDialog = async () => {
       if (!selectedConversation) return;
       
-      // Sjekk om samtalen allerede er cachet (inkludert tom array)
-      if (isConversationPreloaded(selectedConversation)) {
-        const cached = dialogCache[selectedConversation];
-        if (cached !== undefined) {
-          setDialog(cached);
-          setIsLoadingDialog(false);
-          return;
-        }
-      }
-      
-      // Sett loading state eksplisitt
-      setIsLoadingDialog(true);
+      // Skip if already loading or have data
+      if (dialog.length > 0) return;
+      if (!isLoadingDialog) return;
       
       try {
-        // Bruk edge function som proxy for å unngå CORS
         const { data, error } = await supabase.functions.invoke('get-transcript', {
           body: { transcriptId: selectedConversation }
         });
@@ -355,7 +340,7 @@ const ClientDashboard = () => {
     };
 
     fetchDialog();
-  }, [selectedConversation, isConversationPreloaded, dialogCache]);
+  }, [selectedConversation, isLoadingDialog, dialog.length]);
 
   useEffect(() => {
     return () => {
