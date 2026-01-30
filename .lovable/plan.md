@@ -1,104 +1,118 @@
 
-## Plan: Fiks meldingsvisning ved å korrigere data-mapping fra Voiceflow Analytics API
 
-### Rotårsak identifisert
+## Plan: Fiks meldingsvisning - Korriger Voiceflow trace-struktur-parsing
 
-Backend (edge function) henter data korrekt - loggene viser:
-```
-Successfully fetched transcript 697cbd48ba54f2000746a048, logs items: 97
-```
+### Problemet identifisert
 
-Men frontend viser "Ingen meldinger i denne samtalen" fordi **data-strukturen fra ny API matcher ikke hva frontend forventer**.
+Edge function-loggene viser konsekvent:
+- **"Transformed 0 displayable messages from 35 logs"**
+- **"Transformed 1 displayable messages from 86 logs"**
 
-### Detaljert analyse
-
-**Voiceflow ny API format:**
+Fra 86 raw logs blir kun 1 melding ekstrahert! Problemet er at Voiceflow Analytics API bruker en **nestet struktur** for traces:
 
 ```text
-For bot-meldinger (trace):
+Forventet struktur (det vi lettet etter):
 {
   "type": "trace",
-  "data": { "message": "Hei! Hvordan kan jeg hjelpe deg?" },
-  "createdAt": "..."
+  "data": { "message": "Hei!" }
 }
 
-For bruker-input (action):
+Faktisk struktur (det Voiceflow returnerer):
 {
-  "type": "action",
-  "data": { "action": "user_input", "payload": "Hei, jeg trenger hjelp" },
-  "createdAt": "..."
+  "type": "trace",
+  "data": {
+    "type": "speak",           <-- Nestet type!
+    "payload": {
+      "message": "Hei!"        <-- Nestet payload!
+    }
+  }
 }
 ```
 
-**Hva frontend forventer (legacy format):**
+### Losning
 
-```text
-For bot-meldinger (type: 'text'):
-message.payload.payload.message = "Hei! Hvordan kan jeg hjelpe deg?"
+Oppdater `extractStringValue()` i edge function til a handtere den nestede strukturen:
 
-For bruker-input (type: 'request'):
-message.payload.payload.query = "Hei, jeg trenger hjelp"
-ELLER
-message.payload.payload.label = "Hei, jeg trenger hjelp"
-```
+**Fil:** `supabase/functions/get-transcript/index.ts`
 
-**Problemet:**
-- For `action` type: Voiceflow API returnerer `data.payload = "tekst"`, men frontend leser `data.query` eller `data.label`
-- Mappingen i edge function kopierer bare `log.data` uten å transformere til legacy-struktur
+**Endringer:**
+1. Sjekk for `data.type` (speak, text, visual)
+2. Les meldinger fra `data.payload.message`
+3. Handter action-typer som har `data.payload` som streng
 
-### Losning: Forbedre transformasjonen i edge function
+### Ny transformasjonslogikk
 
-Oppdater `supabase/functions/get-transcript/index.ts` til a transformere data korrekt:
-
-```text
-For trace-type (bot-melding):
-- Hvis log.data.message finnes: behold som er
-- Ellers: pakk log.data inn i { message: log.data }
-
-For action-type (bruker-input):
-- Sett query = log.data.payload (brukerens tekst)
-- Behold action-info for debugging
-```
-
-**Ny transformasjonslogikk:**
 ```typescript
-const transformedLogs = logs.map((log: any) => {
-  const mappedType = mapLogType(log.type);
+function extractStringValue(data: any): string | null {
+  if (typeof data === 'string') return data;
+  if (data === null || data === undefined) return null;
   
-  let payload;
-  if (log.type === 'trace') {
-    // Bot message - extract message property
-    const message = typeof log.data === 'string' 
-      ? log.data 
-      : log.data?.message || log.data?.text || JSON.stringify(log.data);
-    payload = { payload: { message } };
-  } else if (log.type === 'action') {
-    // User input - map payload to query
-    const query = typeof log.data === 'string'
-      ? log.data
-      : log.data?.payload || log.data?.query || log.data?.label || '';
-    payload = { payload: { query } };
-  } else {
-    // Other types - pass through
-    payload = { payload: log.data };
+  // NYTT: Sjekk for nestet trace-struktur fra Voiceflow
+  // Format: { type: "speak", payload: { message: "..." } }
+  if (data.type === 'speak' || data.type === 'text') {
+    if (typeof data.payload?.message === 'string') {
+      return data.payload.message;
+    }
   }
   
-  return {
-    type: mappedType,
-    startTime: log.createdAt,
-    payload
-  };
-});
+  // Sjekk direkte message-property
+  if (typeof data.message === 'string') return data.message;
+  if (typeof data.text === 'string') return data.text;
+  
+  // Sjekk payload.message
+  if (typeof data.payload?.message === 'string') return data.payload.message;
+  
+  // Skip metadata-objekter
+  const metadataKeys = ['browser_url', 'trace', 'debug', 'path', 'blockID', 'diagramID'];
+  const keys = Object.keys(data);
+  const hasOnlyMetadata = keys.every(key => 
+    metadataKeys.includes(key) || typeof data[key] === 'object'
+  );
+  if (hasOnlyMetadata) return null;
+  
+  return null;
+}
 ```
 
-### Filer som endres
+### For action-typer (bruker-input)
+
+```typescript
+// Ny logikk for a finne brukerens input
+let query: string | null = null;
+if (typeof log.data === 'string') {
+  query = log.data;
+} else if (typeof log.data?.payload === 'string') {
+  query = log.data.payload;
+} else if (log.data?.type === 'intent' && log.data?.payload?.query) {
+  // Intent-basert input
+  query = log.data.payload.query;
+} else if (log.data?.type === 'launch') {
+  // Skip launch events - de er ikke brukermeldinger
+  return null;
+}
+```
+
+### Fil som endres
 
 | Fil | Endring |
 |-----|---------|
-| `supabase/functions/get-transcript/index.ts` | Forbedre transformasjonslogikk for a mappe ny API-format til legacy-format |
+| `supabase/functions/get-transcript/index.ts` | Oppdater `extractStringValue()` til a handtere nestet trace-struktur, legg til stotte for `speak`/`text` typer med `payload.message` |
+
+### Debug-logging (midlertidig)
+
+For a verifisere strukturen legger vi til logging av forste 3 logs:
+
+```typescript
+// Debug: Log first few raw logs to understand structure
+if (logs.length > 0) {
+  console.log('Sample log structure:', JSON.stringify(logs.slice(0, 3), null, 2));
+}
+```
 
 ### Forventet resultat
-- Bot-meldinger vises korrekt med gront bakgrunn
-- Bruker-meldinger vises korrekt med gul bakgrunn
-- Timestamps vises
-- Samtalehistorikk scrolles til nyeste sesjon
+
+- Alle bot-meldinger (speak/text traces) vises korrekt
+- Bruker-input vises korrekt
+- Metadata-traces filtreres fortsatt bort
+- Loggene viser "Transformed X displayable messages" med X mye hoyere enn for
+
