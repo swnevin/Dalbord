@@ -5,6 +5,15 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Map new API log types to legacy format
+function mapLogType(logType: string): string {
+  switch (logType) {
+    case 'trace': return 'text';
+    case 'action': return 'request';
+    default: return logType;
+  }
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -86,8 +95,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Call Voiceflow Analytics API (server-side, no CORS issues)
-    console.log(`Calling Voiceflow API for transcript ${transcriptId}`);
+    // Call Voiceflow Analytics API (new format)
+    console.log(`Calling Voiceflow Analytics API for transcript ${transcriptId}`);
     const voiceflowResponse = await fetch(
       `https://analytics-api.voiceflow.com/v1/transcript/${transcriptId}?filterConversation=false`,
       {
@@ -108,10 +117,25 @@ Deno.serve(async (req) => {
     }
 
     const data = await voiceflowResponse.json();
-    console.log(`Successfully fetched transcript ${transcriptId}, history items: ${data.history?.length || 0}`);
+    
+    // New API returns { transcript: { logs: [...] } }
+    const logs = data.transcript?.logs || [];
+    console.log(`Successfully fetched transcript ${transcriptId}, logs items: ${logs.length}`);
+
+    // Transform logs to legacy format for backward compatibility
+    const transformedLogs = logs.map((log: any) => ({
+      type: mapLogType(log.type),
+      startTime: log.createdAt,
+      payload: {
+        payload: log.data
+      }
+    }));
 
     return new Response(
-      JSON.stringify(data),
+      JSON.stringify({ 
+        history: transformedLogs, 
+        transcript: data.transcript 
+      }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 

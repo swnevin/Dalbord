@@ -106,10 +106,17 @@ Deno.serve(async (req) => {
     }
 
     const data = await voiceflowResponse.json();
-    console.log(`Successfully fetched ${data.transcripts?.length || 0} transcripts`);
+    const transcripts = data.transcripts || [];
+    console.log(`Successfully fetched ${transcripts.length} transcripts`);
 
+    // Return transcripts with pagination info
     return new Response(
-      JSON.stringify(data),
+      JSON.stringify({
+        transcripts: transcripts,
+        hasMore: transcripts.length === take,
+        skip: skip,
+        take: take
+      }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
