@@ -1,70 +1,76 @@
 
 
-## Plan for å fikse hvit skjerm ved valg av samtale i samtaleloggen
+## Plan for å forenkle og fikse samtale-lasting
 
-### Problemanalyse
+### Rotårsak identifisert
 
-Etter grundig analyse av koden har jeg identifisert **tre samvirkende problemer** som fører til hvit skjerm:
+Etter analyse av nettverkslogger og kode har jeg funnet **hovedproblemet**:
 
-#### Problem 1: Race condition i dialog-lasting
+**`getCachedDialog` oppdaterer state hver gang den kalles**, noe som skaper en ustabil callback som trigger useEffect-loopen på nytt:
 
-Når bruker klikker på en samtale skjer følgende:
-
-1. `handleSelectConversation` kalles og sjekker om samtalen er cachet via `getCachedDialog`
-2. Hvis cachet: setter `dialog` og `isLoadingDialog(false)`
-3. Deretter trigger `useEffect` for `fetchDialog` (linje 324-373)
-4. `fetchDialog` kaller også `getCachedDialog` - men hvis cachen finnes, returnerer den tidlig uten å gjøre noe
-
-**Problemet**: `getCachedDialog` oppdaterer state internt (linje 193-201 i use-dialog-preloader.ts), som kan trigge re-renders og race conditions mellom state-oppdateringer.
-
-#### Problem 2: Tom dialog vises som hvit skjerm
-
-I `ConversationDialog.tsx` (linje 387-394):
 ```typescript
-} : (
-  <div className="space-y-4">
-    {filteredDialog.map((message, index) => (
-      <div key={index}>{renderMessage(message, index)}</div>
-    ))}
-  </div>
-)
+// I getCachedDialog - oppdaterer state HVER gang:
+setDialogCache(prev => ({
+  ...prev,
+  [conversationId]: updatedDialog  // <-- Trigger re-render
+}));
 ```
 
-Hvis `dialog` er tom (`[]`) mens `isLoading` er `false` og `selectedConversation` finnes, vises bare en tom div - altså hvit skjerm uten noen indikasjon til brukeren.
+Dette, kombinert med at `getCachedDialog` er i useEffect-dependencies, skaper en uendelig render-loop hvor:
+1. useEffect kjører -> kaller `getCachedDialog`
+2. `getCachedDialog` oppdaterer state -> skaper ny callback-referanse
+3. Ny callback-referanse -> trigger useEffect igjen
+4. Repeat...
 
-#### Problem 3: Manglende feilhåndtering for preload-abort
+I tillegg er hele cache-systemet unødvendig komplisert for det som egentlig er en enkel operasjon: **hent samtale fra API og vis den**.
 
-Når `preloadConversations` kalles (linje 161-186 i use-dialog-preloader.ts), aborteres **alle** pågående forespørsler inkludert den som kanskje laster samtalen brukeren nettopp valgte. Dette kan føre til at dialogen aldri lastes ferdig.
+### Foreslått løsning: Forenkle hele flyten
 
-### Løsningsplan
+I stedet for å fikse det komplekse cache-systemet, bør vi forenkle til en robust og forutsigbar flyt:
 
-#### Trinn 1: Forbedre `handleSelectConversation` i ClientDashboard.tsx
+**Ny flyt:**
+1. Bruker klikker på samtale
+2. Sett loading state
+3. Hent samtale fra API (alltid)
+4. Vis samtale eller feilmelding
+5. Ferdig
 
-Endre logikken til å være mer robust:
+**Valgfri optimalisering:** Behold enkel preloading for synlige samtaler, men uten kompleks LRU-cache eller timestamp-oppdatering.
 
+### Tekniske endringer
+
+#### Fil 1: `src/hooks/use-dialog-preloader.ts`
+
+**Endring:** Fjern state-oppdatering i `getCachedDialog` - den skal bare lese cache, ikke skrive til den.
+
+```typescript
+const getCachedDialog = useCallback((conversationId: string) => {
+  // Bare returner data fra cache, IKKE oppdater state
+  return dialogCache[conversationId] || undefined;
+}, [dialogCache]);
+```
+
+#### Fil 2: `src/pages/ClientDashboard.tsx`
+
+**Endring 1:** Forenkle `handleSelectConversation`:
 ```typescript
 const handleSelectConversation = useCallback((conversationId: string) => {
   setSelectedConversation(conversationId);
   
-  // Sjekk cache først
+  // Sjekk cache - aksepter også tom array som gyldig cache
   const cachedDialog = getCachedDialog(conversationId);
-  if (cachedDialog && cachedDialog.length > 0) {
+  if (cachedDialog !== undefined) {
     setDialog(cachedDialog);
     setIsLoadingDialog(false);
   } else {
-    // Sett loading state - dialog vil bli lastet i useEffect
     setDialog([]);
     setIsLoadingDialog(true);
   }
-  
-  // Resten av preload-logikken...
+  // ... rest of preloading logic
 }, [...]);
 ```
 
-#### Trinn 2: Fikse `fetchDialog` useEffect
-
-Endre sjekken for å håndtere edge cases:
-
+**Endring 2:** Fjern `getCachedDialog` fra useEffect dependencies og forenkle logikken:
 ```typescript
 useEffect(() => {
   const fetchDialog = async () => {
@@ -73,82 +79,50 @@ useEffect(() => {
     const organizationId = getEffectiveOrgId();
     if (!organizationId) return;
     
-    // Sjekk om vi allerede har dialog data lastet
-    // Dette forhindrer dobbel-lasting, men sørger for at vi faktisk har data
-    const cachedDialog = getCachedDialog(selectedConversation);
-    if (cachedDialog && cachedDialog.length > 0) {
-      // Sett dialog eksplisitt for å sikre at vi har dataen
-      setDialog(cachedDialog);
-      setIsLoadingDialog(false);
-      return;
+    // Sjekk om samtalen allerede er cachet (inkludert tom array)
+    if (isConversationPreloaded(selectedConversation)) {
+      const cached = getCachedDialog(selectedConversation);
+      if (cached !== undefined) {
+        setDialog(cached);
+        setIsLoadingDialog(false);
+        return;
+      }
     }
     
-    // Sett loading state eksplisitt
+    // Hent fra API
     setIsLoadingDialog(true);
     
     try {
-      // ... fetch logikk ...
+      // ... fetch logic ...
+      const data = await response.json();
+      setDialog(data);
     } catch (error) {
       console.error('Error fetching dialog:', error);
       toast.error('Kunne ikke laste inn samtale');
-      setDialog([]); // Tøm dialog ved feil
+      setDialog([]);
     } finally {
       setIsLoadingDialog(false);
     }
   };
 
   fetchDialog();
-}, [selectedConversation, getEffectiveOrgId, getCachedDialog, preloadConversations]);
+}, [selectedConversation, getEffectiveOrgId]);  // Fjernet getCachedDialog og preloadConversations
 ```
 
-#### Trinn 3: Legg til tom-tilstand i ConversationDialog.tsx
-
-Vis en melding når dialogen er tom:
-
-```typescript
-{isLoading ? (
-  <div className="h-full flex flex-col items-center justify-center absolute inset-0">
-    <Loader size="lg" />
-    <p className="mt-4 text-gray-500 text-sm">Laster samtale...</p>
-  </div>
-) : !selectedConversation ? (
-  <div className="h-full flex items-center justify-center text-gray-500">
-    Velg en samtale for å se meldinger
-  </div>
-) : filteredDialog.length === 0 ? (
-  <div className="h-full flex items-center justify-center text-gray-500">
-    Ingen meldinger i denne samtalen
-  </div>
-) : (
-  <div className="space-y-4">
-    {filteredDialog.map((message, index) => (
-      <div key={index}>{renderMessage(message, index)}</div>
-    ))}
-  </div>
-)}
-```
-
-#### Trinn 4: Forbedre preload-logikk for å ikke avbryte aktiv samtale-lasting
-
-I `preloadConversations` bør vi ikke avbryte forespørsler for samtalen som brukeren aktivt ser på. Dette krever å holde styr på hvilken samtale som er "aktiv".
-
-### Filer som må endres
+### Filer som endres
 
 | Fil | Endring |
 |-----|---------|
-| `src/pages/ClientDashboard.tsx` | Forbedre `handleSelectConversation` og `fetchDialog` useEffect |
-| `src/components/conversations/ConversationDialog.tsx` | Legg til håndtering av tom dialog |
-| `src/hooks/use-dialog-preloader.ts` | Valgfritt: Forbedre for å ikke avbryte aktiv samtale |
+| `src/hooks/use-dialog-preloader.ts` | Fjern state-oppdatering i `getCachedDialog` |
+| `src/pages/ClientDashboard.tsx` | Forenkle cache-sjekk og fjern ustabile dependencies |
 
 ### Testplan
 
 1. Logg inn som hanna@birkebeiner.no
-2. Gå til Birken-botten dashboard
-3. Naviger til Samtaler-fanen
-4. Klikk på en samtale som IKKE har "Lastet" badge
-5. Verifiser at loading-spinneren vises
-6. Verifiser at samtale-innholdet lastes inn
-7. Klikk på en samtale som HAR "Lastet" badge
-8. Verifiser at innholdet vises umiddelbart
-9. Test rask veksling mellom flere samtaler
+2. Gå til Birken-botten og Samtaler-fanen
+3. Klikk på en samtale
+4. Verifiser at loading-spinner vises kort
+5. Verifiser at samtale-innhold vises (eller "Ingen meldinger" for tomme samtaler)
+6. Test rask veksling mellom flere samtaler
+7. Verifiser ingen uendelig loading eller hvit skjerm
 
