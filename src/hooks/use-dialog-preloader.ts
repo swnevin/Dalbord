@@ -10,7 +10,7 @@ interface UseDialogPreloaderProps {
 
 export const useDialogPreloader = ({ 
   organizationId, 
-  maxCacheSize = 25
+  maxCacheSize = 200
 }: UseDialogPreloaderProps) => {
   // Use ref for cache to avoid stale closures
   const dialogCacheRef = useRef<DialogCache>({});
