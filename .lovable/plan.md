@@ -1,77 +1,73 @@
 
 
-## Plan: Bytt til riktig Voiceflow Transcripts API
+## Plan: Løs CORS-feil ved å opprette edge function proxy for transkripsjoner
 
-### Rotårsak
-Applikasjonen bruker **Legacy Transcripts API** (`api.voiceflow.com/v2/transcripts/...`) som returnerer tomme arrays. Den nye **Transcripts API** (`analytics-api.voiceflow.com/v1/transcript/...`) returnerer faktisk samtaleinnhold i `history`-arrayen.
+### Rotårsak dokumentert
 
-### Løsning
+**Problem**: Alle forespørsler til `https://analytics-api.voiceflow.com/v1/transcript/{id}` feiler med "Failed to fetch".
 
-#### Trinn 1: Oppdater API-endepunkt for å hente samtale-detaljer
+**Årsak**: Voiceflow sin Analytics API tillater IKKE direkte forespørsler fra nettlesere (CORS-blokkering). Nettverksloggene viser at forespørslene blir blokkert før de når serveren.
 
-**Fil:** `src/pages/ClientDashboard.tsx`
+**Bevis fra loggene**:
+```
+Request: GET https://analytics-api.voiceflow.com/v1/transcript/6977ba97dccb326054abf4e9?filterConversation=false
+Error: Failed to fetch  <-- CORS-blokkert
+```
+
+### Løsning: Bruk Supabase Edge Function som proxy
+
+```text
++--------+     CORS OK      +----------------+    Ingen CORS    +-------------+
+| Browser| ---------------> | Edge Function  | ---------------> | Voiceflow   |
+|        | <--------------- | (Supabase)     | <--------------- | API         |
++--------+                  +----------------+                   +-------------+
+```
+
+### Tekniske endringer
+
+#### Trinn 1: Opprett ny edge function `get-transcript`
+
+**Fil:** `supabase/functions/get-transcript/index.ts`
+
+Denne funksjonen vil:
+- Motta transcriptID fra frontend
+- Autentisere brukeren
+- Hente organisasjonens Voiceflow-credentials
+- Kalle Voiceflow Analytics API server-side (ingen CORS)
+- Returnere data til frontend
+
+#### Trinn 2: Oppdater `ClientDashboard.tsx`
 
 Endre fra:
 ```typescript
 const response = await fetch(
-  `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}/${selectedConversation}`,
-  {
-    headers: {
-      accept: 'application/json',
-      Authorization: org.voiceflow_api_key,
-    },
-  }
+  `https://analytics-api.voiceflow.com/v1/transcript/${selectedConversation}?filterConversation=false`,
+  { headers: { Authorization: org.voiceflow_api_key } }
 );
-const data = await response.json();
-setDialog(data);
 ```
 
 Til:
 ```typescript
-const response = await fetch(
-  `https://analytics-api.voiceflow.com/v1/transcript/${selectedConversation}?filterConversation=false`,
-  {
-    headers: {
-      accept: 'application/json',
-      Authorization: org.voiceflow_api_key,
-    },
-  }
-);
-const data = await response.json();
-// Ny API returnerer history-array med samtaledata
-setDialog(data.history || []);
+const { data, error } = await supabase.functions.invoke('get-transcript', {
+  body: { transcriptId: selectedConversation }
+});
 ```
 
-#### Trinn 2: Oppdater preloader med samme API-endepunkt
+#### Trinn 3: Oppdater `use-dialog-preloader.ts`
 
-**Fil:** `src/hooks/use-dialog-preloader.ts`
+Samme endring for preloading-logikken.
 
-Samme endring for preload-funksjonen.
+### Filer som opprettes/endres
 
-#### Trinn 3: Oppdater eventuelle andre API-kall
+| Fil | Handling |
+|-----|----------|
+| `supabase/functions/get-transcript/index.ts` | Opprett ny edge function |
+| `src/pages/ClientDashboard.tsx` | Bruk edge function i stedet for direkte API-kall |
+| `src/hooks/use-dialog-preloader.ts` | Bruk edge function i stedet for direkte API-kall |
 
-Sjekk og oppdater:
-- Samtaleliste-henting (kan fortsatt bruke legacy hvis den fungerer)
-- Sletting av samtaler (sjekk om ny API har dette)
-
-### Tekniske detaljer
-
-| Funksjon | Gammelt endepunkt | Nytt endepunkt |
-|----------|-------------------|----------------|
-| Hent samtale | `api.voiceflow.com/v2/transcripts/{projectID}/{transcriptID}` | `analytics-api.voiceflow.com/v1/transcript/{transcriptID}` |
-| Respons-struktur | `[]` (array direkte) | `{ transcript: {...}, history: [...] }` |
-
-### Filer som må endres
-
-| Fil | Endring |
-|-----|---------|
-| `src/pages/ClientDashboard.tsx` | Bytt API-endepunkt for fetchDialog |
-| `src/hooks/use-dialog-preloader.ts` | Bytt API-endepunkt for preloading |
-
-### Testplan
-1. Logg inn som hanna@birkebeiner.no
-2. Gå til Birken-botten > Samtaler
-3. Klikk på en samtale
-4. Verifiser at samtaleinnhold faktisk vises
-5. Sjekk at meldingene vises riktig (format kan ha endret seg)
+### Forventet resultat
+- Ingen CORS-feil
+- Samtaler lastes korrekt
+- Sikker autentisering (brukeren må være logget inn)
+- Voiceflow API-nøkkel eksponeres ikke i nettleseren
 
