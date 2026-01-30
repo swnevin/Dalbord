@@ -133,28 +133,24 @@ Deno.serve(async (req) => {
       if (typeof data === 'string') return data;
       if (data === null || data === undefined) return null;
       
-      // Check for nested trace structure from Voiceflow
-      // Format: { type: "speak"|"text", payload: { message: "..." } }
-      if (data.type === 'speak' || data.type === 'text') {
+      // BLOCKED trace types - never display these (debug info, navigation, etc.)
+      const blockedTypes = ['debug', 'block', 'flow', 'path', 'no-reply', 'visual', 'carousel', 'card', 'choice', 'end'];
+      if (data.type && blockedTypes.includes(data.type)) {
+        return null;
+      }
+      
+      // ALLOWED trace types - only these should show messages to users
+      const allowedTypes = ['speak', 'text'];
+      if (data.type && allowedTypes.includes(data.type)) {
         if (typeof data.payload?.message === 'string') {
           return data.payload.message;
         }
+        return null;
       }
       
-      // Check direct message property
+      // If no type specified, try direct message properties (rare case)
       if (typeof data.message === 'string') return data.message;
       if (typeof data.text === 'string') return data.text;
-      
-      // Check payload.message (fallback)
-      if (typeof data.payload?.message === 'string') return data.payload.message;
-      
-      // Skip metadata objects
-      if (typeof data === 'object') {
-        const keys = Object.keys(data);
-        const metadataKeys = ['browser_url', 'trace', 'debug', 'path', 'blockID', 'diagramID', 'action', 'request'];
-        const hasOnlyMetadata = keys.every(key => metadataKeys.includes(key) || typeof data[key] === 'object');
-        if (hasOnlyMetadata) return null;
-      }
       
       return null;
     }
