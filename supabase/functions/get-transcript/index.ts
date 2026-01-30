@@ -122,28 +122,38 @@ Deno.serve(async (req) => {
     const logs = data.transcript?.logs || [];
     console.log(`Successfully fetched transcript ${transcriptId}, logs items: ${logs.length}`);
 
+    // Debug: Log first few raw logs to understand structure
+    if (logs.length > 0) {
+      console.log('Sample log structure:', JSON.stringify(logs.slice(0, 5), null, 2));
+    }
+
     // Helper function to safely extract string from data
+    // Handles nested Voiceflow trace structure: { type: "speak", payload: { message: "..." } }
     function extractStringValue(data: any): string | null {
       if (typeof data === 'string') return data;
       if (data === null || data === undefined) return null;
       
-      // Check for common message properties
+      // Check for nested trace structure from Voiceflow
+      // Format: { type: "speak"|"text", payload: { message: "..." } }
+      if (data.type === 'speak' || data.type === 'text') {
+        if (typeof data.payload?.message === 'string') {
+          return data.payload.message;
+        }
+      }
+      
+      // Check direct message property
       if (typeof data.message === 'string') return data.message;
       if (typeof data.text === 'string') return data.text;
       
-      // Skip objects that don't contain displayable text
-      // These are typically metadata like browser_url, trace info, etc.
+      // Check payload.message (fallback)
+      if (typeof data.payload?.message === 'string') return data.payload.message;
+      
+      // Skip metadata objects
       if (typeof data === 'object') {
-        // Check if it's an object with only non-text metadata
         const keys = Object.keys(data);
-        const metadataKeys = ['browser_url', 'trace', 'debug', 'path', 'blockID', 'diagramID'];
+        const metadataKeys = ['browser_url', 'trace', 'debug', 'path', 'blockID', 'diagramID', 'action', 'request'];
         const hasOnlyMetadata = keys.every(key => metadataKeys.includes(key) || typeof data[key] === 'object');
         if (hasOnlyMetadata) return null;
-        
-        // Try to find any string property that might be a message
-        for (const key of ['content', 'body', 'reply']) {
-          if (typeof data[key] === 'string') return data[key];
-        }
       }
       
       return null;
@@ -163,25 +173,36 @@ Deno.serve(async (req) => {
         }
         payload = { payload: { message } };
       } else if (log.type === 'action') {
-        // User input - map payload to query
+        // User input - handle various action formats
         let query: string | null = null;
+        
+        // Skip launch events - they are not user messages
+        if (log.data?.type === 'launch') {
+          return null;
+        }
+        
+        // Try different locations for user input
         if (typeof log.data === 'string') {
           query = log.data;
         } else if (typeof log.data?.payload === 'string') {
           query = log.data.payload;
+        } else if (log.data?.type === 'intent' && typeof log.data?.payload?.query === 'string') {
+          // Intent-based input
+          query = log.data.payload.query;
         } else if (typeof log.data?.query === 'string') {
           query = log.data.query;
         } else if (typeof log.data?.label === 'string') {
           query = log.data.label;
         }
+        
         // Skip actions without user text
         if (!query) {
           return null;
         }
         payload = { payload: { query } };
       } else {
-        // Other types - pass through but ensure payload is safe
-        payload = { payload: log.data };
+        // Other types - skip them
+        return null;
       }
       
       return {
