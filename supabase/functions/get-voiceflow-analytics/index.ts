@@ -130,43 +130,36 @@ serve(async (req) => {
 async function handleDailyData(startDate: string, endDate: string, queryType: string, org: any) {
   const start = new Date(startDate)
   const end = new Date(endDate)
-  const dailyData = []
   
   const queryName = queryType === 'daily_interactions' ? 'interactions' : 'sessions'
   
-  console.log(`CRITICAL DEBUG - Processing daily ${queryName} data:`, {
+  console.log(`Processing daily ${queryName} data with PARALLEL requests:`, {
     startDate,
     endDate,
     startParsed: start.toISOString(),
-    endParsed: end.toISOString(),
-    startDateOnly: start.toISOString().split('T')[0],
-    endDateOnly: end.toISOString().split('T')[0]
+    endParsed: end.toISOString()
   })
 
-  // Critical fix: Use a more precise date iteration approach
+  // Build array of all dates to fetch
+  const datesToFetch: Date[] = []
   const currentDate = new Date(start)
-  let dayCounter = 0
-  
-  // Keep iterating until we've processed all days INCLUDING the end date
   while (currentDate <= end) {
-    dayCounter++
-    const dateString = currentDate.toISOString().split('T')[0] // YYYY-MM-DD format
-    
-    console.log(`Processing day ${dayCounter}: ${dateString} (current: ${currentDate.toISOString()}, end: ${end.toISOString()})`)
+    datesToFetch.push(new Date(currentDate))
+    currentDate.setUTCDate(currentDate.getUTCDate() + 1)
+  }
+
+  console.log(`Will fetch ${datesToFetch.length} days in PARALLEL`)
+
+  // Create all fetch promises in parallel
+  const fetchPromises = datesToFetch.map(async (date) => {
+    const dateString = date.toISOString().split('T')[0]
     
     try {
-      // Set start of day in UTC
-      const dayStart = new Date(currentDate)
+      const dayStart = new Date(date)
       dayStart.setUTCHours(0, 0, 0, 0)
       
-      // Set end of day in UTC
-      const dayEnd = new Date(currentDate)
+      const dayEnd = new Date(date)
       dayEnd.setUTCHours(23, 59, 59, 999)
-      
-      const dayStartISO = dayStart.toISOString()
-      const dayEndISO = dayEnd.toISOString()
-      
-      console.log(`Fetching ${queryName} for ${dateString} (${dayStartISO} to ${dayEndISO})`)
 
       const options = {
         method: 'POST',
@@ -181,8 +174,8 @@ async function handleDailyData(startDate: string, endDate: string, queryType: st
               name: queryName,
               filter: {
                 projectID: org.voiceflow_project_id,
-                startTime: dayStartISO,
-                endTime: dayEndISO
+                startTime: dayStart.toISOString(),
+                endTime: dayEnd.toISOString()
               }
             }
           ]
@@ -194,49 +187,28 @@ async function handleDailyData(startDate: string, endDate: string, queryType: st
       if (response.ok) {
         const data = await response.json()
         const count = data?.result?.[0]?.count || 0
-        
-        dailyData.push({
-          date: dateString,
-          count: count
-        })
-        
-        console.log(`${queryName} for ${dateString}: ${count}`)
+        return { date: dateString, count }
       } else {
         console.warn(`Failed to fetch ${queryName} for ${dateString}: ${response.status}`)
-        dailyData.push({
-          date: dateString,
-          count: 0
-        })
+        return { date: dateString, count: 0 }
       }
     } catch (error) {
       console.error(`Error fetching ${queryName} for ${dateString}:`, error)
-      dailyData.push({
-        date: dateString,
-        count: 0
-      })
+      return { date: dateString, count: 0 }
     }
-    
-    // CRITICAL: Move to next day - make sure we don't skip the end date
-    currentDate.setUTCDate(currentDate.getUTCDate() + 1)
-  }
+  })
 
-  console.log(`FINAL RESULT - Daily ${queryName} data:`, {
+  // Execute all requests in parallel
+  const results = await Promise.all(fetchPromises)
+  
+  // Sort by date to ensure correct order
+  const dailyData = results.sort((a, b) => a.date.localeCompare(b.date))
+
+  console.log(`PARALLEL FETCH COMPLETE - Daily ${queryName} data:`, {
     totalDaysProcessed: dailyData.length,
-    expectedDays: 7,
     dateRange: `${dailyData[0]?.date} to ${dailyData[dailyData.length - 1]?.date}`,
-    allDates: dailyData.map(d => d.date),
     data: dailyData
   })
-  
-  // Verification - ensure we have the expected number of days
-  if (dailyData.length !== 7) {
-    console.warn(`WARNING: Expected 7 days but got ${dailyData.length} days!`)
-  }
-  
-  // Verify today's date is included
-  const today = new Date().toISOString().split('T')[0]
-  const hasToday = dailyData.some(d => d.date === today)
-  console.log(`Today (${today}) is included: ${hasToday}`)
   
   return new Response(
     JSON.stringify({ dailyData }),
