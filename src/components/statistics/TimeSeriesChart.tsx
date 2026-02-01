@@ -2,7 +2,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader } from "@/components/ui/loader";
 import {
-  LineChart,
+  ComposedChart,
   Line,
   Area,
   XAxis,
@@ -74,7 +74,7 @@ export const TimeSeriesChart = ({
             className="h-full w-full"
           >
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart 
+              <ComposedChart 
                 data={data}
                 margin={{ top: 20, right: 20, left: 20, bottom: 40 }}
               >
@@ -119,6 +119,7 @@ export const TimeSeriesChart = ({
                   dataKey="value"
                   stroke="none"
                   fill="url(#colorValue)"
+                  fillOpacity={1}
                 />
                 <Line
                   type="monotone"
@@ -130,7 +131,7 @@ export const TimeSeriesChart = ({
                   animationDuration={1500}
                   animationEasing="ease-in-out"
                 />
-              </LineChart>
+              </ComposedChart>
             </ResponsiveContainer>
           </ChartContainer>
         ) : (
