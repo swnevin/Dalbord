@@ -1,86 +1,75 @@
 
 
-## Plan: Forenkle caching og UI
+## Plan: Implementer lokal lagring av samtale-tags
 
-### Endring 1: Forenkle cache-strategi i `use-dialog-preloader.ts`
+### Problemanalyse
 
-**Nåværende oppførsel:**
-- `maxCacheSize = 200`
-- `cleanupCache()` kjører etter hver preload
-- Kompleks LRU-logikk med `accessedAt` timestamps
+**Rotårsak:**
+Voiceflow har lansert et nytt transcript-system. Det gamle v2 API-et med `report_tag` er deprecated og returnerer `500 Internal Server Error` når man prøver å markere samtaler.
 
-**Ny strategi:**
-- Fjern `maxCacheSize` helt
-- Fjern `cleanupCache()` funksjon
-- Preload kun de første 25 samtalene (styres fra `ClientDashboard`)
-- La cache vokse naturlig uten opprydding - samtaler forblir cached til unmount
+**Nåværende flyt som feiler:**
+1. Bruker klikker på bookmark/check-ikon
+2. Frontend kaller Voiceflow API: `PUT .../report_tag/system.saved`
+3. Voiceflow returnerer `500: "add tag error"`
+4. Ingenting skjer i UI
 
-| Fil | Endring |
-|-----|---------|
-| `src/hooks/use-dialog-preloader.ts` | Fjern `cleanupCache`, `maxCacheSize`, og `accessedAt` logikk |
-| `src/pages/ClientDashboard.tsx` | Begrens preloading til 25 samtaler |
+### Løsning
 
-**Ny forenklet kode:**
-```typescript
-// preloadConversations - uten cleanup
-const preloadConversations = useCallback((conversationIds: string[]) => {
-  conversationIds.forEach(id => {
-    if (!dialogCacheRef.current[id] && !pendingQueue.current.has(id)) {
-      pendingQueue.current.add(id);
-    }
-  });
-  
-  if (!processingRef.current && pendingQueue.current.size > 0) {
-    queueTimer.current = window.setTimeout(processQueue, 0);
-  }
-  // FJERNET: cleanupCache() - la cache være i fred
-}, [processQueue]);
-```
+Lagre tags lokalt i Supabase-databasen i stedet for å bruke Voiceflow.
 
-### Endring 2: Fjern "+" fra samtaler-header
+---
 
-| Fil | Linje | Endring |
-|-----|-------|---------|
-| `src/components/conversations/ConversationList.tsx` | 123 | Fjern `{hasMore ? "+" : ""}` |
+### Del 1: Database
 
-**Fra:**
-```tsx
-Samtaler ({conversations.length}{hasMore ? "+" : ""})
-```
+**Ny tabell: `conversation_tags`**
 
-**Til:**
-```tsx
-Samtaler ({conversations.length})
-```
+| Kolonne | Type | Beskrivelse |
+|---------|------|-------------|
+| id | uuid | Primærnøkkel |
+| organization_id | uuid | Kobling til organisasjon |
+| transcript_id | text | Voiceflow samtale-ID |
+| tag | text | 'saved' eller 'reviewed' |
+| created_at | timestamp | Tidspunkt for markering |
 
-### Endring 3: Fjern "resultater per side" velger
+Inkluderer Row Level Security slik at brukere kun ser tags for sin egen organisasjon.
 
-Fjern hele Select-komponenten for itemsPerPage (linje 266-281) og lås verdien til 100.
+---
 
-**Fjernes helt:**
-```tsx
-<div className="flex items-center justify-between mb-2">
-  <span className="text-sm text-gray-500">Resultater per side:</span>
-  <Select value={String(itemsPerPage)} onValueChange={...}>
-    ...
-  </Select>
-</div>
-```
+### Del 2: Edge Function
 
-**itemsPerPage forblir fast på 100** (bare fjern Select, behold `useState(100)`).
+**Ny: `toggle-conversation-tag`**
 
-### Sammendrag av endringer
+Enkel toggle-logikk:
+- Hvis tag finnes: Slett den (fjern markering)
+- Hvis tag ikke finnes: Opprett den (legg til markering)
+- Returner oppdatert status til frontend
 
-| Fil | Endring |
-|-----|---------|
-| `src/hooks/use-dialog-preloader.ts` | Fjern `maxCacheSize`, `cleanupCache`, og `accessedAt` timestamp-logikk |
-| `src/pages/ClientDashboard.tsx` | Begrens preloading til `.slice(0, 25)` |
-| `src/components/conversations/ConversationList.tsx` | Fjern "+" fra header, fjern "resultater per side" Select |
+---
+
+### Del 3: Frontend
+
+**Fil: `src/pages/ClientDashboard.tsx`**
+
+1. **Ved oppstart:** Hent alle tags fra Supabase og merge med samtalelisten
+2. **Ved klikk på ikon:** Kall edge function i stedet for Voiceflow API
+3. **Oppdater UI:** Vis endringen umiddelbart basert på respons
+
+---
 
 ### Forventet resultat
 
-- De første 25 samtalene preloades og forblir i cache permanent
-- Ingen komplisert opprydding eller LRU-logikk
-- Enklere UI uten unødvendige valg
-- Bedre ytelse med mindre overhead
+- Klikk på bookmark-ikon markerer samtalen som "lagret" (rød farge)
+- Klikk på check-ikon markerer samtalen som "gjennomgått" (grønn farge)
+- Filtrering på "Lagrede" og "Gjennomgåtte" viser riktige samtaler
+- Tags persisteres permanent i databasen
+
+---
+
+### Teknisk sammendrag
+
+| Komponent | Endring |
+|-----------|---------|
+| Supabase | Ny tabell `conversation_tags` med RLS |
+| Edge Function | Ny `toggle-conversation-tag` |
+| ClientDashboard.tsx | Oppdater `toggleTag` og `fetchConversations` |
 
