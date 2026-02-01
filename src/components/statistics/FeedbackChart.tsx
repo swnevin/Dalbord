@@ -5,6 +5,7 @@ import {
   ResponsiveContainer, 
   LineChart, 
   Line, 
+  Area,
   XAxis, 
   YAxis, 
   CartesianGrid,
@@ -167,6 +168,20 @@ export const FeedbackLineChart: React.FC<FeedbackChartProps> = ({
                 data={processedData} 
                 margin={{ top: 10, right: 30, left: 10, bottom: 25 }}
               >
+                <defs>
+                  <linearGradient id="colorHappy" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#28483F" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#28483F" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="colorNeutral" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#E2B808" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#E2B808" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="colorSad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#8E9196" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#8E9196" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
                 <XAxis 
                   dataKey="date" 
@@ -183,11 +198,29 @@ export const FeedbackLineChart: React.FC<FeedbackChartProps> = ({
                   tickLine={false} 
                   axisLine={false} 
                   allowDecimals={false}
-                  domain={[0, Math.ceil(maxValue * 1.2)]} // Add 20% padding at the top
+                  domain={[0, Math.ceil(maxValue * 1.2)]}
                   width={35}
                 />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend content={<CustomLegend />} />
+                <Area
+                  type="monotone"
+                  dataKey="happy_face"
+                  stroke="none"
+                  fill="url(#colorHappy)"
+                />
+                <Area
+                  type="monotone"
+                  dataKey="neutral_face"
+                  stroke="none"
+                  fill="url(#colorNeutral)"
+                />
+                <Area
+                  type="monotone"
+                  dataKey="sad_face"
+                  stroke="none"
+                  fill="url(#colorSad)"
+                />
                 <Line 
                   type="monotone" 
                   dataKey="happy_face" 
@@ -195,7 +228,7 @@ export const FeedbackLineChart: React.FC<FeedbackChartProps> = ({
                   stroke="#28483F" 
                   strokeWidth={2}
                   activeDot={{ r: 6 }}
-                  dot={{ r: 4 }}
+                  dot={false}
                   isAnimationActive={true}
                 />
                 <Line 
@@ -205,7 +238,7 @@ export const FeedbackLineChart: React.FC<FeedbackChartProps> = ({
                   stroke="#E2B808" 
                   strokeWidth={2}
                   activeDot={{ r: 6 }}
-                  dot={{ r: 4 }}
+                  dot={false}
                   isAnimationActive={true}
                 />
                 <Line 
@@ -215,7 +248,7 @@ export const FeedbackLineChart: React.FC<FeedbackChartProps> = ({
                   stroke="#8E9196" 
                   strokeWidth={2}
                   activeDot={{ r: 6 }}
-                  dot={{ r: 4 }}
+                  dot={false}
                   isAnimationActive={true}
                 />
               </LineChart>

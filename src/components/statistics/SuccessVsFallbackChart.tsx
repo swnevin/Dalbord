@@ -5,6 +5,7 @@ import {
   ResponsiveContainer, 
   LineChart, 
   Line, 
+  Area,
   XAxis, 
   YAxis, 
   CartesianGrid,
@@ -156,6 +157,16 @@ export const SuccessVsFallbackLineChart: React.FC<SuccessVsFallbackChartProps> =
                 data={processedData} 
                 margin={{ top: 10, right: 30, left: 10, bottom: 25 }}
               >
+                <defs>
+                  <linearGradient id="colorSuccess" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#28483F" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#28483F" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="colorFallback" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#E2B808" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#E2B808" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
                 <XAxis 
                   dataKey="date" 
@@ -172,11 +183,23 @@ export const SuccessVsFallbackLineChart: React.FC<SuccessVsFallbackChartProps> =
                   tickLine={false} 
                   axisLine={false} 
                   allowDecimals={false}
-                  domain={[0, Math.ceil(maxValue * 1.2)]} // Add 20% padding at the top
+                  domain={[0, Math.ceil(maxValue * 1.2)]}
                   width={35}
                 />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend content={<CustomLegend />} />
+                <Area
+                  type="monotone"
+                  dataKey="successful_answer"
+                  stroke="none"
+                  fill="url(#colorSuccess)"
+                />
+                <Area
+                  type="monotone"
+                  dataKey="fallback"
+                  stroke="none"
+                  fill="url(#colorFallback)"
+                />
                 <Line 
                   type="monotone" 
                   dataKey="successful_answer" 
@@ -184,7 +207,7 @@ export const SuccessVsFallbackLineChart: React.FC<SuccessVsFallbackChartProps> =
                   stroke="#28483F" 
                   strokeWidth={2}
                   activeDot={{ r: 6 }}
-                  dot={{ r: 4 }}
+                  dot={false}
                   isAnimationActive={true}
                 />
                 <Line 
@@ -194,7 +217,7 @@ export const SuccessVsFallbackLineChart: React.FC<SuccessVsFallbackChartProps> =
                   stroke="#E2B808" 
                   strokeWidth={2}
                   activeDot={{ r: 6 }}
-                  dot={{ r: 4 }}
+                  dot={false}
                   isAnimationActive={true}
                 />
               </LineChart>
