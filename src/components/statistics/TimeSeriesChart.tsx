@@ -4,6 +4,7 @@ import { Loader } from "@/components/ui/loader";
 import {
   LineChart,
   Line,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -77,6 +78,12 @@ export const TimeSeriesChart = ({
                 data={data}
                 margin={{ top: 20, right: 20, left: 20, bottom: 40 }}
               >
+                <defs>
+                  <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={color} stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor={color} stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
                 <XAxis
                   dataKey="date"
@@ -107,12 +114,18 @@ export const TimeSeriesChart = ({
                     ) : null
                   }
                 />
+                <Area
+                  type="monotone"
+                  dataKey="value"
+                  stroke="none"
+                  fill="url(#colorValue)"
+                />
                 <Line
                   type="monotone"
                   dataKey="value"
                   stroke={color}
                   strokeWidth={2}
-                  dot={data.length <= 30}
+                  dot={false}
                   activeDot={{ r: 6 }}
                   animationDuration={1500}
                   animationEasing="ease-in-out"
