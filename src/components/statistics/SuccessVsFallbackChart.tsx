@@ -3,7 +3,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
   ResponsiveContainer, 
-  LineChart, 
+  ComposedChart, 
   Line, 
   Area,
   XAxis, 
@@ -153,7 +153,7 @@ export const SuccessVsFallbackLineChart: React.FC<SuccessVsFallbackChartProps> =
         ) : (
           <div className="h-64">
             <ChartContainer config={{}} className="h-full">
-              <LineChart 
+              <ComposedChart 
                 data={processedData} 
                 margin={{ top: 10, right: 30, left: 10, bottom: 25 }}
               >
@@ -193,12 +193,14 @@ export const SuccessVsFallbackLineChart: React.FC<SuccessVsFallbackChartProps> =
                   dataKey="successful_answer"
                   stroke="none"
                   fill="url(#colorSuccess)"
+                  fillOpacity={1}
                 />
                 <Area
                   type="monotone"
                   dataKey="fallback"
                   stroke="none"
                   fill="url(#colorFallback)"
+                  fillOpacity={1}
                 />
                 <Line 
                   type="monotone" 
@@ -220,7 +222,7 @@ export const SuccessVsFallbackLineChart: React.FC<SuccessVsFallbackChartProps> =
                   dot={false}
                   isAnimationActive={true}
                 />
-              </LineChart>
+              </ComposedChart>
             </ChartContainer>
           </div>
         )}

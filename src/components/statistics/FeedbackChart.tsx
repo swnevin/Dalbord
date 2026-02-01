@@ -3,7 +3,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
   ResponsiveContainer, 
-  LineChart, 
+  ComposedChart, 
   Line, 
   Area,
   XAxis, 
@@ -164,7 +164,7 @@ export const FeedbackLineChart: React.FC<FeedbackChartProps> = ({
         ) : (
           <div className="h-64">
             <ChartContainer config={{}} className="h-full">
-              <LineChart 
+              <ComposedChart 
                 data={processedData} 
                 margin={{ top: 10, right: 30, left: 10, bottom: 25 }}
               >
@@ -208,18 +208,21 @@ export const FeedbackLineChart: React.FC<FeedbackChartProps> = ({
                   dataKey="happy_face"
                   stroke="none"
                   fill="url(#colorHappy)"
+                  fillOpacity={1}
                 />
                 <Area
                   type="monotone"
                   dataKey="neutral_face"
                   stroke="none"
                   fill="url(#colorNeutral)"
+                  fillOpacity={1}
                 />
                 <Area
                   type="monotone"
                   dataKey="sad_face"
                   stroke="none"
                   fill="url(#colorSad)"
+                  fillOpacity={1}
                 />
                 <Line 
                   type="monotone" 
@@ -251,7 +254,7 @@ export const FeedbackLineChart: React.FC<FeedbackChartProps> = ({
                   dot={false}
                   isAnimationActive={true}
                 />
-              </LineChart>
+              </ComposedChart>
             </ChartContainer>
           </div>
         )}
