@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.get-transcripts]
 verify_jwt = false
+
+[functions.toggle-conversation-tag]
+verify_jwt = false

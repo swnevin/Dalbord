@@ -43,6 +43,38 @@ export type Database = {
           },
         ]
       }
+      conversation_tags: {
+        Row: {
+          created_at: string
+          id: string
+          organization_id: string
+          tag: string
+          transcript_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          organization_id: string
+          tag: string
+          transcript_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          organization_id?: string
+          tag?: string
+          transcript_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_tags_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fallback_requests: {
         Row: {
           created_at: string
