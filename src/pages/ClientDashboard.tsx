@@ -76,53 +76,38 @@ const ClientDashboard = () => {
   });
 
   const toggleTag = async (conversationId: string, tag: "system.saved" | "system.reviewed") => {
-    const effectiveOrgId = getEffectiveOrgId();
-    if (!effectiveOrgId) return;
-
     try {
-      const { data: org, error: orgError } = await supabase
-        .from('organizations')
-        .select('voiceflow_api_key, voiceflow_project_id')
-        .eq('id', effectiveOrgId)
-        .single();
+      // Convert tag format: "system.saved" -> "saved"
+      const tagName = tag.replace('system.', '') as 'saved' | 'reviewed';
+      
+      const { data, error } = await supabase.functions.invoke('toggle-conversation-tag', {
+        body: { transcriptId: conversationId, tag: tagName }
+      });
 
-      if (orgError) throw orgError;
-      if (!org.voiceflow_api_key || !org.voiceflow_project_id) {
-        console.error('Missing Voiceflow credentials');
+      if (error) {
+        console.error('Error toggling tag:', error);
+        toast.error('Kunne ikke oppdatere markering');
         return;
       }
 
-      const conversation = conversations.find(c => c._id === conversationId);
-      const hasTag = conversation?.reportTags?.includes(tag) ?? false;
-      const method = hasTag ? "DELETE" : "PUT";
-      
-      const response = await fetch(
-        `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}/${conversationId}/report_tag/${tag}`,
-        {
-          method,
-          headers: {
-            Authorization: org.voiceflow_api_key,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to update conversation tag');
-      }
-
+      // Update local state based on action
       setConversations(prevConversations => 
         prevConversations.map(conv => {
           if (getTranscriptId(conv) === conversationId) {
-            const newTags = hasTag 
-              ? (conv.reportTags || []).filter(t => t !== tag)
-              : [...(conv.reportTags || []), tag];
+            const currentTags = conv.reportTags || [];
+            const newTags = data.action === 'added'
+              ? [...currentTags, tag]
+              : currentTags.filter(t => t !== tag);
             return { ...conv, reportTags: newTags };
           }
           return conv;
         })
       );
+
+      toast.success(data.action === 'added' ? 'Samtale markert' : 'Markering fjernet');
     } catch (error) {
       console.error('Error updating conversation tag:', error);
+      toast.error('Kunne ikke oppdatere markering');
     }
   };
 
@@ -323,25 +308,38 @@ const ClientDashboard = () => {
       setIsLoading(true);
 
       try {
-        // Bruk edge function for å hente samtaler fra ny Analytics API
-        const { data, error } = await supabase.functions.invoke('get-transcripts', {
-          body: { take: 100, skip: 0 }
-        });
+        // Fetch transcripts and tags in parallel
+        const [transcriptsResult, tagsResult] = await Promise.all([
+          supabase.functions.invoke('get-transcripts', {
+            body: { take: 100, skip: 0 }
+          }),
+          supabase.from('conversation_tags').select('transcript_id, tag')
+        ]);
 
-        if (error) throw error;
+        if (transcriptsResult.error) throw transcriptsResult.error;
 
-        // Map transcripts fra ny API-format
-        const transcripts = (data?.transcripts || []).map((t: any) => ({
+        // Create a map of transcript_id -> tags for quick lookup
+        const tagsMap = new Map<string, string[]>();
+        if (tagsResult.data) {
+          for (const tagRow of tagsResult.data) {
+            const existing = tagsMap.get(tagRow.transcript_id) || [];
+            existing.push(`system.${tagRow.tag}`);
+            tagsMap.set(tagRow.transcript_id, existing);
+          }
+        }
+
+        // Map transcripts fra ny API-format and merge with local tags
+        const transcripts = (transcriptsResult.data?.transcripts || []).map((t: any) => ({
           ...t,
           _id: t.id, // Map 'id' til '_id' for backward compatibility
           name: t.properties?.find((p: any) => p.name === 'user_name')?.value || 'Ukjent bruker',
           device: t.properties?.find((p: any) => p.name === 'device')?.value || '',
-          reportTags: [] // New API doesn't have reportTags in same format
+          reportTags: tagsMap.get(t.id) || []
         }));
 
         setConversations(transcripts);
         setTotalLoaded(transcripts.length);
-        setHasMoreConversations(data?.hasMore || false);
+        setHasMoreConversations(transcriptsResult.data?.hasMore || false);
       } catch (error) {
         console.error('Error fetching conversations:', error);
         toast.error('Kunne ikke laste samtaler');
