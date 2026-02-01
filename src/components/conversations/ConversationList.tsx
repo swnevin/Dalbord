@@ -222,14 +222,14 @@ export const ConversationList = ({
                 <Button variant="ghost" size="icon" onClick={e => {
                   e.stopPropagation();
                   onToggleTag(convId, "system.saved");
-                }} className={cn("hover:bg-secondary/10 active:bg-secondary/20", isConversationSaved(conv) && "text-secondary")}>
-                  <Bookmark className="h-4 w-4" />
+                }} className={cn("hover:bg-secondary/10 active:bg-secondary/20", isConversationSaved(conv) && "text-red-500")}>
+                  <Bookmark className={cn("h-4 w-4", isConversationSaved(conv) && "fill-current")} />
                 </Button>
                 <Button variant="ghost" size="icon" onClick={e => {
                   e.stopPropagation();
                   onToggleTag(convId, "system.reviewed");
                 }} className={cn("hover:bg-secondary/10 active:bg-secondary/20", isConversationReviewed(conv) && "text-green-500")}>
-                  <CheckCircle className="h-4 w-4" />
+                  <CheckCircle className={cn("h-4 w-4", isConversationReviewed(conv) && "fill-green-100")} />
                 </Button>
                 <Button variant="ghost" size="icon" onClick={e => {
                   e.stopPropagation();
