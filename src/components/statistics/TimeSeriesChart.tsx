@@ -103,16 +103,17 @@ export const TimeSeriesChart = ({
                   axisLine={false}
                 />
                 <ChartTooltip
-                  content={({active, payload, label}) => 
-                    active && payload && payload.length ? (
-                      <ChartTooltipContent 
-                        active={active} 
-                        payload={payload} 
-                        label={label}
-                        formatter={(value: number) => [`Verdi: ${value}`, '']}
-                      />
-                    ) : null
-                  }
+                  content={({ active, payload, label }) => {
+                    if (active && payload && payload.length) {
+                      return (
+                        <div className="bg-background border border-border rounded-lg p-3 shadow-lg">
+                          <p className="font-medium text-foreground mb-1">{label}</p>
+                          <p className="text-sm text-muted-foreground">{payload[0].value}</p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
                 />
                 <Area
                   type="monotone"
