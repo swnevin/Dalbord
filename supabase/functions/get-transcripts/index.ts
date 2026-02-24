@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
 
     // Get request body
     const body = await req.json();
-    const { take = 100, skip = 0 } = body;
+    const { take = 100, skip = 0, startDate, endDate } = body;
 
     console.log(`Fetching transcripts for user ${user.id}, take: ${take}, skip: ${skip}`);
 
@@ -92,7 +92,10 @@ Deno.serve(async (req) => {
           'Content-Type': 'application/json',
           'Authorization': org.voiceflow_api_key,
         },
-        body: JSON.stringify({})
+        body: JSON.stringify({
+          ...(startDate && { startDate }),
+          ...(endDate && { endDate })
+        })
       }
     );
 

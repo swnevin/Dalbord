@@ -1,7 +1,7 @@
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Bookmark, CheckCircle, ChevronLeft, ChevronRight, Search, Trash2, FileText, Info } from "lucide-react";
+import { Bookmark, CheckCircle, ChevronLeft, ChevronRight, Search, Trash2, FileText, Info, CalendarIcon, X } from "lucide-react";
 import { formatDate, formatTime } from "@/utils/conversation-utils";
 import { Loader } from "@/components/ui/loader";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { PreloadedIndicator } from "./PreloadedIndicator";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { nb } from "date-fns/locale";
 
 interface VoiceflowTranscript {
   id: string;
@@ -48,6 +52,8 @@ interface ConversationListProps {
   onLoadMore: () => void;
   isLoadingMore: boolean;
   totalLoaded: number;
+  dateFilter: { from?: Date; to?: Date };
+  onDateFilterChange: (filter: { from?: Date; to?: Date }) => void;
 }
 
 export const ConversationList = ({
@@ -70,7 +76,9 @@ export const ConversationList = ({
   hasMore,
   onLoadMore,
   isLoadingMore,
-  totalLoaded
+  totalLoaded,
+  dateFilter,
+  onDateFilterChange
 }: ConversationListProps) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(100);
@@ -175,6 +183,50 @@ export const ConversationList = ({
           >
             Lagrede
           </Button>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className={cn("flex-1 justify-start text-left font-normal text-xs", !dateFilter.from && "text-muted-foreground")}>
+                <CalendarIcon className="mr-1 h-3 w-3" />
+                {dateFilter.from ? format(dateFilter.from, "dd.MM.yyyy", { locale: nb }) : "Fra"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={dateFilter.from}
+                onSelect={(date) => onDateFilterChange({ ...dateFilter, from: date || undefined })}
+                disabled={(date) => date > new Date() || (dateFilter.to ? date > dateFilter.to : false)}
+                initialFocus
+                className="p-3 pointer-events-auto"
+              />
+            </PopoverContent>
+          </Popover>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className={cn("flex-1 justify-start text-left font-normal text-xs", !dateFilter.to && "text-muted-foreground")}>
+                <CalendarIcon className="mr-1 h-3 w-3" />
+                {dateFilter.to ? format(dateFilter.to, "dd.MM.yyyy", { locale: nb }) : "Til"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={dateFilter.to}
+                onSelect={(date) => onDateFilterChange({ ...dateFilter, to: date || undefined })}
+                disabled={(date) => date > new Date() || (dateFilter.from ? date < dateFilter.from : false)}
+                initialFocus
+                className="p-3 pointer-events-auto"
+              />
+            </PopoverContent>
+          </Popover>
+          {(dateFilter.from || dateFilter.to) && (
+            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => onDateFilterChange({})}>
+              <X className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </>}
     </div>

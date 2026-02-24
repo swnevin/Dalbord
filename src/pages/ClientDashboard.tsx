@@ -58,6 +58,7 @@ const ClientDashboard = () => {
   const [hasMoreConversations, setHasMoreConversations] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [totalLoaded, setTotalLoaded] = useState(0);
+  const [dateFilter, setDateFilter] = useState<{ from?: Date; to?: Date }>({});
 
   const getEffectiveOrgId = useCallback(() => {
     return isInPreviewMode && previewUser 
@@ -257,7 +258,12 @@ const ClientDashboard = () => {
     setIsLoadingMore(true);
     try {
       const { data, error } = await supabase.functions.invoke('get-transcripts', {
-        body: { take: 100, skip: totalLoaded }
+        body: { 
+          take: 100, 
+          skip: totalLoaded,
+          ...(dateFilter.from && { startDate: dateFilter.from.toISOString() }),
+          ...(dateFilter.to && { endDate: dateFilter.to.toISOString() })
+        }
       });
 
       if (error) throw error;
@@ -311,7 +317,12 @@ const ClientDashboard = () => {
         // Fetch transcripts and tags in parallel
         const [transcriptsResult, tagsResult] = await Promise.all([
           supabase.functions.invoke('get-transcripts', {
-            body: { take: 100, skip: 0 }
+            body: { 
+              take: 100, 
+              skip: 0,
+              ...(dateFilter.from && { startDate: dateFilter.from.toISOString() }),
+              ...(dateFilter.to && { endDate: dateFilter.to.toISOString() })
+            }
           }),
           supabase.from('conversation_tags').select('transcript_id, tag')
         ]);
@@ -349,7 +360,7 @@ const ClientDashboard = () => {
     };
 
     fetchConversations();
-  }, []);
+  }, [dateFilter]);
 
   // Fetch dialog when selectedConversation changes and not already loaded
   useEffect(() => {
@@ -425,6 +436,8 @@ const ClientDashboard = () => {
               onLoadMore={loadMoreConversations}
               isLoadingMore={isLoadingMore}
               totalLoaded={totalLoaded}
+              dateFilter={dateFilter}
+              onDateFilterChange={setDateFilter}
             />
             <ConversationDialog
               isLoading={showDialogLoader}
