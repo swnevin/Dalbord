@@ -1,90 +1,66 @@
 
 
-## Plan: Fiks tooltip og optimaliser statistikklasting
+## Plan: Datofilter for samtaler
 
-### Del 1: Fiks "Verdi:" som vises to ganger
+Legge til en datovelger i samtale-panelet slik at du kan filtrere samtaler etter en egendefinert periode, uten a matte bla manuelt.
 
-**Problem:**
-I TimeSeriesChart.tsx brukes en formatter som returnerer `Verdi: {value}`, men ChartTooltipContent viser allerede verdien automatisk, noe som gir duplikat.
+### Hvordan det fungerer
 
-**Løsning:**
-Fjerne formatter-propen og bruke en enkel custom tooltip i stedet som bare viser datoen og verdien en gang.
+Voiceflow sitt API stotter allerede `startDate` og `endDate` som filtreringsparametere. Vi trenger bare a koble dette opp i frontend og edge-funksjonen.
 
-| Fil | Endring |
-|-----|---------|
-| TimeSeriesChart.tsx | Erstatte ChartTooltip med en enkel custom tooltip-komponent som kun viser dato og verdi |
+### Endringer
 
----
+**1. ConversationList.tsx - Legge til datovelger i filterpanelet**
+- Legge til en datopicker-rad under de eksisterende filterknappene (Alle / Gjennomgatte / Lagrede)
+- To datovelgere: "Fra" og "Til" med Popover + Calendar-komponent
+- En "Nullstill"-knapp for a fjerne datofilteret
+- Datoene sendes oppover via nye props
 
-### Del 2: Optimaliser statistikklasting
+**2. ClientDashboard.tsx - Haandtere datotilstand og sende til API**
+- Ny state for `dateFilter: { from?: Date, to?: Date }`
+- Sende datofilter til `get-transcripts` edge-funksjonen
+- Nullstille samtaler og laste pa nytt nar datofilter endres
 
-**Nåværende problem:**
-Edge funksjonen `get-voiceflow-analytics` gjør ett API-kall til Voiceflow FOR HVER DAG i perioden:
-- 7 dager = 14 API-kall (7 for interaksjoner + 7 for sesjoner)
-- 30 dager = 60 API-kall
-- 90 dager = 180 API-kall
+**3. supabase/functions/get-transcripts/index.ts - Videresende datofilter til Voiceflow**
+- Lese `startDate` og `endDate` fra request body
+- Sende disse videre i POST-bodyen til Voiceflow sitt Analytics API
 
-Dette er årsaken til treg lasting.
+### UI-skisse
 
-**Løsningsalternativer:**
-
-| Alternativ | Beskrivelse | Fordel | Ulempe |
-|------------|-------------|--------|--------|
-| A: Parallelle API-kall | Kjøre alle daglige API-kall samtidig i stedet for sekvensielt | Mye raskere (alle kall samtidig) | Kan ramme rate limits |
-| B: Batch med retry | Kjøre i batches på 5-10 kall med kort pause mellom | God balanse | Fortsatt noe ventetid |
-| C: Caching i database | Lagre Voiceflow-data i Supabase og kun hente nye data | Superrask etter første gang | Mer kompleks å implementere |
-
-**Anbefalt tilnærming: Alternativ A med fallback til B**
-Bruke `Promise.all()` for å kjøre alle daglige Voiceflow API-kall parallelt i stedet for sekvensielt. Dette vil dramatisk redusere lastetiden fra ca. 30+ sekunder til under 5 sekunder for en 30-dagers periode.
-
----
-
-### Teknisk implementasjon
-
-**1. TimeSeriesChart.tsx - Fiks tooltip**
-```tsx
-// Erstatt den nåværende ChartTooltip med en enkel custom tooltip
-const CustomTooltip = ({ active, payload, label }: any) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="bg-white p-3 border border-gray-200 rounded-md shadow-md">
-        <p className="font-bold mb-1">{label}</p>
-        <p className="text-sm">{payload[0].value}</p>
-      </div>
-    );
-  }
-  return null;
-};
+```text
++------------------------------------------+
+| Samtaler (42)                    [<] [>]  |
++------------------------------------------+
+| [Sok...]                            [i]  |
++------------------------------------------+
+| [Alle samtaler] [Gjennomgatte] [Lagrede] |
++------------------------------------------+
+| Fra: [01.01.2025]  Til: [24.02.2025]  [x]|  <-- NY RAD
++------------------------------------------+
+| Samtale 1...                              |
+| Samtale 2...                              |
++------------------------------------------+
 ```
 
-**2. get-voiceflow-analytics/index.ts - Parallelle kall**
+### Teknisk detalj
+
+Voiceflow API-kall endres fra:
 ```typescript
-// I stedet for:
-while (currentDate <= end) {
-  // sekvensielt kall per dag
-}
+// Navarende
+body: JSON.stringify({})
 
-// Bruk:
-const datePromises = daysToFetch.map(date => 
-  fetch('voiceflow-api', options)
-);
-const results = await Promise.all(datePromises);
+// Nytt
+body: JSON.stringify({
+  ...(startDate && { startDate }),
+  ...(endDate && { endDate })
+})
 ```
-
----
-
-### Forventet forbedring
-
-| Periode | Før (sekvensiell) | Etter (parallell) |
-|---------|-------------------|-------------------|
-| 7 dager | ~7-10 sek | ~1-2 sek |
-| 30 dager | ~30-45 sek | ~2-4 sek |
-| 90 dager | ~90-120 sek | ~3-6 sek |
-
----
 
 ### Filer som endres
 
-1. `src/components/statistics/TimeSeriesChart.tsx` - Custom tooltip uten duplikat
-2. `supabase/functions/get-voiceflow-analytics/index.ts` - Parallelle API-kall
+| Fil | Endring |
+|-----|---------|
+| `src/components/conversations/ConversationList.tsx` | Legge til datopicker-rad med Fra/Til-kalendere |
+| `src/pages/ClientDashboard.tsx` | Ny state for datofilter, re-fetch ved endring |
+| `supabase/functions/get-transcripts/index.ts` | Videresende startDate/endDate til Voiceflow API |
 
