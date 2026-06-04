@@ -213,35 +213,16 @@ const ClientDashboard = () => {
     if (!effectiveOrgId) return;
 
     try {
-      const { data: org, error: orgError } = await supabase
-        .from('organizations')
-        .select('voiceflow_api_key, voiceflow_project_id')
-        .eq('id', effectiveOrgId)
-        .single();
+      const { error } = await supabase.functions.invoke('delete-transcript', {
+        body: { transcriptId: conversationToDelete },
+      });
 
-      if (orgError) throw orgError;
-      if (!org.voiceflow_api_key || !org.voiceflow_project_id) {
-        throw new Error('Mangler Voiceflow-legitimasjon');
-      }
+      if (error) throw error;
 
-      const response = await fetch(
-        `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}/${conversationToDelete}`,
-        {
-          method: 'DELETE',
-          headers: {
-            Authorization: org.voiceflow_api_key,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Kunne ikke slette samtalen');
-      }
-
-      setConversations(prevConversations => 
+      setConversations(prevConversations =>
         prevConversations.filter(conv => getTranscriptId(conv) !== conversationToDelete)
       );
-      
+
       toast.success('Samtalen ble slettet');
     } catch (error: any) {
       console.error('Error deleting conversation:', error);

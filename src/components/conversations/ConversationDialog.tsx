@@ -151,84 +151,37 @@ export const ConversationDialog = ({
     setIsSaving(true);
 
     try {
-      const { data: org, error: orgError } = await supabase
-        .from('organizations')
-        .select('voiceflow_api_key, voiceflow_project_id')
-        .eq('id', user.organization_id)
-        .single();
-
-      if (orgError) throw orgError;
-      if (!org.voiceflow_api_key || !org.voiceflow_project_id) {
-        throw new Error('Mangler Voiceflow-legitimasjon');
-      }
-
       const formattedTitle = ensureQATitleSuffix(qaTitle.trim());
 
-      const response = await fetch(
-        `https://api.voiceflow.com/v1/knowledge-base/docs`,
-        {
-          method: 'GET',
-          headers: {
-            'accept': 'application/json',
-            'Authorization': org.voiceflow_api_key
-          }
-        }
-      );
+      // Check if QA with same name already exists via proxy
+      const { data: findData, error: findError } = await supabase.functions.invoke('voiceflow-kb', {
+        body: { action: 'find_qa_by_name', name: formattedTitle },
+      });
+      if (findError) throw new Error('Kunne ikke sjekke for eksisterende Q&A');
+      const exists = !!findData?.exists;
 
-      if (!response.ok) {
-        throw new Error('Kunne ikke sjekke for eksisterende Q&A');
-      }
-
-      const result = await response.json();
-      const existingQA = result.data.find(
-        (doc: any) => doc.data.name === formattedTitle
-      );
-
-      const qaItems = [
-        {
-          question: qaPair.question.trim(),
-          answer: qaPair.answer.trim()
-        }
-      ];
-
-      const options = {
-        method: 'POST',
-        headers: {
-          accept: 'application/json',
-          'content-type': 'application/json',
-          Authorization: org.voiceflow_api_key
-        },
-        body: JSON.stringify({
-          data: {
-            schema: { searchableFields: ['question', 'answer'] },
-            name: formattedTitle,
-            items: qaItems
-          }
-        })
+      const payload = {
+        schema: { searchableFields: ['question', 'answer'] },
+        name: formattedTitle,
+        items: [
+          {
+            question: qaPair.question.trim(),
+            answer: qaPair.answer.trim(),
+          },
+        ],
       };
 
-      const endpoint = `https://api.voiceflow.com/v1/knowledge-base/docs/upload/table?overwrite=${existingQA ? 'true' : 'false'}`;
-      
-      const saveResponse = await fetch(endpoint, options);
+      const { data: saveData, error: saveError } = await supabase.functions.invoke('voiceflow-kb', {
+        body: { action: 'upload_qa', payload, overwrite: exists },
+      });
 
-      if (!saveResponse.ok) {
-        const errorData = await saveResponse.json().catch(() => ({}));
-        console.error('Voiceflow API error:', {
-          status: saveResponse.status,
-          statusText: saveResponse.statusText,
-          error: errorData,
-          title: formattedTitle,
-          existingQA: !!existingQA
-        });
-        
-        const errorMessage = errorData.message || errorData.error || `HTTP ${saveResponse.status}: ${saveResponse.statusText}`;
-        throw new Error(`Kunne ikke lagre Q&A: ${errorMessage}`);
+      if (saveError) {
+        throw new Error(`Kunne ikke lagre Q&A: ${saveError.message || 'Ukjent feil'}`);
       }
 
-      const saveResult = await saveResponse.json();
-      console.log('Q&A saved successfully:', { title: formattedTitle, result: saveResult });
-      
-      toast.success(existingQA ? "Q&A ble oppdatert i kunnskapsbasen" : "Q&A ble lagret til kunnskapsbasen");
+      console.log('Q&A saved successfully:', { title: formattedTitle, result: saveData });
+
+      toast.success(exists ? 'Q&A ble oppdatert i kunnskapsbasen' : 'Q&A ble lagret til kunnskapsbasen');
       setIsQASheetOpen(false);
       clearSelection();
     } catch (error) {
