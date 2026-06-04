@@ -54,7 +54,7 @@ const ClientDashboard = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(100);
-  const [preloadingTimerRef, setPreloadingTimerRef] = useState<NodeJS.Timeout | null>(null);
+  const [preloadingTimerRef, setPreloadingTimerRef] = useState<ReturnType<typeof setTimeout> | null>(null);
   const [hasMoreConversations, setHasMoreConversations] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [totalLoaded, setTotalLoaded] = useState(0);
