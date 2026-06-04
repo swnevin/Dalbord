@@ -97,49 +97,33 @@ export const FileSourceFormContainer: React.FC<FileSourceFormContainerProps> = (
     setIsLoading(true);
 
     try {
-      const { data: org, error: orgError } = await supabase
-        .from("organizations")
-        .select("voiceflow_api_key")
-        .eq("id", user.organization_id)
-        .single();
-
-      if (orgError || !org.voiceflow_api_key) {
-        throw new Error("Kunne ikke hente Voiceflow API nøkkel");
-      }
-
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const metadataObj = {
-        inner: {
-          tags: fileTags,
-        },
-      };
-
-      formData.append("metadata", JSON.stringify(metadataObj));
-
-      const options = {
-        method: "POST",
-        headers: {
-          accept: "application/json",
-          Authorization: org.voiceflow_api_key,
-        },
-        body: formData,
-      };
-
-      const response = await fetch(
-        "https://api.voiceflow.com/v1/knowledge-base/docs/upload?maxChunkSize=1000",
-        options
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          `Feil ved opplasting til Voiceflow: ${response.status} ${response.statusText}`
+      // Read file as base64 for JSON transport to edge function
+      const buf = await file.arrayBuffer();
+      const bytes = new Uint8Array(buf);
+      let binary = "";
+      const chunk = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunk) {
+        binary += String.fromCharCode.apply(
+          null,
+          Array.from(bytes.subarray(i, i + chunk)) as unknown as number[]
         );
       }
+      const base64 = btoa(binary);
 
-      await response.json();
+      const metadataObj = { inner: { tags: fileTags } };
+
+      const { error } = await supabase.functions.invoke("voiceflow-kb", {
+        body: {
+          action: "upload_file",
+          file: { name: file.name, type: file.type, base64 },
+          metadata: metadataObj,
+        },
+      });
+
+      if (error) {
+        throw new Error(error.message || "Feil ved opplasting til Voiceflow");
+      }
+
       onSourceAdded();
       toast({
         title: "Suksess",

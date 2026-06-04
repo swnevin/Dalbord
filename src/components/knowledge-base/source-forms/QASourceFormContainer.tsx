@@ -184,55 +184,34 @@ export const QASourceFormContainer: React.FC<QASourceFormContainerProps> = ({
     setIsLoading(true);
 
     try {
-      const { data: org, error: orgError } = await supabase
-        .from("organizations")
-        .select("voiceflow_api_key")
-        .eq("id", user.organization_id)
-        .single();
-
-      if (orgError || !org.voiceflow_api_key) {
-        throw new Error("Kunne ikke hente Voiceflow API nøkkel");
-      }
-
       const allTags = [
         ...new Set(qaPairs.flatMap((pair) => pair.tags)),
       ];
-      const qaPayload = {
-        data: {
-          schema: {
-            searchableFields: ["question", "answer"],
-            ...(allTags.length > 0 && { metadataFields: ["tag"] }),
-          },
-          name: ensureQATitleSuffix(qaTitle.trim()),
-          items: qaPairs.map((pair) => ({
-            question: pair.question.trim(),
-            answer: pair.answer.trim(),
-            ...(pair.tags.length > 0 ? { tag: pair.tags.join(", ") } : {}),
-          })),
+      const payload = {
+        schema: {
+          searchableFields: ["question", "answer"],
+          ...(allTags.length > 0 && { metadataFields: ["tag"] }),
         },
+        name: ensureQATitleSuffix(qaTitle.trim()),
+        items: qaPairs.map((pair) => ({
+          question: pair.question.trim(),
+          answer: pair.answer.trim(),
+          ...(pair.tags.length > 0 ? { tag: pair.tags.join(", ") } : {}),
+        })),
       };
-      const shouldOverwrite = duplicateQATitleWarning;
-      const options = {
-        method: "POST",
-        headers: {
-          accept: "application/json",
-          "content-type": "application/json",
-          Authorization: org.voiceflow_api_key,
+
+      const { error } = await supabase.functions.invoke("voiceflow-kb", {
+        body: {
+          action: "upload_qa",
+          overwrite: duplicateQATitleWarning,
+          payload,
         },
-        body: JSON.stringify(qaPayload),
-      };
-      const endpoint = `https://api.voiceflow.com/v1/knowledge-base/docs/upload/table?overwrite=${shouldOverwrite}`;
+      });
 
-      const response = await fetch(endpoint, options);
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          `Feil ved opplasting til Voiceflow: ${response.status} ${response.statusText}`
-        );
+      if (error) {
+        throw new Error(error.message || "Feil ved opplasting til Voiceflow");
       }
 
-      await response.json();
 
       onSourceAdded();
       toast({
