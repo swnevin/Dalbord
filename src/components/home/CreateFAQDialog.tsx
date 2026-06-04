@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import {
   Dialog,
@@ -30,124 +29,68 @@ export const CreateFAQDialog = ({
   onOpenChange,
   question,
   answer,
-  onCreated
+  onCreated,
 }: CreateFAQDialogProps) => {
   const { user } = useAuth();
   const [faqQuestion, setFaqQuestion] = useState(question);
   const [faqAnswer, setFaqAnswer] = useState(answer);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [qaTitle, setQaTitle] = useState("");
-  const [voiceflowApiKey, setVoiceflowApiKey] = useState<string | null>(null);
-  const [voiceflowProjectId, setVoiceflowProjectId] = useState<string | null>(null);
-  
-  // Auto-generate title from question - use the full question as title
+
   useEffect(() => {
-    if (question) {
-      setQaTitle(question);
-    }
+    if (question) setQaTitle(question);
   }, [question]);
-  
-  // Fetch Voiceflow credentials
-  useEffect(() => {
-    const fetchCredentials = async () => {
-      if (!user?.organization_id) return;
-      
-      try {
-        const { data, error } = await supabase
-          .from('organizations')
-          .select('voiceflow_api_key, voiceflow_project_id')
-          .eq('id', user.organization_id)
-          .single();
-          
-        if (error) throw error;
-        
-        setVoiceflowApiKey(data.voiceflow_api_key);
-        setVoiceflowProjectId(data.voiceflow_project_id);
-      } catch (error) {
-        console.error("Error fetching Voiceflow credentials:", error);
-      }
-    };
-    
-    fetchCredentials();
-  }, [user?.organization_id]);
-  
+
   const handleSubmit = async () => {
-    if (!user?.organization_id || !voiceflowApiKey) {
+    if (!user?.organization_id) {
       toast.error("Kunne ikke hente nødvendig informasjon for å opprette Q&A");
       return;
     }
-    
+
     try {
       setIsSubmitting(true);
-      
-      // Format the Q&A title - use the full title without truncation
+
       const title = qaTitle.trim() || faqQuestion;
       const formattedTitle = ensureQATitleSuffix(title);
-      
-      // Check if a Q&A with this title already exists
-      const response = await fetch(
-        `https://api.voiceflow.com/v1/knowledge-base/docs`,
-        {
-          method: 'GET',
-          headers: {
-            'accept': 'application/json',
-            'Authorization': voiceflowApiKey
-          }
-        }
+
+      // Check whether a Q&A with this title already exists (via proxy)
+      const { data: findData, error: findError } = await supabase.functions.invoke(
+        "voiceflow-kb",
+        { body: { action: "find_qa_by_name", name: formattedTitle } }
       );
+      if (findError) throw new Error(findError.message || "Kunne ikke sjekke for eksisterende Q&A");
 
-      if (!response.ok) {
-        throw new Error('Kunne ikke sjekke for eksisterende Q&A');
-      }
-
-      const result = await response.json();
-      const existingQA = result.data.find(
-        (doc: any) => doc.data.name === formattedTitle
-      );
-      
-      // Create a Q&A pair in the knowledge base
-      const qaItems = [
-        {
-          question: faqQuestion.trim(),
-          answer: faqAnswer.trim()
-        }
-      ];
-
-      const options = {
-        method: 'POST',
-        headers: {
-          accept: 'application/json',
-          'content-type': 'application/json',
-          Authorization: voiceflowApiKey
-        },
-        body: JSON.stringify({
-          data: {
-            schema: { searchableFields: ['question', 'answer'] },
-            name: formattedTitle,
-            items: qaItems
-          }
-        })
+      const payload = {
+        schema: { searchableFields: ["question", "answer"] },
+        name: formattedTitle,
+        items: [
+          {
+            question: faqQuestion.trim(),
+            answer: faqAnswer.trim(),
+          },
+        ],
       };
 
-      const endpoint = `https://api.voiceflow.com/v1/knowledge-base/docs/upload/table?overwrite=${existingQA ? 'true' : 'false'}`;
-      
-      const saveResponse = await fetch(endpoint, options);
+      const { error } = await supabase.functions.invoke("voiceflow-kb", {
+        body: {
+          action: "upload_qa",
+          overwrite: !!findData?.exists,
+          payload,
+        },
+      });
+      if (error) throw new Error(error.message || "Feil ved opplasting til Voiceflow");
 
-      if (!saveResponse.ok) {
-        throw new Error('Feil ved opplasting til Voiceflow');
-      }
-      
-      toast.success('Q&A opprettet i kunnskapsbasen');
+      toast.success("Q&A opprettet i kunnskapsbasen");
       onCreated();
       onOpenChange(false);
     } catch (error) {
-      console.error('Error creating Q&A:', error);
-      toast.error('Kunne ikke opprette Q&A');
+      console.error("Error creating Q&A:", error);
+      toast.error(error instanceof Error ? error.message : "Kunne ikke opprette Q&A");
     } finally {
       setIsSubmitting(false);
     }
   };
-  
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
@@ -157,7 +100,7 @@ export const CreateFAQDialog = ({
             Opprett en ny Q&A-oppføring basert på denne henvendelsen.
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="qa-title">Tittel</Label>
@@ -171,7 +114,7 @@ export const CreateFAQDialog = ({
               "- Q&A" vil automatisk legges til på slutten av tittelen.
             </p>
           </div>
-          
+
           <div className="space-y-2">
             <Label htmlFor="question">Spørsmål</Label>
             <Input
@@ -180,7 +123,7 @@ export const CreateFAQDialog = ({
               onChange={(e) => setFaqQuestion(e.target.value)}
             />
           </div>
-          
+
           <div className="space-y-2">
             <Label htmlFor="answer">Svar</Label>
             <Textarea
@@ -191,7 +134,7 @@ export const CreateFAQDialog = ({
             />
           </div>
         </div>
-        
+
         <DialogFooter>
           <Button
             variant="outline"
@@ -200,12 +143,12 @@ export const CreateFAQDialog = ({
           >
             Avbryt
           </Button>
-          <Button 
-            onClick={handleSubmit} 
-            disabled={isSubmitting || !faqQuestion.trim() || !faqAnswer.trim() || !voiceflowApiKey}
+          <Button
+            onClick={handleSubmit}
+            disabled={isSubmitting || !faqQuestion.trim() || !faqAnswer.trim()}
             className="bg-primary text-white hover:bg-primary/90"
           >
-            {isSubmitting ? 'Oppretter...' : 'Opprett Q&A'}
+            {isSubmitting ? "Oppretter..." : "Opprett Q&A"}
           </Button>
         </DialogFooter>
       </DialogContent>

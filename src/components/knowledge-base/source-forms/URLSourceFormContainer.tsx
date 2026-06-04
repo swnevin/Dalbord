@@ -107,49 +107,25 @@ export const URLSourceFormContainer: React.FC<URLSourceFormContainerProps> = ({
     setIsLoading(true);
 
     try {
-      const { data: org, error: orgError } = await supabase
-        .from("organizations")
-        .select("voiceflow_api_key")
-        .eq("id", user.organization_id)
-        .single();
-
-      if (orgError || !org.voiceflow_api_key) {
-        throw new Error("Kunne ikke hente Voiceflow API nøkkel");
-      }
-
       const formattedUrl = url.startsWith("https://") ? url : `https://${url}`;
-
       const metadataObj = urlTags.length > 0 ? { tags: urlTags } : undefined;
 
-      const options = {
-        method: "POST",
-        headers: {
-          accept: "application/json",
-          "content-type": "application/json; charset=utf-8",
-          Authorization: org.voiceflow_api_key,
-        },
-        body: JSON.stringify({
-          data: {
+      const { error } = await supabase.functions.invoke("voiceflow-kb", {
+        body: {
+          action: "upload_url",
+          payload: {
             type: "url",
             name: formattedUrl,
             url: formattedUrl,
             ...(metadataObj && { metadata: metadataObj }),
           },
-        }),
-      };
+        },
+      });
 
-      const response = await fetch(
-        "https://api.voiceflow.com/v1/knowledge-base/docs/upload?maxChunkSize=1000",
-        options
-      );
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          `Feil ved opplasting til Voiceflow: ${response.status} ${response.statusText}`
-        );
+      if (error) {
+        throw new Error(error.message || "Feil ved opplasting til Voiceflow");
       }
 
-      await response.json();
 
       onSourceAdded();
       toast({

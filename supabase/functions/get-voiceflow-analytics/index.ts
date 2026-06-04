@@ -1,217 +1,146 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+};
+
+const VF_USAGE = "https://analytics-api.voiceflow.com/v2/query/usage";
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    const { startDate, endDate, queryType = 'interactions' } = await req.json()
-
+    const { startDate, endDate, queryType = "interactions" } = await req.json();
     if (!startDate || !endDate) {
-      throw new Error('Start date and end date are required')
+      throw new Error("Start date and end date are required");
     }
 
-    // Create Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const supabase = createClient(supabaseUrl, supabaseKey)
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
 
-    // Get the user's JWT from the authorization header
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
-      throw new Error('Missing authorization header')
-    }
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) throw new Error("Missing authorization header");
 
-    // Get the user's organization ID from their profile
     const { data: { user }, error: userError } = await supabase.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    )
-    if (userError || !user) {
-      throw new Error('Invalid user token')
-    }
+      authHeader.replace("Bearer ", "")
+    );
+    if (userError || !user) throw new Error("Invalid user token");
 
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('organization_id')
-      .eq('id', user.id)
-      .maybeSingle()
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("organization_id")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (!profile?.organization_id) throw new Error("User has no organization assigned");
 
-    if (profileError) {
-      throw new Error('Error fetching user profile')
-    }
-
-    if (!profile?.organization_id) {
-      throw new Error('User has no organization assigned')
-    }
-
-    // Get the organization's Voiceflow credentials
-    const { data: org, error: orgError } = await supabase
-      .from('organizations')
-      .select('voiceflow_api_key, voiceflow_project_id')
-      .eq('id', profile.organization_id)
-      .maybeSingle()
-
-    if (orgError) {
-      throw new Error('Error fetching organization')
-    }
-
+    const { data: org } = await supabase
+      .from("organizations")
+      .select("voiceflow_api_key, voiceflow_project_id")
+      .eq("id", profile.organization_id)
+      .maybeSingle();
     if (!org?.voiceflow_api_key || !org?.voiceflow_project_id) {
-      throw new Error('Organization has no Voiceflow credentials')
+      throw new Error("Organization has no Voiceflow credentials");
     }
 
-    // Handle daily data requests
-    if (queryType === 'daily_interactions' || queryType === 'daily_sessions') {
-      return await handleDailyData(startDate, endDate, queryType, org)
-    }
+    // Map our internal queryType to Voiceflow v2 metric name
+    const nameMap: Record<string, string> = {
+      interactions: "interactions",
+      sessions: "sessions",
+      top_intents: "top_intents",
+      daily_interactions: "interactions",
+      daily_sessions: "sessions",
+    };
+    const vfName = nameMap[queryType];
+    if (!vfName) throw new Error(`Unknown queryType: ${queryType}`);
 
-    // Handle regular total requests (existing logic)
-    let queryName = 'interactions';
-    let endpoint = 'https://analytics-api.voiceflow.com/v1/query/usage';
-    
-    if (queryType === 'sessions') {
-      queryName = 'sessions';
-    } else if (queryType === 'top_intents') {
-      queryName = 'top_intents';
-    }
-
-    const options = {
-      method: 'POST',
-      headers: {
-        accept: 'application/json',
-        'content-type': 'application/json',
-        authorization: org.voiceflow_api_key
+    const requestBody = {
+      data: {
+        name: vfName,
+        filter: {
+          projectID: org.voiceflow_project_id,
+          startTime: startDate,
+          endTime: endDate,
+          limit: 500,
+        },
       },
-      body: JSON.stringify({
-        query: [
-          {
-            name: queryName,
-            filter: {
-              projectID: org.voiceflow_project_id,
-              startTime: startDate,
-              endTime: endDate
-            }
-          }
-        ]
-      })
     };
 
-    const response = await fetch(endpoint, options)
-    
-    if (!response.ok) {
-      throw new Error(`Voiceflow API error: ${response.status}`)
-    }
-    
-    const data = await response.json()
-    console.log(`Voiceflow ${queryName} analytics response:`, data)
-
-    return new Response(
-      JSON.stringify(data),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
-  } catch (error) {
-    console.error('Error in get-voiceflow-analytics:', error)
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    )
-  }
-})
-
-async function handleDailyData(startDate: string, endDate: string, queryType: string, org: any) {
-  const start = new Date(startDate)
-  const end = new Date(endDate)
-  
-  const queryName = queryType === 'daily_interactions' ? 'interactions' : 'sessions'
-  
-  console.log(`Processing daily ${queryName} data with PARALLEL requests:`, {
-    startDate,
-    endDate,
-    startParsed: start.toISOString(),
-    endParsed: end.toISOString()
-  })
-
-  // Build array of all dates to fetch
-  const datesToFetch: Date[] = []
-  const currentDate = new Date(start)
-  while (currentDate <= end) {
-    datesToFetch.push(new Date(currentDate))
-    currentDate.setUTCDate(currentDate.getUTCDate() + 1)
-  }
-
-  console.log(`Will fetch ${datesToFetch.length} days in PARALLEL`)
-
-  // Create all fetch promises in parallel
-  const fetchPromises = datesToFetch.map(async (date) => {
-    const dateString = date.toISOString().split('T')[0]
-    
-    try {
-      const dayStart = new Date(date)
-      dayStart.setUTCHours(0, 0, 0, 0)
-      
-      const dayEnd = new Date(date)
-      dayEnd.setUTCHours(23, 59, 59, 999)
-
-      const options = {
-        method: 'POST',
+    const callVf = async () => {
+      const r = await fetch(VF_USAGE, {
+        method: "POST",
         headers: {
-          accept: 'application/json',
-          'content-type': 'application/json',
-          authorization: org.voiceflow_api_key
+          accept: "application/json",
+          "content-type": "application/json",
+          authorization: org.voiceflow_api_key,
         },
-        body: JSON.stringify({
-          query: [
-            {
-              name: queryName,
-              filter: {
-                projectID: org.voiceflow_project_id,
-                startTime: dayStart.toISOString(),
-                endTime: dayEnd.toISOString()
-              }
-            }
-          ]
-        })
+        body: JSON.stringify(requestBody),
+      });
+      if (!r.ok) {
+        const txt = await r.text();
+        throw new Error(`Voiceflow API error ${r.status}: ${txt}`);
       }
+      return r.json();
+    };
 
-      const response = await fetch('https://analytics-api.voiceflow.com/v1/query/usage', options)
-      
-      if (response.ok) {
-        const data = await response.json()
-        const count = data?.result?.[0]?.count || 0
-        return { date: dateString, count }
-      } else {
-        console.warn(`Failed to fetch ${queryName} for ${dateString}: ${response.status}`)
-        return { date: dateString, count: 0 }
+    const vfJson = await callVf();
+    const items: any[] = vfJson?.result?.items || [];
+    console.log(`v2 ${vfName} returned ${items.length} items`);
+
+    // Daily mode: aggregate items by date and return { dailyData: [{ date, count }] }
+    if (queryType === "daily_interactions" || queryType === "daily_sessions") {
+      const byDay = new Map<string, number>();
+      for (const it of items) {
+        const period: string = it.period || it.startTime || "";
+        const day = period.slice(0, 10); // YYYY-MM-DD
+        if (!day) continue;
+        byDay.set(day, (byDay.get(day) || 0) + (Number(it.count) || 0));
       }
-    } catch (error) {
-      console.error(`Error fetching ${queryName} for ${dateString}:`, error)
-      return { date: dateString, count: 0 }
+      // Fill missing days with 0 between start and end
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const dailyData: { date: string; count: number }[] = [];
+      const cursor = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()));
+      const endUtc = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate()));
+      while (cursor <= endUtc) {
+        const ds = cursor.toISOString().slice(0, 10);
+        dailyData.push({ date: ds, count: byDay.get(ds) || 0 });
+        cursor.setUTCDate(cursor.getUTCDate() + 1);
+      }
+      return new Response(JSON.stringify({ dailyData }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
-  })
 
-  // Execute all requests in parallel
-  const results = await Promise.all(fetchPromises)
-  
-  // Sort by date to ensure correct order
-  const dailyData = results.sort((a, b) => a.date.localeCompare(b.date))
+    // Top intents: surface as result[0].intents to preserve frontend shape
+    if (queryType === "top_intents") {
+      const intents = items.map((it) => ({
+        name: it.name || it.intent || it.intentName || "unknown",
+        count: Number(it.count) || 0,
+      }));
+      return new Response(
+        JSON.stringify({ result: [{ intents }] }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
-  console.log(`PARALLEL FETCH COMPLETE - Daily ${queryName} data:`, {
-    totalDaysProcessed: dailyData.length,
-    dateRange: `${dailyData[0]?.date} to ${dailyData[dailyData.length - 1]?.date}`,
-    data: dailyData
-  })
-  
-  return new Response(
-    JSON.stringify({ dailyData }),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  )
-}
+    // Default totals: sum counts and return result[0].count to preserve frontend shape
+    const total = items.reduce((acc, it) => acc + (Number(it.count) || 0), 0);
+    return new Response(
+      JSON.stringify({ result: [{ count: total }] }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (error: any) {
+    console.error("Error in get-voiceflow-analytics:", error);
+    return new Response(
+      JSON.stringify({ error: error?.message || String(error) }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});

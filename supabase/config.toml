@@ -44,3 +44,7 @@ verify_jwt = false
 
 [functions.toggle-conversation-tag]
 verify_jwt = false
+
+[functions.voiceflow-kb]
+verify_jwt = false
+

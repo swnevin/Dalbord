@@ -42,53 +42,19 @@ const KnowledgeBase = () => {
 
     setIsLoading(true);
     try {
-      const { data: org, error: orgError } = await supabase
-        .from('organizations')
-        .select('voiceflow_api_key')
-        .eq('id', user.organization_id)
-        .single();
+      const { data, error } = await supabase.functions.invoke("voiceflow-kb", {
+        body: { action: "list_docs" },
+      });
+      if (error) throw error;
 
-      if (orgError || !org.voiceflow_api_key) {
-        throw new Error('Kunne ikke hente Voiceflow API nøkkel');
-      }
+      const processedSources = (data?.data || []).map((source: VoiceflowDocument) => ({
+        ...source,
+        detectedType: detectSourceType(source),
+      }));
 
-      const limit = 100;
-      let page = 1;
-      let allSources: VoiceflowDocument[] = [];
-      let hasMore = true;
-
-      while (hasMore) {
-        const response = await fetch(
-          `https://api.voiceflow.com/v1/knowledge-base/docs?limit=${limit}&page=${page}`,
-          {
-            method: 'GET',
-            headers: {
-              'accept': 'application/json',
-              'Authorization': org.voiceflow_api_key
-            }
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error('Kunne ikke hente kilder');
-        }
-
-        const result: VoiceflowResponse = await response.json();
-        
-        const processedSources = result.data.map(source => ({
-          ...source,
-          detectedType: detectSourceType(source)
-        }));
-        
-        allSources = [...allSources, ...processedSources];
-
-        hasMore = result.data.length === limit && result.total > allSources.length;
-        page++;
-      }
-
-      setSources(allSources);
+      setSources(processedSources);
     } catch (error) {
-      console.error('Error fetching sources:', error);
+      console.error("Error fetching sources:", error);
       toast({
         title: "Feil",
         description: error instanceof Error ? error.message : "Kunne ikke hente kilder",
@@ -98,6 +64,7 @@ const KnowledgeBase = () => {
       setIsLoading(false);
     }
   };
+
 
   useEffect(() => {
     fetchSources();
@@ -114,35 +81,13 @@ const KnowledgeBase = () => {
     setExpandedSourceId(documentId);
 
     try {
-      const { data: org, error: orgError } = await supabase
-        .from('organizations')
-        .select('voiceflow_api_key')
-        .eq('id', user?.organization_id)
-        .single();
-
-      if (orgError || !org.voiceflow_api_key) {
-        throw new Error('Kunne ikke hente Voiceflow API nøkkel');
-      }
-
-      const response = await fetch(
-        `https://api.voiceflow.com/v1/knowledge-base/docs/${documentId}`,
-        {
-          method: 'GET',
-          headers: {
-            'accept': 'application/json',
-            'Authorization': org.voiceflow_api_key
-          }
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Kunne ikke hente chunks');
-      }
-
-      const result: VoiceflowChunksResponse = await response.json();
-      setChunks(result.chunks);
+      const { data, error } = await supabase.functions.invoke("voiceflow-kb", {
+        body: { action: "get_doc", documentID: documentId },
+      });
+      if (error) throw error;
+      setChunks((data as VoiceflowChunksResponse).chunks);
     } catch (error) {
-      console.error('Error fetching chunks:', error);
+      console.error("Error fetching chunks:", error);
       toast({
         title: "Feil",
         description: error instanceof Error ? error.message : "Kunne ikke hente chunks",
@@ -165,29 +110,11 @@ const KnowledgeBase = () => {
     }
 
     try {
-      const { data: org, error: orgError } = await supabase
-        .from('organizations')
-        .select('voiceflow_api_key')
-        .eq('id', user.organization_id)
-        .single();
+      const { error } = await supabase.functions.invoke("voiceflow-kb", {
+        body: { action: "delete_doc", documentID: documentId },
+      });
+      if (error) throw error;
 
-      if (orgError || !org.voiceflow_api_key) {
-        throw new Error('Kunne ikke hente Voiceflow API nøkkel');
-      }
-
-      const response = await fetch(
-        `https://api.voiceflow.com/v1/knowledge-base/docs/${documentId}`,
-        {
-          method: 'DELETE',
-          headers: {
-            'Authorization': org.voiceflow_api_key
-          }
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Kunne ikke slette kilden');
-      }
 
       setSources(sources.filter(source => source.documentID !== documentId));
 
