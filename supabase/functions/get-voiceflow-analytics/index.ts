@@ -49,13 +49,14 @@ serve(async (req) => {
       throw new Error("Organization has no Voiceflow credentials");
     }
 
-    // Map our internal queryType to Voiceflow v2 metric name
+    // Map our internal queryType to Voiceflow v2 metric name.
+    // Voiceflow v2 does not expose "sessions"; transcript count is the closest equivalent.
     const nameMap: Record<string, string> = {
       interactions: "interactions",
-      sessions: "sessions",
+      sessions: "transcripts",
       top_intents: "top_intents",
       daily_interactions: "interactions",
-      daily_sessions: "sessions",
+      daily_sessions: "transcripts",
     };
     const vfName = nameMap[queryType];
     if (!vfName) throw new Error(`Unknown queryType: ${queryType}`);
@@ -90,6 +91,20 @@ serve(async (req) => {
     };
 
     const vfJson = await callVf();
+
+    // Top intents returns result.intents instead of result.items.
+    if (queryType === "top_intents") {
+      const intents = (vfJson?.result?.intents || []).map((it: any) => ({
+        name: it.name || it.intent || it.intentName || "unknown",
+        count: Number(it.count) || 0,
+      }));
+      console.log(`v2 ${vfName} returned ${intents.length} intents`);
+      return new Response(
+        JSON.stringify({ result: [{ intents }] }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const items: any[] = vfJson?.result?.items || [];
     console.log(`v2 ${vfName} returned ${items.length} items`);
 
@@ -116,18 +131,6 @@ serve(async (req) => {
       return new Response(JSON.stringify({ dailyData }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
-    }
-
-    // Top intents: surface as result[0].intents to preserve frontend shape
-    if (queryType === "top_intents") {
-      const intents = items.map((it) => ({
-        name: it.name || it.intent || it.intentName || "unknown",
-        count: Number(it.count) || 0,
-      }));
-      return new Response(
-        JSON.stringify({ result: [{ intents }] }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
     }
 
     // Default totals: sum counts and return result[0].count to preserve frontend shape
