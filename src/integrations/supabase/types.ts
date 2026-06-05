@@ -264,6 +264,8 @@ export type Database = {
         Returns: string
       }
       delete_user: { Args: { user_id: string }; Returns: undefined }
+      get_current_user_org: { Args: never; Returns: string }
+      get_current_user_role: { Args: never; Returns: string }
       initialize_statistics_preferences: {
         Args: { org_id: string }
         Returns: undefined
