@@ -1,1 +1,54 @@
 project_id = "zsczqlfwqegpfttwhdho"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage"]
+
+[db]
+port = 54322
+
+[studio]
+port = 54323
+
+[inbucket]
+port = 54324
+
+[auth]
+enabled = true
+
+[storage]
+enabled = true
+
+[functions]
+[functions.add-metrics]
+verify_jwt = false
+
+[functions.add-cart-metric]
+verify_jwt = false
+
+[functions.get-metrics]
+verify_jwt = false
+
+[functions.get-voiceflow-analytics]
+verify_jwt = false
+
+[functions.add-successful-answer]
+verify_jwt = false
+
+[functions.get-transcript]
+verify_jwt = false
+
+[functions.get-transcripts]
+verify_jwt = false
+
+[functions.toggle-conversation-tag]
+verify_jwt = false
+
+[functions.voiceflow-kb]
+verify_jwt = false
+
+[functions.delete-transcript]
+verify_jwt = false
+
+

@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, Bot, Trash2 } from "lucide-react";
+import { Plus, Bot, Trash2, Clipboard, Settings } from "lucide-react";
 import { Database } from "@/integrations/supabase/types";
 import {
   Sheet,
@@ -25,6 +25,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { AddMemberForm } from "./AddMemberForm";
 import { MemberList } from "./MemberList";
+import { ProjectSettingsSheet } from "./ProjectSettingsSheet";
+import { toast } from "sonner";
 
 type TabName = Database["public"]["Enums"]["tab_type"];
 
@@ -57,7 +59,9 @@ interface OrganizationCardProps {
     tabs: TabName[];
   }) => Promise<void>;
   onDeleteMember: (profileId: string) => Promise<void>;
+  onMemberUpdated?: () => Promise<void>;
   hideControls?: boolean;
+  hidePreviewButton?: boolean;
 }
 
 export const OrganizationCard = ({
@@ -67,12 +71,16 @@ export const OrganizationCard = ({
   onDeleteOrg,
   onAddMember,
   onDeleteMember,
+  onMemberUpdated,
   hideControls = false,
+  hidePreviewButton = false,
 }: OrganizationCardProps) => {
   const [botConfig, setBotConfig] = useState({
     apiKey: organization.voiceflow_api_key || "",
     projectId: organization.voiceflow_project_id || ""
   });
+
+  const isDalaiOrg = organization.name === "Dalai";
 
   useEffect(() => {
     setBotConfig({
@@ -80,6 +88,16 @@ export const OrganizationCard = ({
       projectId: organization.voiceflow_project_id || ""
     });
   }, [organization]);
+
+  const copyOrgIdToClipboard = () => {
+    navigator.clipboard.writeText(organization.id)
+      .then(() => {
+        toast.success("Organisasjons-ID kopiert til utklippstavlen");
+      })
+      .catch(() => {
+        toast.error("Kunne ikke kopiere til utklippstavlen");
+      });
+  };
 
   return (
     <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
@@ -94,6 +112,22 @@ export const OrganizationCard = ({
         </div>
         {!hideControls && (
           <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              size="icon" 
+              onClick={copyOrgIdToClipboard} 
+              title="Kopier organisasjons-ID"
+            >
+              <Clipboard className="h-4 w-4" />
+            </Button>
+            
+            {!isDalaiOrg && (
+              <ProjectSettingsSheet 
+                organizationId={organization.id} 
+                organizationName={organization.name}
+              />
+            )}
+            
             <Sheet>
               <SheetTrigger asChild>
                 <Button variant="outline" size="icon">
@@ -182,7 +216,9 @@ export const OrganizationCard = ({
         <MemberList 
           members={members}
           onDeleteMember={onDeleteMember}
+          onMemberUpdated={onMemberUpdated}
           organizationType={organization.type || "client"}
+          hidePreviewButton={hidePreviewButton || isDalaiOrg}
         />
       </div>
     </div>

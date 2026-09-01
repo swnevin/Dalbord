@@ -1,66 +1,155 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MessagesSquare, UserRound } from "lucide-react";
+import { InfoIcon } from "lucide-react";
 import { Loader } from "@/components/ui/loader";
+import { 
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TooltipProvider
+} from "@/components/ui/tooltip";
 
 interface SummaryCardsProps {
   totalMessages: number;
+  totalSessions: number;
   totalConversations: number;
   isLoading: boolean;
+  visibleCards?: {
+    messages?: boolean;
+    sessions?: boolean;
+    conversations?: boolean;
+  };
 }
 
-export const SummaryCards = ({ totalMessages, totalConversations, isLoading }: SummaryCardsProps) => {
-  return (
-    <div className="grid gap-4 md:grid-cols-2">
-      <Card>
+export const SummaryCards = ({ 
+  totalMessages, 
+  totalSessions, 
+  totalConversations, 
+  isLoading,
+  visibleCards = {
+    messages: true,
+    sessions: true,
+    conversations: true
+  }
+}: SummaryCardsProps) => {
+  const cards = [];
+
+  if (visibleCards.messages) {
+    cards.push(
+      <Card key="messages">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">
             Antall meldinger
           </CardTitle>
-          <MessagesSquare className="h-4 w-4 text-muted-foreground" />
+          <TooltipProvider delayDuration={100}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <InfoIcon className="h-4 w-4 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <div className="space-y-2 max-w-xs">
+                  <p className="font-medium">Antall meldinger</p>
+                  <p>Det totale antallet meldinger som er sendt gjennom systemet i den valgte tidsperioden. OBS: Knappetrykk øker også antall meldinger</p>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="flex items-center justify-center py-4">
-              <Loader size="sm" />
+              <Loader size="sm" text="Laster meldingsdata..." />
             </div>
           ) : (
-            <>
-              <div className="text-2xl font-bold">
-                {totalMessages?.toLocaleString('no') ?? 0}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Antall meldinger sendt
-              </p>
-            </>
+            <div className="text-2xl font-bold">
+              {totalMessages?.toLocaleString('no') ?? 0}
+            </div>
           )}
         </CardContent>
       </Card>
+    );
+  }
 
-      <Card>
+  if (visibleCards.sessions) {
+    cards.push(
+      <Card key="sessions">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">
-            Antall Brukere
+            Antall samtaler
           </CardTitle>
-          <UserRound className="h-4 w-4 text-muted-foreground" />
+          <TooltipProvider delayDuration={100}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <InfoIcon className="h-4 w-4 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <div className="space-y-2 max-w-xs">
+                  <p className="font-medium">Antall samtaler</p>
+                  <p>Det totale antallet samtaler (økter) gjennomført i systemet i den valgte tidsperioden. OBS: En bruker kan ha flere samtaler om brukereren starter flere økter</p>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="flex items-center justify-center py-4">
-              <Loader size="sm" />
+              <Loader size="sm" text="Laster samtaledata..." />
             </div>
           ) : (
-            <>
-              <div className="text-2xl font-bold">
-                {totalConversations?.toLocaleString('no') ?? 0}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Totalt antall forskjellige brukere
-              </p>
-            </>
+            <div className="text-2xl font-bold">
+              {totalSessions?.toLocaleString('no') ?? 0}
+            </div>
           )}
         </CardContent>
       </Card>
+    );
+  }
+
+  if (visibleCards.conversations) {
+    cards.push(
+      <Card key="conversations">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">
+            Antall brukere
+          </CardTitle>
+          <TooltipProvider delayDuration={100}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <InfoIcon className="h-4 w-4 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <div className="space-y-2 max-w-xs">
+                  <p className="font-medium">Antall brukere</p>
+                  <p>Det totale antallet unike brukere som har interagert med systemet i den valgte tidsperioden.</p>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-4">
+              <Loader size="sm" text="Laster brukerdata..." />
+            </div>
+          ) : (
+            <div className="text-2xl font-bold">
+              {totalConversations?.toLocaleString('no') ?? 0}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // If no cards are visible, don't render anything
+  if (cards.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="grid grid-cols-3 gap-4">
+      {cards}
     </div>
   );
 };

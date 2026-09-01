@@ -1,7 +1,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Trash2, Pencil } from "lucide-react";
+import { Trash2, Pencil, Eye } from "lucide-react";
 import { Database } from "@/integrations/supabase/types";
 import {
   AlertDialog,
@@ -24,8 +24,11 @@ import {
 } from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useAuth } from "@/contexts/AuthContext";
 
 type TabName = Database["public"]["Enums"]["tab_type"];
 
@@ -41,26 +44,56 @@ interface Profile {
 interface MemberListProps {
   members: Profile[];
   onDeleteMember: (profileId: string) => Promise<void>;
+  onMemberUpdated?: () => Promise<void>;
   organizationType: "admin" | "client";
+  hidePreviewButton?: boolean;
 }
 
 const tabLabels: Record<TabName, string> = {
   organizations: "Organisasjoner",
   conversations: "Samtaler",
   knowledge: "Kunnskapsbase",
-  statistics: "Statistikk"
+  statistics: "Statistikk",
+  home: "Hjem",
+  administrator: "Administrator"
 };
 
-export const MemberList = ({ members, onDeleteMember, organizationType }: MemberListProps) => {
+export const MemberList = ({ 
+  members, 
+  onDeleteMember, 
+  onMemberUpdated,
+  organizationType,
+  hidePreviewButton = false
+}: MemberListProps) => {
   const [editingMember, setEditingMember] = useState<{
     id: string;
+    name: string;
     tabs: TabName[];
   } | null>(null);
+  
+  const { enterPreviewMode } = useAuth();
 
   const handleEditClick = (profile: Profile) => {
     setEditingMember({
       id: profile.id,
+      name: profile.name,
       tabs: profile.tabs?.map(t => t.tab_name) || []
+    });
+  };
+
+  const handlePreviewClick = (profile: Profile) => {
+    if (!profile.organization_id) {
+      toast.error("Denne brukeren er ikke tilknyttet en organisasjon");
+      return;
+    }
+    
+    const memberTabs = profile.tabs?.map(t => t.tab_name as TabName) || [];
+    
+    enterPreviewMode({
+      id: profile.id,
+      email: profile.email,
+      organization_id: profile.organization_id,
+      tabs: memberTabs
     });
   };
 
@@ -68,35 +101,90 @@ export const MemberList = ({ members, onDeleteMember, organizationType }: Member
     if (!editingMember) return;
 
     try {
+      console.log('Updating member:', editingMember.id, 'with tabs:', editingMember.tabs);
+      
+      // Check if the member is being given admin privileges
+      const hasAdminTab = editingMember.tabs.includes("administrator");
+      const hasOrganizationsTab = editingMember.tabs.includes("organizations");
+      const isAdmin = hasAdminTab || hasOrganizationsTab;
+      
+      console.log('Member will have admin role:', isAdmin);
+      
+      // Update user role and name
+      const { error: roleError } = await supabase
+        .from('profiles')
+        .update({ 
+          role: isAdmin ? 'admin' : 'client',
+          name: editingMember.name.trim()
+        })
+        .eq('id', editingMember.id);
+        
+      if (roleError) {
+        console.error('Role update error:', roleError);
+        throw roleError;
+      }
+
       // Delete existing permissions
       const { error: deleteError } = await supabase
         .from('user_tab_permissions')
         .delete()
         .eq('user_id', editingMember.id);
 
-      if (deleteError) throw deleteError;
+      if (deleteError) {
+        console.error('Delete permissions error:', deleteError);
+        throw deleteError;
+      }
 
       // Insert new permissions
       if (editingMember.tabs.length > 0) {
+        const permissionsToInsert = editingMember.tabs.map(tab_name => ({
+          user_id: editingMember.id,
+          tab_name: tab_name
+        }));
+        
+        console.log('Inserting permissions:', permissionsToInsert);
+        
         const { error: insertError } = await supabase
           .from('user_tab_permissions')
-          .insert(
-            editingMember.tabs.map(tab_name => ({
-              user_id: editingMember.id,
-              tab_name: tab_name
-            }))
-          );
+          .insert(permissionsToInsert);
 
-        if (insertError) throw insertError;
+        if (insertError) {
+          console.error('Insert permissions error:', insertError);
+          throw insertError;
+        }
+      }
+
+      console.log('Member update successful, refreshing data...');
+      
+      // Call the callback to refresh data in parent component
+      if (onMemberUpdated) {
+        await onMemberUpdated();
       }
 
       toast.success('Medlem oppdatert');
       setEditingMember(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating member:', error);
-      toast.error('Kunne ikke oppdatere medlem');
+      
+      // Provide more specific error messages
+      let errorMessage = 'Kunne ikke oppdatere medlem';
+      
+      if (error?.message?.includes('row-level security')) {
+        errorMessage = 'Ingen tilgang til å oppdatere tilganger. Sjekk brukerrettigheter.';
+      } else if (error?.message?.includes('foreign key')) {
+        errorMessage = 'Ugyldig bruker-ID. Prøv å oppdatere siden.';
+      } else if (error?.message?.includes('violates not-null')) {
+        errorMessage = 'Manglende obligatorisk informasjon. Kontakt support.';
+      } else if (error?.code) {
+        errorMessage = `Database-feil (${error.code}): ${error.message}`;
+      }
+      
+      toast.error(errorMessage);
     }
   };
+
+  // Check if the organization is the Dalai admin org
+  const isDalaiAdminOrg = organizationType === "admin";
 
   return (
     <div className="space-y-2">
@@ -121,6 +209,26 @@ export const MemberList = ({ members, onDeleteMember, organizationType }: Member
             )}
           </div>
           <div className="flex gap-2">
+            {!hidePreviewButton && !isDalaiAdminOrg && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-[#E2B808] hover:text-[#E2B808]/80 hover:bg-[#E2B808]/10"
+                      onClick={() => handlePreviewClick(profile)}
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Forhåndsvisning som medlem</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            
             <Sheet>
               <SheetTrigger asChild>
                 <Button
@@ -134,13 +242,25 @@ export const MemberList = ({ members, onDeleteMember, organizationType }: Member
               </SheetTrigger>
               <SheetContent>
                 <SheetHeader>
-                  <SheetTitle>Rediger tilganger</SheetTitle>
+                  <SheetTitle>Rediger medlem</SheetTitle>
                   <SheetDescription>
-                    Oppdater tilgangene for {profile.name}
+                    Oppdater navn og tilganger for {profile.name}
                   </SheetDescription>
                 </SheetHeader>
                 {editingMember && (
                   <div className="space-y-4 mt-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="member-name">Navn</Label>
+                      <Input
+                        id="member-name"
+                        value={editingMember.name}
+                        onChange={(e) => setEditingMember({
+                          ...editingMember,
+                          name: e.target.value
+                        })}
+                        placeholder="Skriv inn navn"
+                      />
+                    </div>
                     <div className="space-y-2">
                       <Label>Tilgang til faner</Label>
                       <div className="space-y-3 p-4 rounded-md border bg-gray-50">
@@ -164,6 +284,23 @@ export const MemberList = ({ members, onDeleteMember, organizationType }: Member
                           </div>
                         ) : (
                           <>
+                            <div className="flex items-center space-x-2">
+                              <Checkbox 
+                                id="home"
+                                checked={editingMember.tabs.includes("home")}
+                                onCheckedChange={(checked) => {
+                                  setEditingMember({
+                                    ...editingMember,
+                                    tabs: checked 
+                                      ? [...editingMember.tabs, "home"]
+                                      : editingMember.tabs.filter(t => t !== "home")
+                                  });
+                                }}
+                              />
+                              <Label htmlFor="home" className="font-medium">
+                                Hjem
+                              </Label>
+                            </div>
                             <div className="flex items-center space-x-2">
                               <Checkbox 
                                 id="conversations"
@@ -215,6 +352,23 @@ export const MemberList = ({ members, onDeleteMember, organizationType }: Member
                                 Statistikk
                               </Label>
                             </div>
+                            <div className="flex items-center space-x-2">
+                              <Checkbox 
+                                id="administrator"
+                                checked={editingMember.tabs.includes("administrator")}
+                                onCheckedChange={(checked) => {
+                                  setEditingMember({
+                                    ...editingMember,
+                                    tabs: checked 
+                                      ? [...editingMember.tabs, "administrator"]
+                                      : editingMember.tabs.filter(t => t !== "administrator")
+                                  });
+                                }}
+                              />
+                              <Label htmlFor="administrator" className="font-medium">
+                                Administrator
+                              </Label>
+                            </div>
                           </>
                         )}
                       </div>
@@ -222,6 +376,7 @@ export const MemberList = ({ members, onDeleteMember, organizationType }: Member
                     <Button 
                       className="w-full bg-[#E2B808] text-[#28483F] hover:bg-[#E2B808]/90"
                       onClick={handleUpdateMember}
+                      disabled={!editingMember.name.trim()}
                     >
                       Lagre endringer
                     </Button>

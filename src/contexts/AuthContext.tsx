@@ -3,6 +3,7 @@ import { createContext, useContext, useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Loader } from "@/components/ui/loader";
 
 interface User {
   id: string;
@@ -10,11 +11,22 @@ interface User {
   organization_id?: string;
 }
 
+interface PreviewUser {
+  id: string;
+  email: string;
+  organization_id: string;
+  tabs: string[];
+}
+
 interface AuthContextType {
   user: User | null;
+  previewUser: PreviewUser | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   isLoading: boolean;
+  enterPreviewMode: (previewUser: PreviewUser) => void;
+  exitPreviewMode: () => void;
+  isInPreviewMode: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -29,7 +41,10 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [previewUser, setPreviewUser] = useState<PreviewUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isInPreviewMode, setIsInPreviewMode] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -39,6 +54,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .from('profiles')
         .select(`
           organization_id,
+          role,
           organizations (
             type
           )
@@ -57,7 +73,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       return {
         organization_id: profileData.organization_id,
-        organization_type: profileData.organizations?.type
+        organization_type: profileData.organizations?.type,
+        user_role: profileData.role
       };
     } catch (error) {
       console.error('Error in fetchUserProfile:', error);
@@ -82,15 +99,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       setUser(userData);
 
-      // Only handle navigation if we're not already on the admin dashboard
-      // This prevents the flash when adding new members
-      if (location.pathname !== '/admin') {
-        if (profile.organization_type === 'admin') {
-          navigate('/admin');
-        } else {
-          navigate('/dashboard');
-        }
+      // Navigate based on user role and organization type
+      // Admin users (role=admin) OR users in admin organizations should go to /admin
+      const shouldGoToAdmin = profile.user_role === 'admin' || profile.organization_type === 'admin';
+      
+      // Only handle navigation if we're not already on the correct page
+      // This prevents unnecessary redirects during page refresh or direct access
+      if (shouldGoToAdmin && location.pathname !== '/admin') {
+        navigate('/admin');
+      } else if (!shouldGoToAdmin && location.pathname !== '/dashboard') {
+        navigate('/dashboard');
       }
+      
       return true;
     } catch (error: any) {
       console.error('Error handling session:', error);
@@ -120,7 +140,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         });
       } else {
         setUser(null);
-        navigate('/login');
+        if (location.pathname !== '/login') {
+          navigate('/login');
+        }
       }
       setIsLoading(false);
     });
@@ -153,6 +175,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const logout = async () => {
+    // If in preview mode, exit it instead of logging out
+    if (isInPreviewMode) {
+      exitPreviewMode();
+      return;
+    }
+
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
@@ -166,8 +194,75 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  const enterPreviewMode = async (member: PreviewUser) => {
+    try {
+      setIsTransitioning(true);
+      // Store original path to return to later
+      sessionStorage.setItem('previewReturnPath', location.pathname);
+      
+      // Wait for a brief moment for the transition UI to appear
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      setPreviewUser(member);
+      setIsInPreviewMode(true);
+      
+      // Navigate to dashboard
+      navigate('/dashboard');
+      toast.success(`Forhåndsvisning startet for ${member.email}`);
+    } catch (error) {
+      console.error('Error entering preview mode:', error);
+      toast.error('Kunne ikke starte forhåndsvisning');
+    } finally {
+      setIsTransitioning(false);
+    }
+  };
+
+  const exitPreviewMode = async () => {
+    try {
+      setIsTransitioning(true);
+      
+      // Wait for a brief moment for the transition UI to appear
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      setPreviewUser(null);
+      setIsInPreviewMode(false);
+      
+      // Return to the original path, defaulting to /admin
+      const returnPath = sessionStorage.getItem('previewReturnPath') || '/admin';
+      navigate(returnPath);
+      sessionStorage.removeItem('previewReturnPath');
+      
+      toast.success('Forhåndsvisning avsluttet');
+    } catch (error) {
+      console.error('Error exiting preview mode:', error);
+      toast.error('Kunne ikke avslutte forhåndsvisning');
+    } finally {
+      setIsTransitioning(false);
+    }
+  };
+
+  if (isTransitioning) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-background z-50">
+        <Loader 
+          size="lg" 
+          text={isInPreviewMode ? "Avslutter forhåndsvisning..." : "Laster inn klientforhåndsvisning..."}
+        />
+      </div>
+    );
+  }
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      previewUser, 
+      login, 
+      logout, 
+      isLoading, 
+      enterPreviewMode, 
+      exitPreviewMode,
+      isInPreviewMode
+    }}>
       {children}
     </AuthContext.Provider>
   );

@@ -8,7 +8,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 
-type TabName = "organizations" | "conversations" | "knowledge";
+type TabName = "organizations" | "conversations" | "knowledge" | "statistics" | "home";
 
 interface AddMemberFormProps {
   organizationName: string;
@@ -86,7 +86,7 @@ export const AddMemberForm = ({
           />
         </div>
         <Button 
-          className="w-full bg-secondary text-primary hover:bg-secondary/90"
+          className="w-full bg-dalai-yellow text-primary hover:bg-dalai-yellow/90"
           onClick={handleSubmit}
           disabled={isSubmitting}
         >

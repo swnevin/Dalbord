@@ -25,7 +25,8 @@ export const formatTime = (dateString: string) => {
 export const formatText = (text: string) => {
   text = text.replace(/\r\n/g, '\n');
   text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-  text = text.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" class="text-primary hover:underline">$1</a>');
+  // Update the link formatting to use yellow color for better contrast
+  text = text.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" class="text-secondary hover:underline font-medium">$1</a>');
   
   const lines = text.split('\n');
   const formattedLines = lines.map(line => {

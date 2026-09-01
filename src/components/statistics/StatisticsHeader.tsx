@@ -20,10 +20,10 @@ export const StatisticsHeader = ({
   onDateRangeChange,
 }: StatisticsHeaderProps) => {
   return (
-    <div className="flex justify-between items-center">
+    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
       <h1 className="text-3xl font-bold text-primary">Statistikk</h1>
       
-      <div className="flex gap-4 items-center">
+      <div className="flex gap-2 items-center">
         <Select value={timeRange} onValueChange={onTimeRangeChange}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Velg tidsperiode" />

@@ -1,20 +1,19 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 210 40% 98%;
+    --foreground: 240 47% 11%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 240 47% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 142 27% 22%;
+    --popover-foreground: 240 47% 11%;
+    --primary: 160 41% 18%; /* HSL for #28483F */
     --primary-foreground: 210 40% 98%;
-    --secondary: 45 90% 46%;
-    --secondary-foreground: 142 27% 22%;
+    --secondary: 160 41% 18%; /* Same as primary */
+    --secondary-foreground: 210 40% 98%;
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
     --accent: 210 40% 96.1%;
@@ -28,20 +27,44 @@
   }
 
   body {
-    @apply bg-cream font-poppins;
+    @apply bg-background text-foreground font-poppins;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    @apply font-montserrat font-bold;
+    @apply font-montserrat font-semibold;
   }
 }
 
 @layer utilities {
   .sidebar-link {
-    @apply flex items-center gap-3 px-4 py-2 text-primary hover:bg-secondary/10 rounded-lg transition-colors;
+    @apply flex items-center gap-3 px-4 py-2 text-foreground hover:bg-muted/50 active:bg-muted rounded-lg transition-colors;
   }
 
   .sidebar-link.active {
-    @apply bg-secondary text-primary font-medium;
+    @apply bg-primary/10 text-primary font-medium;
+  }
+  
+  .hover-highlight {
+    @apply hover:bg-muted/50 active:bg-muted;
+  }
+  
+  .hover-highlight-active {
+    @apply bg-dalai-yellow text-primary font-medium;
+  }
+
+  .prose-invert a {
+    @apply text-dalai-yellow font-medium hover:text-dalai-yellow/90 underline-offset-2;
+  }
+  
+  .shadow-card {
+    @apply shadow-sm border border-muted rounded-lg bg-card;
+  }
+  
+  .text-title {
+    @apply text-xl font-semibold text-primary;
+  }
+  
+  .text-subtitle {
+    @apply text-sm text-muted-foreground;
   }
 }

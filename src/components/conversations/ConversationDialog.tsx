@@ -1,7 +1,24 @@
 
 import { Loader } from "@/components/ui/loader";
 import { formatTime, filterDialog, formatText, containsIframe, extractIframeAndCleanText } from "@/utils/conversation-utils";
-import { useRef } from "react";
+import { ensureQATitleSuffix } from "@/components/knowledge-base/utils";
+import { useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { MessageSquarePlus } from "lucide-react";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface DialogMessage {
   type: string;
@@ -39,14 +56,166 @@ export const ConversationDialog = ({
   selectedConversation, 
   dialog 
 }: ConversationDialogProps) => {
+  const { user } = useAuth();
   const dialogContainerRef = useRef<HTMLDivElement>(null);
+  const newestSessionRef = useRef<HTMLDivElement | null>(null);
+  const [selectedMessages, setSelectedMessages] = useState<DialogMessage[]>([]);
+  const [isQASheetOpen, setIsQASheetOpen] = useState(false);
+  const [qaTitle, setQaTitle] = useState("");
+  const [qaPair, setQaPair] = useState<{question: string, answer: string}>({
+    question: "",
+    answer: ""
+  });
+  const [isSaving, setIsSaving] = useState(false);
+  const [hasAutoScrolled, setHasAutoScrolled] = useState(false);
 
-  const renderMessage = (message: DialogMessage) => {
+  useEffect(() => {
+    if (selectedConversation) {
+      setHasAutoScrolled(false);
+    }
+  }, [selectedConversation]);
+
+  useEffect(() => {
+    if (!isLoading && dialog.length > 0 && newestSessionRef.current && !hasAutoScrolled) {
+      setTimeout(() => {
+        newestSessionRef.current?.scrollIntoView({ behavior: 'smooth' });
+        setHasAutoScrolled(true);
+      }, 100);
+    }
+  }, [dialog, isLoading, hasAutoScrolled]);
+
+  const toggleMessageSelection = (message: DialogMessage) => {
+    if (message.type === 'launch' || message.type === 'end') return;
+
+    const alreadySelected = selectedMessages.some(
+      (msg) => msg === message
+    );
+
+    if (alreadySelected) {
+      setSelectedMessages(selectedMessages.filter((msg) => msg !== message));
+    } else {
+      if (selectedMessages.length >= 2) {
+        setSelectedMessages([...selectedMessages.slice(1), message]);
+      } else {
+        setSelectedMessages([...selectedMessages, message]);
+      }
+    }
+  };
+
+  const isMessageSelected = (message: DialogMessage) => {
+    return selectedMessages.some((msg) => msg === message);
+  };
+
+  const clearSelection = () => {
+    setSelectedMessages([]);
+  };
+
+  const openQASheet = () => {
+    if (selectedMessages.length !== 2) return;
+    
+    const questionMessage = selectedMessages[0].type === 'request' ? selectedMessages[0] : selectedMessages[1];
+    const answerMessage = selectedMessages[0].type === 'text' ? selectedMessages[0] : selectedMessages[1];
+    
+    const question = questionMessage.type === 'request' 
+      ? (questionMessage.payload?.payload?.query || questionMessage.payload?.payload?.label || "")
+      : "";
+      
+    const answer = answerMessage.type === 'text'
+      ? (answerMessage.payload?.payload?.message || "")
+      : "";
+    
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = answer;
+    const cleanedAnswer = tempDiv.textContent || tempDiv.innerText || "";
+    
+    setQaPair({
+      question,
+      answer: cleanedAnswer
+    });
+    
+    setQaTitle(question.length > 30 ? `${question.substring(0, 30)}...` : question);
+    setIsQASheetOpen(true);
+  };
+
+  const saveQAPair = async () => {
+    if (!user?.organization_id) {
+      toast("Ingen organisasjon funnet. Kunne ikke lagre Q&A.");
+      return;
+    }
+
+    if (!qaTitle.trim() || !qaPair.question.trim() || !qaPair.answer.trim()) {
+      toast("Alle felt må fylles ut");
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const formattedTitle = ensureQATitleSuffix(qaTitle.trim());
+
+      // Check if QA with same name already exists via proxy
+      const { data: findData, error: findError } = await supabase.functions.invoke('voiceflow-kb', {
+        body: { action: 'find_qa_by_name', name: formattedTitle },
+      });
+      if (findError) throw new Error('Kunne ikke sjekke for eksisterende Q&A');
+      const exists = !!findData?.exists;
+
+      const payload = {
+        schema: { searchableFields: ['question', 'answer'] },
+        name: formattedTitle,
+        items: [
+          {
+            question: qaPair.question.trim(),
+            answer: qaPair.answer.trim(),
+          },
+        ],
+      };
+
+      const { data: saveData, error: saveError } = await supabase.functions.invoke('voiceflow-kb', {
+        body: { action: 'upload_qa', payload, overwrite: exists },
+      });
+
+      if (saveError) {
+        throw new Error(`Kunne ikke lagre Q&A: ${saveError.message || 'Ukjent feil'}`);
+      }
+
+      console.log('Q&A saved successfully:', { title: formattedTitle, result: saveData });
+
+      toast.success(exists ? 'Q&A ble oppdatert i kunnskapsbasen' : 'Q&A ble lagret til kunnskapsbasen');
+      setIsQASheetOpen(false);
+      clearSelection();
+    } catch (error) {
+      console.error('Error saving Q&A:', {
+        error,
+        title: qaTitle,
+        formattedTitle: ensureQATitleSuffix(qaTitle.trim()),
+        question: qaPair.question,
+        answer: qaPair.answer
+      });
+      
+      const errorMessage = error instanceof Error ? error.message : "Ukjent feil oppstod";
+      toast.error(errorMessage);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const filteredDialog = filterDialog(dialog);
+  const newestSessionIndex = filteredDialog
+    .map((msg, index) => msg.type === 'launch' ? index : -1)
+    .filter(index => index !== -1)
+    .pop();
+
+  const renderMessage = (message: DialogMessage, index: number) => {
     switch (message.type) {
       case 'launch':
+        const isNewestSession = index === newestSessionIndex;
         return (
-          <div className="flex justify-center my-4">
-            <div className="bg-gray-100 rounded-full px-4 py-1 text-xs text-gray-500">
+          <div 
+            className="flex justify-center my-4"
+            ref={isNewestSession ? newestSessionRef : null}
+          >
+            <div className={`bg-gray-100 rounded-full px-4 py-1 text-xs text-gray-500 ${isNewestSession ? 'bg-primary/10 font-medium' : ''}`}>
               Samtale startet - {message.startTime && formatTime(message.startTime)}
             </div>
           </div>
@@ -71,9 +240,13 @@ export const ConversationDialog = ({
         const formattedText = formatText(cleanText);
 
         return (
-          <div className="flex flex-col gap-1 my-2">
+          <div 
+            className={`flex flex-col gap-1 my-2 ${isMessageSelected(message) ? 'message-selected' : ''} cursor-pointer`} 
+            onClick={() => toggleMessageSelection(message)}
+          >
             <div className="flex items-end gap-2 max-w-[80%]">
-              <div className="bg-primary text-primary-foreground p-3 rounded-2xl rounded-bl-none">
+              <div className={`bg-primary text-primary-foreground p-3 rounded-2xl rounded-bl-none transition-all 
+                ${isMessageSelected(message) ? 'ring-2 ring-secondary ring-offset-2' : 'hover:ring-1 hover:ring-secondary/50 hover:ring-offset-1'}`}>
                 <div className="space-y-2">
                   <div 
                     dangerouslySetInnerHTML={{ __html: formattedText }}
@@ -101,12 +274,20 @@ export const ConversationDialog = ({
         const buttons = message.payload?.payload?.buttons;
         if (!buttons?.length) return null;
         return (
-          <div className="flex flex-col gap-2 my-2 max-w-[80%]">
+          <div 
+            className={`flex flex-col gap-2 my-2 max-w-[80%] ${isMessageSelected(message) ? 'message-selected' : ''} cursor-pointer`}
+            onClick={() => toggleMessageSelection(message)}
+          >
             <div className="flex flex-col gap-2">
               {buttons.map((button, index) => (
                 <button
                   key={index}
-                  className="justify-start text-left px-4 py-2 border rounded-md hover:bg-gray-50"
+                  className={`justify-start text-left px-4 py-2 border rounded-md hover:bg-gray-50 transition-all 
+                    ${isMessageSelected(message) ? 'ring-2 ring-secondary ring-offset-2' : 'hover:ring-1 hover:ring-secondary/50 hover:ring-offset-1'}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleMessageSelection(message);
+                  }}
                 >
                   {button.name}
                 </button>
@@ -123,9 +304,13 @@ export const ConversationDialog = ({
         const userText = query || label;
         if (!userText) return null;
         return (
-          <div className="flex flex-col items-end gap-1 my-2">
+          <div 
+            className={`flex flex-col items-end gap-1 my-2 ${isMessageSelected(message) ? 'message-selected' : ''} cursor-pointer`}
+            onClick={() => toggleMessageSelection(message)}
+          >
             <div className="flex items-end gap-2 max-w-[80%]">
-              <div className="bg-secondary text-secondary-foreground p-3 rounded-2xl rounded-br-none">
+              <div className={`bg-dalai-yellow text-primary p-3 rounded-2xl rounded-br-none transition-all 
+                ${isMessageSelected(message) ? 'ring-2 ring-primary ring-offset-2' : 'hover:ring-1 hover:ring-primary/50 hover:ring-offset-1'}`}>
                 {userText}
               </div>
             </div>
@@ -140,29 +325,133 @@ export const ConversationDialog = ({
   };
 
   return (
-    <div className="flex-1 bg-white flex flex-col h-screen">
-      <div 
-        ref={dialogContainerRef} 
-        className="flex-1 overflow-y-auto p-4"
-      >
-        {isLoading ? (
-          <div className="h-full flex items-center justify-center">
-            <Loader size="lg" />
-          </div>
-        ) : !selectedConversation ? (
-          <div className="h-full flex items-center justify-center text-gray-500">
-            Velg en samtale for å se meldinger
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {filterDialog(dialog).map((message, index) => (
-              <div key={index}>
-                {renderMessage(message)}
+    <div className="flex-1 bg-white flex flex-col h-screen relative">
+      <ScrollArea className="flex-1">
+        <div className="p-4">
+          {isLoading ? (
+            <div className="h-full flex flex-col items-center justify-center absolute inset-0">
+              <Loader size="lg" />
+              <p className="mt-4 text-gray-500 text-sm">Laster samtale...</p>
+            </div>
+          ) : !selectedConversation ? (
+            <div className="h-full flex items-center justify-center text-muted-foreground">
+              Velg en samtale for å se meldinger
+            </div>
+          ) : filteredDialog.length === 0 ? (
+            <div className="h-full flex items-center justify-center text-muted-foreground">
+              Ingen meldinger i denne samtalen
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {filteredDialog.map((message, index) => (
+                <div key={index}>
+                  {renderMessage(message, index)}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </ScrollArea>
+
+      {selectedMessages.length > 0 && (
+        <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 bg-white shadow-lg rounded-full px-4 py-2 flex items-center gap-2">
+          <span className="text-sm font-medium">
+            {selectedMessages.length === 1 
+              ? "1 melding valgt" 
+              : `${selectedMessages.length} meldinger valgt`}
+          </span>
+          
+          {selectedMessages.length === 2 && (
+            <Button 
+              variant="secondary" 
+              size="sm" 
+              className="gap-1"
+              onClick={openQASheet}
+            >
+              <MessageSquarePlus size={16} />
+              Opprett Q&A
+            </Button>
+          )}
+          
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={clearSelection}
+          >
+            Avbryt
+          </Button>
+        </div>
+      )}
+
+      <Sheet open={isQASheetOpen} onOpenChange={setIsQASheetOpen}>
+        <SheetContent className="w-[400px] sm:w-[540px] flex flex-col h-full">
+          <SheetHeader className="flex-shrink-0 pb-6">
+            <SheetTitle className="text-primary">Opprett Q&A sett</SheetTitle>
+            <SheetDescription>
+              Opprett et nytt spørsmål og svar-par basert på de valgte meldingene.
+            </SheetDescription>
+          </SheetHeader>
+          
+          <div className="flex-1 overflow-y-auto">
+            <div className="space-y-6 pb-6">
+              <div className="space-y-2">
+                <Label htmlFor="qa-title">Tittel</Label>
+                <Input
+                  id="qa-title"
+                  value={qaTitle}
+                  onChange={(e) => setQaTitle(e.target.value)}
+                  placeholder="Skriv inn en tittel for Q&A settet"
+                  className="border-primary/20 focus:border-primary"
+                />
+                <p className="text-xs text-muted-foreground">
+                  "- Q&A" vil automatisk legges til på slutten av tittelen.
+                </p>
               </div>
-            ))}
+              
+              <div className="space-y-2">
+                <Label htmlFor="qa-question">Spørsmål</Label>
+                <Textarea
+                  id="qa-question"
+                  value={qaPair.question}
+                  onChange={(e) => setQaPair({ ...qaPair, question: e.target.value })}
+                  placeholder="Spørsmål"
+                  className="min-h-[100px] border-primary/20 focus:border-primary resize-none"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="qa-answer">Svar</Label>
+                <Textarea
+                  id="qa-answer"
+                  value={qaPair.answer}
+                  onChange={(e) => setQaPair({ ...qaPair, answer: e.target.value })}
+                  placeholder="Svar"
+                  className="min-h-[150px] border-primary/20 focus:border-primary resize-none"
+                />
+              </div>
+            </div>
           </div>
-        )}
-      </div>
+          
+          <div className="flex-shrink-0 pt-4 border-t">
+            <div className="flex justify-end gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => setIsQASheetOpen(false)}
+                disabled={isSaving}
+              >
+                Avbryt
+              </Button>
+              <Button 
+                className="bg-primary text-white hover:bg-primary/90"
+                onClick={saveQAPair}
+                disabled={!qaTitle || !qaPair.question || !qaPair.answer || isSaving}
+              >
+                {isSaving ? "Lagrer..." : "Lagre Q&A"}
+              </Button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };

@@ -7,12 +7,117 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "12.2.3 (519615d)"
+  }
   public: {
     Tables: {
+      conversation_metrics: {
+        Row: {
+          id: string
+          metric_type: Database["public"]["Enums"]["metric_type"]
+          organization_id: string
+          timestamp: string
+        }
+        Insert: {
+          id?: string
+          metric_type: Database["public"]["Enums"]["metric_type"]
+          organization_id: string
+          timestamp?: string
+        }
+        Update: {
+          id?: string
+          metric_type?: Database["public"]["Enums"]["metric_type"]
+          organization_id?: string
+          timestamp?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_metrics_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversation_tags: {
+        Row: {
+          created_at: string
+          id: string
+          organization_id: string
+          tag: string
+          transcript_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          organization_id: string
+          tag: string
+          transcript_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          organization_id?: string
+          tag?: string
+          transcript_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_tags_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fallback_requests: {
+        Row: {
+          created_at: string
+          id: string
+          is_resolved: boolean
+          organization_id: string
+          query: string
+          response: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_resolved?: boolean
+          organization_id: string
+          query: string
+          response: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_resolved?: boolean
+          organization_id?: string
+          query?: string
+          response?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fallback_requests_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizations: {
         Row: {
           created_at: string | null
           id: string
+          isAsk: boolean
           name: string
           type: string
           voiceflow_api_key: string | null
@@ -21,6 +126,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           id?: string
+          isAsk?: boolean
           name: string
           type?: string
           voiceflow_api_key?: string | null
@@ -29,6 +135,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           id?: string
+          isAsk?: boolean
           name?: string
           type?: string
           voiceflow_api_key?: string | null
@@ -71,6 +178,44 @@ export type Database = {
           },
         ]
       }
+      statistics_preferences: {
+        Row: {
+          chart_type: Database["public"]["Enums"]["chart_type"]
+          created_at: string
+          display_order: number
+          id: string
+          is_visible: boolean
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          chart_type: Database["public"]["Enums"]["chart_type"]
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_visible?: boolean
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          chart_type?: Database["public"]["Enums"]["chart_type"]
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_visible?: boolean
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "statistics_preferences_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_tab_permissions: {
         Row: {
           created_at: string | null
@@ -105,24 +250,65 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_administer_user: {
+        Args: { target_user_id: string }
+        Returns: boolean
+      }
       create_organization_member: {
         Args: {
-          user_email: string
-          user_password: string
-          user_name: string
           organization_id: string
+          user_email: string
+          user_name: string
+          user_password: string
         }
         Returns: string
       }
-      delete_user: {
-        Args: {
-          user_id: string
-        }
+      delete_user: { Args: { user_id: string }; Returns: undefined }
+      get_current_user_org: { Args: never; Returns: string }
+      get_current_user_role: { Args: never; Returns: string }
+      initialize_statistics_preferences: {
+        Args: { org_id: string }
         Returns: undefined
       }
     }
     Enums: {
-      tab_type: "organizations" | "conversations" | "knowledge" | "statistics"
+      chart_type:
+        | "total_messages"
+        | "total_sessions"
+        | "total_conversations"
+        | "escalated_count"
+        | "thumbs_up"
+        | "thumbs_down"
+        | "success_metrics"
+        | "users_over_time"
+        | "sessions_over_time"
+        | "messages_over_time"
+        | "topics"
+        | "feedback_pie"
+        | "success_vs_fallback"
+        | "savings_time"
+        | "savings_money"
+      custom_tab_icon: "default"
+      metric_type:
+        | "happy_face"
+        | "neutral_face"
+        | "sad_face"
+        | "escalated_to_human"
+        | "successful_answer"
+        | "thumbs_up"
+        | "thumbs_down"
+      statistics_section:
+        | "summary"
+        | "detailed_analysis"
+        | "question_handling"
+        | "savings"
+      tab_type:
+        | "organizations"
+        | "conversations"
+        | "knowledge"
+        | "statistics"
+        | "home"
+        | "administrator"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -130,27 +316,33 @@ export type Database = {
   }
 }
 
-type PublicSchema = Database[Extract<keyof Database, "public">]
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
-  PublicTableNameOrOptions extends
-    | keyof (PublicSchema["Tables"] & PublicSchema["Views"])
-    | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
-        Database[PublicTableNameOrOptions["schema"]]["Views"])
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
     : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
-      Database[PublicTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
     ? R
     : never
-  : PublicTableNameOrOptions extends keyof (PublicSchema["Tables"] &
-        PublicSchema["Views"])
-    ? (PublicSchema["Tables"] &
-        PublicSchema["Views"])[PublicTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
         Row: infer R
       }
       ? R
@@ -158,20 +350,24 @@ export type Tables<
     : never
 
 export type TablesInsert<
-  PublicTableNameOrOptions extends
-    | keyof PublicSchema["Tables"]
-    | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I
     }
     ? I
     : never
-  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
-    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
         Insert: infer I
       }
       ? I
@@ -179,20 +375,24 @@ export type TablesInsert<
     : never
 
 export type TablesUpdate<
-  PublicTableNameOrOptions extends
-    | keyof PublicSchema["Tables"]
-    | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U
     }
     ? U
     : never
-  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
-    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
         Update: infer U
       }
       ? U
@@ -200,29 +400,83 @@ export type TablesUpdate<
     : never
 
 export type Enums<
-  PublicEnumNameOrOptions extends
-    | keyof PublicSchema["Enums"]
-    | { schema: keyof Database },
-  EnumName extends PublicEnumNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicEnumNameOrOptions["schema"]]["Enums"]
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
-> = PublicEnumNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : PublicEnumNameOrOptions extends keyof PublicSchema["Enums"]
-    ? PublicSchema["Enums"][PublicEnumNameOrOptions]
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
     : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    | keyof PublicSchema["CompositeTypes"]
-    | { schema: keyof Database },
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof Database
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
     : never = never,
-> = PublicCompositeTypeNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof PublicSchema["CompositeTypes"]
-    ? PublicSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
+
+export const Constants = {
+  public: {
+    Enums: {
+      chart_type: [
+        "total_messages",
+        "total_sessions",
+        "total_conversations",
+        "escalated_count",
+        "thumbs_up",
+        "thumbs_down",
+        "success_metrics",
+        "users_over_time",
+        "sessions_over_time",
+        "messages_over_time",
+        "topics",
+        "feedback_pie",
+        "success_vs_fallback",
+        "savings_time",
+        "savings_money",
+      ],
+      custom_tab_icon: ["default"],
+      metric_type: [
+        "happy_face",
+        "neutral_face",
+        "sad_face",
+        "escalated_to_human",
+        "successful_answer",
+        "thumbs_up",
+        "thumbs_down",
+      ],
+      statistics_section: [
+        "summary",
+        "detailed_analysis",
+        "question_handling",
+        "savings",
+      ],
+      tab_type: [
+        "organizations",
+        "conversations",
+        "knowledge",
+        "statistics",
+        "home",
+        "administrator",
+      ],
+    },
+  },
+} as const

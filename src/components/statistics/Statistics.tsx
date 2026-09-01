@@ -1,392 +1,192 @@
-import { useState, useEffect } from "react";
-import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
-import { subDays, differenceInDays, addDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
-import { getWeek, format as dateFnsFormat } from "date-fns";
-import { nb } from "date-fns/locale";
-import { StatisticsHeader } from "./StatisticsHeader";
+import React from "react";
 import { SummaryCards } from "./SummaryCards";
 import { TimeSeriesChart } from "./TimeSeriesChart";
-import { StatisticsData, LoadingState, TimeSeriesData, DateRange, TimeRange } from "./types";
+import { BarChart } from "./BarChart";
+import { FeedbackLineChart } from "./FeedbackChart";
+import { FeedbackPieChart } from "./FeedbackPieChart";
+import { SuccessVsFallbackLineChart } from "./SuccessVsFallbackChart";
+import { SuccessVsFallbackPieChart } from "./SuccessVsFallbackPieChart";
+import { SavingsCharts } from "./SavingsCharts";
+import { FeedbackSummaryCards } from "./FeedbackSummaryCards";
+import { SuccessMetricsCards } from "./SuccessMetricsCards";
+import { StatisticsHeader } from "./StatisticsHeader";
+import { useStatistics } from "./hooks/useStatistics";
+import { useChartPreferences } from "./hooks/useChartPreferences";
 
-export const Statistics = () => {
-  const { user } = useAuth();
-  const [data, setData] = useState<StatisticsData>({
-    totalMessages: 0,
-    totalConversations: 0,
-    messageTimeSeries: [],
-    userTimeSeries: []
-  });
-  const [loading, setLoading] = useState<LoadingState>({
-    summaryCards: true,
-    messageChart: true,
-    userChart: true
-  });
-  const [timeRange, setTimeRange] = useState<TimeRange>('7d');
-  const [dateRange, setDateRange] = useState<DateRange>({
-    from: subDays(new Date(), 7),
-    to: new Date()
-  });
+const Statistics = () => {
+  const { 
+    data, 
+    loading, 
+    error, 
+    refetch, 
+    dateRange, 
+    setDateRange, 
+    timeRange, 
+    setTimeRange,
+    timePerMessage,
+    hourlyRate,
+    updateSavingsSettings
+  } = useStatistics();
+  
+  const { isChartVisible, isSectionVisible } = useChartPreferences();
 
-  const updateDateRange = (range: TimeRange) => {
-    const now = new Date();
-    let from = now;
-
-    switch (range) {
-      case '7d':
-        from = subDays(now, 7);
-        break;
-      case '30d':
-        from = subDays(now, 30);
-        break;
-      case '90d':
-        from = subDays(now, 90);
-        break;
-      case '365d':
-        from = subDays(now, 365);
-        break;
-      case 'all':
-        from = subDays(now, 365); // Default to 1 year if no conversations exist
-        break;
-      case 'custom':
-        return; // Don't update dates for custom range
-    }
-
-    setDateRange({ from, to: now });
-  };
-
-  useEffect(() => {
-    if (timeRange !== 'custom') {
-      updateDateRange(timeRange);
-    }
-  }, [timeRange]);
-
-  const getTimeFrames = (from: Date, to: Date) => {
-    const daysDifference = differenceInDays(to, from);
-    const timeFrames: { start: Date; end: Date }[] = [];
-    let currentDate = from;
-
-    // Daily data for ≤30 days
-    if (daysDifference <= 30) {
-      while (currentDate <= to) {
-        timeFrames.push({
-          start: currentDate,
-          end: currentDate
-        });
-        currentDate = addDays(currentDate, 1);
-      }
-    }
-    // Weekly data for 30-365 days
-    else if (daysDifference < 365) {
-      while (currentDate <= to) {
-        const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 }); // Monday
-        const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 }); // Sunday
-        
-        timeFrames.push({
-          start: weekStart,
-          end: weekEnd > to ? to : weekEnd
-        });
-        
-        currentDate = addDays(weekEnd, 1);
-      }
-    }
-    // Monthly data for >365 days
-    else {
-      while (currentDate <= to) {
-        const monthStart = startOfMonth(currentDate);
-        const monthEnd = endOfMonth(currentDate);
-        
-        timeFrames.push({
-          start: monthStart,
-          end: monthEnd > to ? to : monthEnd
-        });
-        
-        currentDate = addDays(monthEnd, 1);
-      }
-    }
-
-    return timeFrames;
-  };
-
-  const formatDateLabel = (date: Date, daysDiff: number) => {
-    if (daysDiff <= 30) {
-      // Daily format: "01.02"
-      return dateFnsFormat(date, 'dd.MM');
-    } else if (daysDiff < 365) {
-      // Weekly format: "Uke X"
-      return `Uke ${getWeek(date, { locale: nb })}`;
-    } else {
-      // Monthly format: "Januar"
-      return dateFnsFormat(date, 'LLLL', { locale: nb });
-    }
-  };
-
-  useEffect(() => {
-    let isMounted = true;
-    const abortController = new AbortController();
-
-    const fetchSummaryData = async () => {
-      if (!user?.organization_id) return;
-
-      setLoading(prev => ({ ...prev, summaryCards: true }));
-
-      try {
-        const { data: messageData, error: messageError } = await supabase.functions
-          .invoke('get-voiceflow-analytics', {
-            body: {
-              startDate: dateRange.from.toISOString(),
-              endDate: dateRange.to.toISOString(),
-            },
-          });
-
-        if (messageError) throw messageError;
-
-        const { data: org, error: orgError } = await supabase
-          .from('organizations')
-          .select('voiceflow_api_key, voiceflow_project_id')
-          .eq('id', user.organization_id)
-          .single();
-
-        if (orgError) throw orgError;
-
-        const conversationsResponse = await fetch(
-          `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}`,
-          {
-            headers: {
-              Authorization: org.voiceflow_api_key,
-              'Content-Type': 'application/json',
-            },
-            signal: abortController.signal,
-          }
-        );
-
-        if (!conversationsResponse.ok) {
-          throw new Error('Failed to fetch conversations');
-        }
-
-        const conversations = await conversationsResponse.json();
-
-        const totalConversations = conversations.filter((conv: any) => {
-          const lastActiveDate = new Date(conv.updatedAt);
-          return timeRange === 'all' || (lastActiveDate >= dateRange.from && lastActiveDate <= dateRange.to);
-        }).length;
-
-        if (isMounted) {
-          setData(prev => ({
-            ...prev,
-            totalMessages: messageData?.result?.[0]?.count || 0,
-            totalConversations
-          }));
-          setLoading(prev => ({ ...prev, summaryCards: false }));
-        }
-      } catch (error) {
-        if (isMounted && !abortController.signal.aborted) {
-          console.error('Error fetching summary statistics:', error);
-          toast.error('Kunne ikke hente oppsummeringsdata');
-          setLoading(prev => ({ ...prev, summaryCards: false }));
-        }
-      }
-    };
-
-    fetchSummaryData();
-
-    return () => {
-      isMounted = false;
-      abortController.abort();
-    };
-  }, [user?.organization_id, dateRange, timeRange]);
-
-  useEffect(() => {
-    let isMounted = true;
-    const abortController = new AbortController();
-
-    const fetchMessageTimeSeries = async () => {
-      if (!user?.organization_id) return;
-
-      setLoading(prev => ({ ...prev, messageChart: true }));
-
-      try {
-        const timeFrames = getTimeFrames(dateRange.from, dateRange.to);
-        const messageTimeSeries: TimeSeriesData[] = [];
-        const daysDiff = differenceInDays(dateRange.to, dateRange.from);
-
-        for (const frame of timeFrames) {
-          if (daysDiff <= 30) {
-            const startOfDay = new Date(frame.start);
-            startOfDay.setHours(0, 0, 0, 0);
-            const endOfDay = new Date(frame.start);
-            endOfDay.setHours(23, 59, 59, 999);
-
-            const { data: messageData, error: messageError } = await supabase.functions
-              .invoke('get-voiceflow-analytics', {
-                body: {
-                  startDate: startOfDay.toISOString(),
-                  endDate: endOfDay.toISOString(),
-                },
-              });
-
-            if (messageError) throw messageError;
-
-            messageTimeSeries.push({
-              date: formatDateLabel(frame.start, daysDiff),
-              value: messageData?.result?.[0]?.count || 0
-            });
-          } else {
-            const { data: messageData, error: messageError } = await supabase.functions
-              .invoke('get-voiceflow-analytics', {
-                body: {
-                  startDate: frame.start.toISOString(),
-                  endDate: frame.end.toISOString(),
-                },
-              });
-
-            if (messageError) throw messageError;
-
-            messageTimeSeries.push({
-              date: formatDateLabel(frame.start, daysDiff),
-              value: messageData?.result?.[0]?.count || 0
-            });
-          }
-        }
-
-        if (isMounted) {
-          setData(prev => ({ ...prev, messageTimeSeries }));
-          setLoading(prev => ({ ...prev, messageChart: false }));
-        }
-      } catch (error) {
-        if (isMounted) {
-          console.error('Error fetching message time series:', error);
-          toast.error('Kunne ikke hente meldingsstatistikk over tid');
-          setLoading(prev => ({ ...prev, messageChart: false }));
-        }
-      }
-    };
-
-    fetchMessageTimeSeries();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [user?.organization_id, dateRange, timeRange]);
-
-  useEffect(() => {
-    let isMounted = true;
-    const abortController = new AbortController();
-
-    const fetchUserTimeSeries = async () => {
-      if (!user?.organization_id) return;
-
-      setLoading(prev => ({ ...prev, userChart: true }));
-
-      try {
-        const { data: org, error: orgError } = await supabase
-          .from('organizations')
-          .select('voiceflow_api_key, voiceflow_project_id')
-          .eq('id', user.organization_id)
-          .single();
-
-        if (orgError) throw orgError;
-
-        const conversationsResponse = await fetch(
-          `https://api.voiceflow.com/v2/transcripts/${org.voiceflow_project_id}`,
-          {
-            headers: {
-              Authorization: org.voiceflow_api_key,
-              'Content-Type': 'application/json',
-            },
-            signal: abortController.signal,
-          }
-        );
-
-        if (!conversationsResponse.ok) {
-          throw new Error('Failed to fetch conversations');
-        }
-
-        const conversations = await conversationsResponse.json();
-        const timeFrames = getTimeFrames(dateRange.from, dateRange.to);
-        const userTimeSeries: TimeSeriesData[] = [];
-        const daysDiff = differenceInDays(dateRange.to, dateRange.from);
-
-        for (const frame of timeFrames) {
-          if (daysDiff <= 30) {
-            const startOfDay = new Date(frame.start);
-            startOfDay.setHours(0, 0, 0, 0);
-            const endOfDay = new Date(frame.start);
-            endOfDay.setHours(23, 59, 59, 999);
-
-            const userCount = conversations.filter((conv: any) => {
-              const convDate = new Date(conv.updatedAt);
-              return convDate >= startOfDay && convDate <= endOfDay;
-            }).length;
-
-            userTimeSeries.push({
-              date: formatDateLabel(frame.start, daysDiff),
-              value: userCount
-            });
-          } else {
-            const userCount = conversations.filter((conv: any) => {
-              const convDate = new Date(conv.updatedAt);
-              return convDate >= frame.start && convDate <= frame.end;
-            }).length;
-
-            userTimeSeries.push({
-              date: formatDateLabel(frame.start, daysDiff),
-              value: userCount
-            });
-          }
-        }
-
-        if (isMounted) {
-          setData(prev => ({ ...prev, userTimeSeries }));
-          setLoading(prev => ({ ...prev, userChart: false }));
-        }
-      } catch (error) {
-        if (isMounted && !abortController.signal.aborted) {
-          console.error('Error fetching user time series:', error);
-          toast.error('Kunne ikke hente brukerstatistikk over tid');
-          setLoading(prev => ({ ...prev, userChart: false }));
-        }
-      }
-    };
-
-    fetchUserTimeSeries();
-
-    return () => {
-      isMounted = false;
-      abortController.abort();
-    };
-  }, [user?.organization_id, dateRange, timeRange]);
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">Feil ved lasting av statistikk</p>
+          <button 
+            onClick={refetch}
+            className="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90"
+          >
+            Prøv igjen
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-8 space-y-8">
-      <StatisticsHeader
-        timeRange={timeRange}
+    <div className="space-y-6">
+      <StatisticsHeader 
         dateRange={dateRange}
+        timeRange={timeRange}
         onTimeRangeChange={setTimeRange}
         onDateRangeChange={setDateRange}
       />
-      
-      <SummaryCards
-        totalMessages={data.totalMessages ?? 0}
-        totalConversations={data.totalConversations ?? 0}
-        isLoading={loading.summaryCards}
-      />
 
-      <div className="grid gap-8 mt-8">
-        <TimeSeriesChart
-          data={data.userTimeSeries}
-          title="Brukere over tid"
-          color="#E2B808"
-          isLoading={loading.userChart}
+      {isSectionVisible('summary') && (
+        <div className="space-y-6">
+          <h2 className="text-lg font-semibold">Sammendrag</h2>
+          
+          <SummaryCards 
+            totalMessages={data.totalMessages || 0}
+            totalSessions={data.totalSessions || 0}
+            totalConversations={data.totalConversations || 0}
+            isLoading={loading.summaryCards}
+            visibleCards={{
+              messages: isChartVisible('total_messages'),
+              sessions: isChartVisible('total_sessions'),
+              conversations: isChartVisible('total_conversations')
+            }}
+          />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {isChartVisible('success_metrics') && (
+              <SuccessMetricsCards
+                successfulAnswerCount={data.successfulAnswerCount || 0}
+                fallbackCount={data.fallbackCount || 0}
+                isLoading={loading.summaryCards}
+              />
+            )}
+          </div>
+
+          <FeedbackSummaryCards
+            escalatedCount={data.escalatedCount || 0}
+            thumbsUpCount={data.thumbsUpCount || 0}
+            thumbsDownCount={data.thumbsDownCount || 0}
+            isLoading={loading.summaryCards}
+            visibleCards={{
+              escalated: isChartVisible('escalated_count'),
+              thumbsUp: isChartVisible('thumbs_up'),
+              thumbsDown: isChartVisible('thumbs_down')
+            }}
+          />
+        </div>
+      )}
+
+      {isSectionVisible('detailed_analysis') && (
+        <div className="space-y-6">
+          <h2 className="text-lg font-semibold">Detaljert analyse</h2>
+          
+          {isChartVisible('messages_over_time') && data.messageTimeSeries && data.messageTimeSeries.length > 0 && (
+            <TimeSeriesChart 
+              title="Meldinger over tid" 
+              data={data.messageTimeSeries} 
+              isLoading={loading.messageChart} 
+            />
+          )}
+          
+          {isChartVisible('users_over_time') && data.userTimeSeries && data.userTimeSeries.length > 0 && (
+            <TimeSeriesChart 
+              title="Brukere over tid" 
+              data={data.userTimeSeries} 
+              isLoading={loading.userChart} 
+            />
+          )}
+          
+          {isChartVisible('sessions_over_time') && data.sessionTimeSeries && data.sessionTimeSeries.length > 0 && (
+            <TimeSeriesChart 
+              title="Samtaler over tid" 
+              data={data.sessionTimeSeries} 
+              isLoading={loading.sessionChart} 
+            />
+          )}
+          
+          {isChartVisible('topics') && data.topIntents && data.topIntents.length > 0 && (
+            <BarChart 
+              title="Mest populære emner" 
+              data={data.topIntents} 
+              isLoading={loading.intentChart} 
+              dataKey="count"
+            />
+          )}
+        </div>
+      )}
+
+      {isSectionVisible('question_handling') && (
+        <div className="space-y-6">
+          <h2 className="text-lg font-semibold">Håndtering av spørsmål</h2>
+          
+          {isChartVisible('feedback_pie') && (
+            <FeedbackPieChart
+              thumbsUpCount={data.thumbsUpCount || 0}
+              thumbsDownCount={data.thumbsDownCount || 0}
+              successfulAnswerCount={data.successfulAnswerCount || 0}
+              isLoading={loading.feedbackChart}
+            />
+          )}
+
+          {isChartVisible('success_vs_fallback') && (
+            <>
+              {data.successVsFallbackTimeSeries && data.successVsFallbackTimeSeries.length > 0 && (
+                <SuccessVsFallbackLineChart
+                  data={data.successVsFallbackTimeSeries}
+                  isLoading={loading.fallbackChart}
+                />
+              )}
+              <SuccessVsFallbackPieChart
+                successfulAnswerCount={data.successfulAnswerCount || 0}
+                fallbackCount={data.fallbackCount || 0}
+                isLoading={loading.fallbackChart}
+              />
+            </>
+          )}
+
+          {isChartVisible('feedback_pie') && data.feedbackTimeSeries && data.feedbackTimeSeries.length > 0 && (
+            <FeedbackLineChart 
+              title="Tilbakemeldinger over tid" 
+              data={data.feedbackTimeSeries} 
+              description="Fordeling av tilbakemeldinger over tid"
+              isLoading={loading.feedbackChart}
+            />
+          )}
+        </div>
+      )}
+
+      {isSectionVisible('savings') && (
+        <SavingsCharts 
+          timeSaved={data.timeSaved || 0}
+          moneySaved={data.moneySaved || 0}
+          timePerMessage={timePerMessage}
+          hourlyRate={hourlyRate}
+          totalMessages={data.totalMessages || 0}
+          isLoading={loading.summaryCards}
+          onSettingsChange={updateSavingsSettings}
         />
-        <TimeSeriesChart
-          data={data.messageTimeSeries}
-          title="Meldinger over tid"
-          color="#28483F"
-          isLoading={loading.messageChart}
-        />
-      </div>
+      )}
     </div>
   );
 };
+
+export default Statistics;
